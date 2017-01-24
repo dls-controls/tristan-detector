@@ -1,3 +1,4 @@
+import os
 import random
 import sys
 from ascii_stack_reader import AsciiStackReader
@@ -19,7 +20,7 @@ class TimepixDataParser(object):
 
         self._nx_files = []
         for fn in range(1, num_files + 1):
-            self._nx_files.append(NexusSwmrFileWriter(out_dir + "nexus_swmr_" + str(fn) + ".h5"))
+            self._nx_files.append(NexusSwmrFileWriter(os.path.join(out_dir, "nexus_swmr_" + str(fn) + ".h5")))
 
         for x in range(0, 256):
             for fn in range(0, num_files):
@@ -68,20 +69,20 @@ class TimepixDataParser(object):
                     self._file_counts[self._current_file] += 1
                     self._event_times.append(packet.full_timestmap(self._prev_timestamp_course, self._timestamp_course))
 
-                    if len(self._event_times) > 999 or self._time_slice_count == self._time_slices[self._current_file]:
+                    if len(self._event_times) > 999 or self._time_slice_count == self._time_slices[self._current_file] or self._count == samples:
                         self._nx_files[self._current_file].event_time_offset.resize((self._file_counts[self._current_file],))
                         self._nx_files[self._current_file].event_time_offset[self._file_counts[self._current_file] - len(self._event_times):self._file_counts[self._current_file]] = self._event_times
                         self._event_times = []
 
                     self._event_ids.append(packet.pos_x + (256 * packet.pos_y))
 
-                    if len(self._event_ids) > 999 or self._time_slice_count == self._time_slices[self._current_file]:
+                    if len(self._event_ids) > 999 or self._time_slice_count == self._time_slices[self._current_file] or self._count == samples:
                         self._nx_files[self._current_file].event_id_dset.resize((self._file_counts[self._current_file],))
                         self._nx_files[self._current_file].event_id_dset[self._file_counts[self._current_file] - len(self._event_ids):self._file_counts[self._current_file]] = self._event_ids
                         self._nx_files[self._current_file].event_id_dset.flush()
                         self._event_ids = []
 
-                    if self._time_slice_count == self._time_slices[self._current_file]:
+                    if self._time_slice_count == self._time_slices[self._current_file] or self._count == samples:
                         # End of a time slice so put in a marker
                         self._slice_counts[self._current_file] += 1
                         self._nx_files[self._current_file].event_index_dset.resize((self._slice_counts[self._current_file],))
