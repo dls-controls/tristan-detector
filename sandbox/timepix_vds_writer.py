@@ -29,6 +29,7 @@ def create_top_level_VDS_file(filename, src_dir="./", block_size=50000):
     event_group = data_group.create_group("event")
     event_group.attrs["NX_class"] = "NXevent_data"
 
+    # Event ID virtual dataset
 
     # Create the virtual dataset dataspace
     virt_dspace = h5py.h5s.create_simple((block_size,), (h5py.h5s.UNLIMITED,))
@@ -46,6 +47,25 @@ def create_top_level_VDS_file(filename, src_dir="./", block_size=50000):
 
     # Create the virtual dataset
     dset = h5py.h5d.create(event_group.id, name="event_id", tid=h5py.h5t.NATIVE_INT32, space=virt_dspace, dcpl=dcpl)
+
+    # Event time offset virtual dataset
+
+    # Create the virtual dataset dataspace
+    virt_dspace = h5py.h5s.create_simple((block_size,), (h5py.h5s.UNLIMITED,))
+
+    # Create the virtual dataset property list
+    dcpl = h5py.h5p.create(h5py.h5p.DATASET_CREATE)
+
+    # Create the source dataset dataspace
+    src_dspace = h5py.h5s.create_simple((block_size,))
+
+    # Select the virtual dataset first hyperslab (for the first source dataset)
+    virt_dspace.select_hyperslab(start=(0,), count=(h5py.h5s.UNLIMITED,), stride=(block_size,), block=(block_size,))
+
+    dcpl.set_virtual(virt_dspace, os.path.join(src_dir, 'test_file_%b.h5'), "/entry/data/event/event_time_offset", src_dspace)
+
+    # Create the virtual dataset
+    dset = h5py.h5d.create(event_group.id, name="event_time_offset", tid=h5py.h5t.NATIVE_INT64, space=virt_dspace, dcpl=dcpl)
 
     for x in range(0, 256):
         detector_dset[x,] = range((x * 256), (x * 256) + 256)
@@ -113,7 +133,33 @@ def create_VDS_file(filename, blocks, src_dir="./", block_size=50000):
         dcpl.set_virtual(virt_dspace, src_filename, "/entry/data/event/event_id", src_dspace)
 
     # Create the virtual dataset
-    dset = h5py.h5d.create(event_group.id, name="event_id", tid=h5py.h5t.NATIVE_INT32, space=virt_dspace, dcpl=dcpl)
+    h5py.h5d.create(event_group.id, name="event_id", tid=h5py.h5t.NATIVE_INT32, space=virt_dspace, dcpl=dcpl)
+
+    dset_ptr = 0
+
+    for block in blocks:
+        print("Block : ", block)
+        file_index = block[0]
+
+        # Size of block
+        block_size = block[2] - block[1] + 1
+        # Create the source dataset dataspace
+        src_dspace = h5py.h5s.create_simple((block_size,), (block_size,))
+
+        # Select the source dataset hyperslab
+        src_dspace.select_hyperslab(start=(block[1],), count=(1,), block=(block_size,))
+
+        # Select the virtual dataset first hyperslab (for the first source dataset)
+        virt_dspace.select_hyperslab(start=(dset_ptr,), count=(1,), block=(block_size,))
+
+        dset_ptr += block_size
+
+        # Set the virtual dataset hyperslab to point to the real first dataset
+        src_filename = os.path.join(src_dir, "nexus_swmr_" + str(file_index+1) + ".h5")
+        dcpl.set_virtual(virt_dspace, src_filename, "/entry/data/event/event_time_offset", src_dspace)
+
+    # Create the virtual dataset
+    h5py.h5d.create(event_group.id, name="event_time_offset", tid=h5py.h5t.NATIVE_INT64, space=virt_dspace, dcpl=dcpl)
 
     for x in range(0, 256):
         detector_dset[x,] = range((x * 256), (x * 256) + 256)

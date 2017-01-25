@@ -108,6 +108,10 @@ class TimepixDataParser(object):
                         cue_type = 1
                     if packet.ctrl_type == 0x23:  # Trigger
                         cue_type = 2
+                    self._nx_files[self._current_file].cue_id_dset.resize((self._cue_counts[self._current_file],))
+                    self._nx_files[self._current_file].cue_id_dset[self._cue_counts[self._current_file] - 1] = cue_type
+                    self._nx_files[self._current_file].cue_timestamp_zero_dset.resize((self._cue_counts[self._current_file],))
+                    self._nx_files[self._current_file].cue_timestamp_zero_dset[self._cue_counts[self._current_file] - 1] = packet.timestamp_course
 
             if self._count % 2000 == 0:
                 if self._timestamp_course > 0 and self._prev_timestamp_course > 0:

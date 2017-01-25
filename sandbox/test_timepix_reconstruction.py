@@ -64,7 +64,7 @@ def main():
         print "All validation checks passed"
     else:
         print "Validation failed"
-        
+
 
 if __name__ == "__main__":
     main()

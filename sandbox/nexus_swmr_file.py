@@ -60,7 +60,14 @@ class NexusSwmrFileWriter(object):
                                                               chunks=(1024 * 1024,), dtype='i8')
 
         self._cue_index_dset = self.event_group.create_dataset("cue_index", shape=(1,), maxshape=(None,),
-                                                              chunks=(1024 * 1024,), dtype='i4')
+                                                               chunks=(1024 * 1024,), dtype='i4')
+
+        self._cue_id_dset = self.event_group.create_dataset("cue_id", shape=(1,), maxshape=(None,),
+                                                            chunks=(1024 * 1024,), dtype='i4')
+
+        self._cue_timestamp_zero_dset = self.event_group.create_dataset("cue_timestamp_zero", shape=(1,),
+                                                                        maxshape=(None,), chunks=(1024 * 1024,),
+                                                                        dtype='i8')
 
         self.cue_desc_dset[0] = "Shutter Open"
         self.cue_desc_dset[1] = "Shutter Close"
@@ -95,6 +102,14 @@ class NexusSwmrFileWriter(object):
     @property
     def cue_index_dset(self):
         return self._cue_index_dset
+
+    @property
+    def cue_id_dset(self):
+        return self._cue_id_dset
+
+    @property
+    def cue_timestamp_zero_dset(self):
+        return self._cue_timestamp_zero_dset
 
     def close(self):
         self.nx_file.close()
