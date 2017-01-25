@@ -97,21 +97,25 @@ class TimepixDataParser(object):
                     self._prev_timestamp_course = self._timestamp_course
                     self._timestamp_course = packet.timestamp_course
                 else:  # Other event
-                    print("Event recorded", packet.ctrl_type)
-                    self._cue_counts[self._current_file] += 1
-                    self._nx_files[self._current_file].cue_index_dset.resize((self._cue_counts[self._current_file],))
-                    self._nx_files[self._current_file].cue_index_dset[self._cue_counts[self._current_file] - 1] = self._count
-                    # Determine the event type
-                    if packet.ctrl_type == 0x21:  # Shutter Open
-                        cue_type = 0
-                    if packet.ctrl_type == 0x22:  # Shutter Close
-                        cue_type = 1
-                    if packet.ctrl_type == 0x23:  # Trigger
-                        cue_type = 2
-                    self._nx_files[self._current_file].cue_id_dset.resize((self._cue_counts[self._current_file],))
-                    self._nx_files[self._current_file].cue_id_dset[self._cue_counts[self._current_file] - 1] = cue_type
-                    self._nx_files[self._current_file].cue_timestamp_zero_dset.resize((self._cue_counts[self._current_file],))
-                    self._nx_files[self._current_file].cue_timestamp_zero_dset[self._cue_counts[self._current_file] - 1] = packet.timestamp_course
+                    if packet.ctrl_type == 0x30:
+                        # Other data words
+                        print("Other data word", packet.ctrl_type)
+                    else:
+                        print("Event recorded", packet.ctrl_type)
+                        self._cue_counts[self._current_file] += 1
+                        self._nx_files[self._current_file].cue_index_dset.resize((self._cue_counts[self._current_file],))
+                        self._nx_files[self._current_file].cue_index_dset[self._cue_counts[self._current_file] - 1] = self._count
+                        # Determine the event type
+                        if packet.ctrl_type == 0x21:  # Shutter Open
+                            cue_type = 0
+                        if packet.ctrl_type == 0x22:  # Shutter Close
+                            cue_type = 1
+                        if packet.ctrl_type == 0x23:  # Trigger
+                            cue_type = 2
+                        self._nx_files[self._current_file].cue_id_dset.resize((self._cue_counts[self._current_file],))
+                        self._nx_files[self._current_file].cue_id_dset[self._cue_counts[self._current_file] - 1] = cue_type
+                        self._nx_files[self._current_file].cue_timestamp_zero_dset.resize((self._cue_counts[self._current_file],))
+                        self._nx_files[self._current_file].cue_timestamp_zero_dset[self._cue_counts[self._current_file] - 1] = packet.timestamp_course
 
             if self._count % 2000 == 0:
                 if self._timestamp_course > 0 and self._prev_timestamp_course > 0:
