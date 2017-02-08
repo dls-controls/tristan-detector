@@ -13,6 +13,10 @@ class DataWord(object):
         self._packet = int(line_tmp, 16)
 
     @property
+    def raw(self):
+        return self._packet
+
+    @property
     def is_ctrl(self):
         ctrl_data = self._packet & 0x8000000000000000
         if ctrl_data == 0:
