@@ -91,3 +91,8 @@ venv27/
 
 .idea/
 sandbox/data/
+
+*~
+.project
+.cproject
+
