@@ -25,14 +25,13 @@ int findMatchTs(u_int64_t timeStamp)
 	return (timeStamp >> 22) & 0x03;
 }
 
-u_int64_t fullTimestamp(int mc, u_int64_t prevTsCourse, u_int64_t currTsCourse, u_int64_t tsFine)
+u_int64_t fullTimestamp(int mc, int mpc, u_int64_t prevTsCourse, u_int64_t currTsCourse, u_int64_t tsFine)
 {
 	u_int64_t fullTs = 0;
-	int mf = findMatchTs(tsFine);
+	int mf = (tsFine >> 22) & 0x03;
 	if ((mc == mf) || (mc+1 == mf)){
 		fullTs = (currTsCourse & 0x0FFFFFFF000000) + tsFine;
 	} else {
-		int mpc = findMatchTs(prevTsCourse);
 		if ((mpc == mf) || (mpc+1 == mf)){
 			fullTs = (prevTsCourse & 0x0FFFFFFF000000) + tsFine;
 		} else {
@@ -109,7 +108,10 @@ int main(int argc, char** argv)
 		u_int32_t eventID = 0;
 		u_int64_t timeStamp = 0;
 		u_int64_t energy = 0;
+		u_int64_t tsFine = 0;
+		int mf = 0;
 		int mc = 0;
+		int mpc = 0;
 
 
 		// Loop over the words in the buffer
@@ -131,7 +133,8 @@ int main(int argc, char** argv)
 						if (csTime != (word & 0x000FFFFFFFFFFFF8)){
 							csPrevTime = csTime;
 							csTime = (word & 0x000FFFFFFFFFFFF8);
-							mc = findMatchTs(csTime);
+							mpc = mc;
+							mc = (csTime >> 22) & 0x03;
 						}
 						//printf("Course time %lu\n", csTime);
 						//printf("Prev time %lu\n", csPrevTime);
@@ -140,7 +143,18 @@ int main(int argc, char** argv)
 					// This is an event word
 					eventCount++;
 					eventID = ((word >> 39) & 0x0000000000FFFFFF);
-					timeStamp = fullTimestamp(mc, csPrevTime, csTime, ((word >> 14) & 0x0000000000FFFFFF));
+					//timeStamp = fullTimestamp(mc, mpc, csPrevTime, csTime, ((word >> 14) & 0x0000000000FFFFFF));
+///////////////////////////////////
+					tsFine = ((word >> 14) & 0x0000000000FFFFFF);
+					mf = (tsFine >> 22) & 0x03;
+					if ((mc == mf) || (mc+1 == mf)){
+						timeStamp = (csTime & 0x0FFFFFFF000000) + tsFine;
+					} else {
+						if ((mpc == mf) || (mpc+1 == mf)){
+							timeStamp = (csPrevTime & 0x0FFFFFFF000000) + tsFine;
+						}
+					}
+///////////////////////////////////
 					energy = word & 0x0000000000003FFF;
 				}
 			}
