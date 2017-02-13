@@ -18,7 +18,10 @@ set(CMAKE_MODULE_PATH ${pcvl-proc_SOURCE_DIR}/cmake ${CMAKE_MODULE_PATH})
 # Set up the boost libraries
 set(Boost_DIR /dls_sw/prod/tools/RHEL6-x86_64/boost/1-48-0/prefix)
 set(Boost_INCLUDE_DIRS ${Boost_DIR}/include)
-set(Boost_LIBRARIES ${Boost_DIR}/lib/libboost_program_options.so;${Boost_DIR}/lib/libboost_unit_test_framework.so;)
+set(Boost_LIBRARIES ${Boost_DIR}/lib/libboost_program_options.so;
+					${Boost_DIR}/lib/libboost_unit_test_framework.so;
+					${Boost_DIR}/lib/libboost_thread.so;
+					${Boost_DIR}/lib/libboost_system.so;)
 message(STATUS "  Boost include dirs: ${Boost_INCLUDE_DIRS}")
 message(STATUS "  Boost libs:         ${Boost_LIBRARIES}")
 

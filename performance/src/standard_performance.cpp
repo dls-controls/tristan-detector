@@ -15,6 +15,9 @@
 #include <sys/types.h>
 #include <sys/time.h>
 #include <boost/program_options.hpp>
+#include <boost/asio/io_service.hpp>
+#include <boost/bind.hpp>
+#include <boost/thread/thread.hpp>
 
 namespace opt = boost::program_options;
 
@@ -42,6 +45,62 @@ u_int64_t fullTimestamp(int mc, int mpc, u_int64_t prevTsCourse, u_int64_t currT
 		}
 	}
 	return fullTs;
+}
+
+
+void processBuffer(u_int64_t *bPtr, int bufferWordCount)
+{
+	printf("processBuffer called\n");
+	u_int64_t eventCount = 0;
+	u_int64_t ctrlCount = 0;
+	u_int64_t csTimeCount = 0;
+	u_int64_t csTime = 0;
+	u_int64_t csPrevTime = 0;
+	u_int32_t eventID = 0;
+	u_int64_t timeStamp = 0;
+	u_int64_t energy = 0;
+	u_int64_t tsFine = 0;
+	int mf = 0;
+	int mc = 0;
+	int mpc = 0;
+	u_int64_t word = 0;
+	for (int wIndex = 0; wIndex < bufferWordCount; wIndex++){
+		word = bPtr[wIndex];
+		if (word & 0x8000000000000000){
+			//printf("Control word found\n");
+			ctrlCount++;
+			if (((word >> 58) & 0x03F) == 0x20){
+				//printf("Course time word found\n");
+				csTimeCount++;
+				if (csTime != (word & 0x000FFFFFFFFFFFF8)){
+					csPrevTime = csTime;
+					csTime = (word & 0x000FFFFFFFFFFFF8);
+					mpc = mc;
+					mc = (csTime >> 22) & 0x03;
+				}
+				//printf("Course time %lu\n", csTime);
+				//printf("Prev time %lu\n", csPrevTime);
+			}
+		} else {
+			// This is an event word
+			eventCount++;
+			eventID = ((word >> 39) & 0x0000000000FFFFFF);
+			//timeStamp = fullTimestamp(mc, mpc, csPrevTime, csTime, ((word >> 14) & 0x0000000000FFFFFF));
+///////////////////////////////////
+			tsFine = ((word >> 14) & 0x0000000000FFFFFF);
+			mf = (tsFine >> 22) & 0x03;
+			if ((mc == mf) || (mc+1 == mf)){
+				timeStamp = (csTime & 0x0FFFFFFF000000) + tsFine;
+			} else {
+				if ((mpc == mf) || (mpc+1 == mf)){
+					timeStamp = (csPrevTime & 0x0FFFFFFF000000) + tsFine;
+				}
+			}
+///////////////////////////////////
+			energy = word & 0x0000000000003FFF;
+		}
+	}
+	printf("processBuffer exit\n");
 }
 
 int main(int argc, char** argv)
@@ -91,6 +150,31 @@ int main(int argc, char** argv)
 	BufferBuilder bb("/dls/detectors/Timepix3/I16_20160422/raw_data/W2J2_top/1hour", packetsPerBuffer);
 	bb.build(buffers);
 
+	/*
+	 * Create an asio::io_service and a thread_group (through pool in essence)
+	 */
+	boost::asio::io_service ioService;
+	boost::thread_group threadpool;
+	/*
+	 * This will start the ioService processing loop. All tasks
+	 * assigned with ioService.post() will start executing.
+	 */
+	boost::asio::io_service::work work(ioService);
+
+	/*
+	 * This will add 2 threads to the thread pool. (You could just put it in a for loop)
+	 */
+	threadpool.create_thread(boost::bind(&boost::asio::io_service::run, &ioService));
+	threadpool.create_thread(boost::bind(&boost::asio::io_service::run, &ioService));
+//	threadpool.create_thread(boost::bind(&boost::asio::io_service::run, &ioService));
+//	threadpool.create_thread(boost::bind(&boost::asio::io_service::run, &ioService));
+//	threadpool.create_thread(boost::bind(&boost::asio::io_service::run, &ioService));
+//	threadpool.create_thread(boost::bind(&boost::asio::io_service::run, &ioService));
+//	threadpool.create_thread(boost::bind(&boost::asio::io_service::run, &ioService));
+//	threadpool.create_thread(boost::bind(&boost::asio::io_service::run, &ioService));
+//	threadpool.create_thread(boost::bind(&boost::asio::io_service::run, &ioService));
+//	threadpool.create_thread(boost::bind(&boost::asio::io_service::run, &ioService));
+
 
 	double rates[tests];
 	for (int testNumber = 0; testNumber < tests; testNumber++){
@@ -122,6 +206,14 @@ int main(int argc, char** argv)
 			// Get a buffer
 			u_int64_t *bPtr = (u_int64_t *)bb.getBufferPtr(loop%buffers);
 
+			/*
+			 * This will assign tasks to the thread pool.
+			 * More about boost::bind: "http://www.boost.org/doc/libs/1_54_0/libs/bind/bind.html#with_functions"
+			 */
+			ioService.post(boost::bind(processBuffer, bPtr, bufferWordCount));
+			threadpool.join_all();
+
+/*
 			for (int wIndex = 0; wIndex < bufferWordCount; wIndex++){
 				word = bPtr[wIndex];
 				if (word & 0x8000000000000000){
@@ -157,8 +249,23 @@ int main(int argc, char** argv)
 ///////////////////////////////////
 					energy = word & 0x0000000000003FFF;
 				}
-			}
+			}*/
 		}
+
+		/*
+		 * This will stop the ioService processing loop. Any tasks
+		 * you add behind this point will not execute.
+		*/
+		ioService.stop();
+
+		/*
+		 * Will wait till all the threads in the thread pool are finished with
+		 * their assigned tasks and 'join' them. Just assume the threads inside
+		 * the threadpool will be destroyed by this method.
+		 */
+		threadpool.join_all();
+
+
 		gettimeofday(&curTime, NULL);
 		micro = curTime.tv_sec*(u_int64_t)1000000+curTime.tv_usec - micro;
 		double tTime = (double)micro / 1000000.0;
