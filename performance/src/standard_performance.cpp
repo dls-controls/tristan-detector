@@ -181,13 +181,11 @@ void recordEvent(u_int64_t events, u_int64_t ctrl, u_int64_t time)
 	csTimeCount+=time;
 }
 
-void processBuffer(u_int64_t *bPtr, int bufferWordCount)
+void processBuffer(u_int64_t *bPtr, int bufferWordCount, u_int64_t *tsArray, u_int32_t *evtArray, u_int64_t *enArray)
 {
 	u_int64_t csTime = 0;
 	u_int64_t csPrevTime = 0;
-	u_int32_t eventID = 0;
 	u_int64_t timeStamp = 0;
-	u_int64_t energy = 0;
 	u_int64_t tsFine = 0;
 	int mf = 0;
 	int mc = 0;
@@ -217,7 +215,7 @@ void processBuffer(u_int64_t *bPtr, int bufferWordCount)
 		} else {
 			// This is an event word
 			localEventCount++;
-			eventID = ((word >> 39) & 0x0000000000FFFFFF);
+			evtArray[wIndex] = ((word >> 39) & 0x0000000000FFFFFF);
 			//timeStamp = fullTimestamp(mc, mpc, csPrevTime, csTime, ((word >> 14) & 0x0000000000FFFFFF));
 ///////////////////////////////////
 			tsFine = ((word >> 14) & 0x0000000000FFFFFF);
@@ -229,8 +227,9 @@ void processBuffer(u_int64_t *bPtr, int bufferWordCount)
 					timeStamp = (csPrevTime & 0x0FFFFFFF000000) + tsFine;
 				}
 			}
+			tsArray[wIndex] = timeStamp;
 ///////////////////////////////////
-			energy = word & 0x0000000000003FFF;
+			enArray[wIndex] = word & 0x0000000000003FFF;
 		}
 	}
 	//printf("processBuffer exit\n");
@@ -295,21 +294,24 @@ int main(int argc, char** argv)
 
 	double rates[tests];
 	for (int testNumber = 0; testNumber < tests; testNumber++){
-		timeval curTime;
-		gettimeofday(&curTime, NULL);
-		unsigned long micro = curTime.tv_sec*(u_int64_t)1000000+curTime.tv_usec;
 		printf("Test number %d\n", testNumber+1);
 		printf("===============\n");
 
 		u_int64_t csTime = 0;
 		u_int64_t csPrevTime = 0;
-		u_int32_t eventID = 0;
-		u_int64_t timeStamp = 0;
-		u_int64_t energy = 0;
 		u_int64_t tsFine = 0;
 		int mf = 0;
 		int mc = 0;
 		int mpc = 0;
+		int bufferWordCount = bb.getBufferWordCount();
+		u_int32_t eventID[bufferWordCount];
+		u_int64_t energy[bufferWordCount];
+		u_int64_t timeStamp[bufferWordCount];
+
+		timeval curTime;
+		gettimeofday(&curTime, NULL);
+		unsigned long micro = curTime.tv_sec*(u_int64_t)1000000+curTime.tv_usec;
+
 
 		eventCount = 0;
 		ctrlCount = 0;
@@ -317,7 +319,6 @@ int main(int argc, char** argv)
 
 		// Loop over the words in the buffer
 		u_int64_t word = 0;
-		int bufferWordCount = bb.getBufferWordCount();
 
 		for (int loop=0; loop < iterations; loop++){
 			// Get a buffer
@@ -327,7 +328,7 @@ int main(int argc, char** argv)
 			 * This will assign tasks to the thread pool.
 			 * More about boost::bind: "http://www.boost.org/doc/libs/1_54_0/libs/bind/bind.html#with_functions"
 			 */
-			tp.run_task(boost::bind(processBuffer, bPtr, bufferWordCount));
+			tp.run_task(boost::bind(processBuffer, bPtr, bufferWordCount, timeStamp, eventID, energy));
 
 		}
 
