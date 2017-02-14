@@ -66,6 +66,7 @@ int BufferBuilder::build(int qtyBuffers)
 		}
 		buffers_.push_back(bufferPtr);
 	}
+	return wordsPerPacket_ * packetsPerBuffer_;
 }
 
 void *BufferBuilder::getBufferPtr(int index)
