@@ -28,9 +28,9 @@ message(STATUS "  Boost libs:         ${Boost_LIBRARIES}")
 # Set up the Intel TBB libraries
 set(TBB_DIR /dls_sw/prod/tools/RHEL6-x86_64/tbb/4-3-6/prefix)
 set(TBB_INCLUDE_DIRS ${TBB_DIR}/include)
-set(TBB_LIBRARIES ${TBB_DIR}/lib/libtbb_debug.so;
-				  ${TBB_DIR}/lib/libtbbmalloc_debug.so;
-				  ${TBB_DIR}/lib/libtbbmalloc_proxy_debug.so;)
+set(TBB_LIBRARIES ${TBB_DIR}/lib/libtbb.so;
+				  ${TBB_DIR}/lib/libtbbmalloc.so;
+				  ${TBB_DIR}/lib/libtbbmalloc_proxy.so;)
 message(STATUS "  TBB include dirs: ${TBB_INCLUDE_DIRS}")
 message(STATUS "  TBB libs:         ${TBB_LIBRARIES}")
 
