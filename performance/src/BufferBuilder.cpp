@@ -13,7 +13,10 @@
 BufferBuilder::BufferBuilder(const std::string& dataPath, int packetsPerBuffer) :
 	qtyBuffers_(0),
 	wordsPerPacket_(1022),
-	packetsPerBuffer_(packetsPerBuffer)
+	packetsPerBuffer_(packetsPerBuffer),
+	bufferIndex_(0),
+	iterations_(0),
+	max_iterations_(1)
 {
 	asr_ = new AsciiStackReader(dataPath);
 	// Throw away some initial samples to get into the data collection proper
@@ -79,6 +82,40 @@ void *BufferBuilder::getBufferPtr(int index)
 		bPtr = buffers_[index];
 	}
 	return bPtr;
+}
+
+void BufferBuilder::setNumIterations(int iterations)
+{
+	max_iterations_ = iterations;
+}
+
+bool BufferBuilder::hasNextBufferPtr()
+{
+	bool next = true;
+	if (iterations_ == max_iterations_){
+		next = false;
+	}
+	return next;
+}
+
+void *BufferBuilder::getNextBufferPtr()
+{
+	void *bPtr = buffers_[bufferIndex_];
+	bufferIndex_++;
+	if (bufferIndex_ == qtyBuffers_){
+		if (iterations_ < max_iterations_){
+			iterations_++;
+			bufferIndex_ = 0;
+		}
+		//printf("Iterations : %d\n", iterations_);
+	}
+	return bPtr;
+}
+
+void BufferBuilder::resetBufferPtr()
+{
+	bufferIndex_ = 0;
+	iterations_ = 0;
 }
 
 int BufferBuilder::getBufferWordCount()
