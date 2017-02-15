@@ -28,24 +28,30 @@ namespace opt = boost::program_options;
 
 class MyInputFilter: public tbb::filter {
 public:
-    MyInputFilter(BufferBuilder *bb);
+    MyInputFilter(BufferBuilder *bb, tbb::concurrent_queue<TBBPacket *> *inputQueue);
     ~MyInputFilter();
 private:
     BufferBuilder *bb_;
+    tbb::concurrent_queue<TBBPacket *> *iq_;
     TBBPacket* next_packet;
     /*override*/ void* operator()(void*);
 };
 
-MyInputFilter::MyInputFilter(BufferBuilder *bb) :
+MyInputFilter::MyInputFilter(BufferBuilder *bb, tbb::concurrent_queue<TBBPacket *> *inputQueue) :
     filter(serial_in_order),
 	bb_(bb),
-    next_packet(TBBPacket::allocate(bb->getBufferWordCount()))
+	iq_(inputQueue)
+    //next_packet(TBBPacket::allocate(bb->getBufferWordCount()))
 {
+	next_packet = TBBPacket::allocate(bb->getBufferWordCount());
+	//TBBPacket *pkt;
+	//inputQueue->try_pop(pkt);
+	//next_packet = pkt;
 }
 
 MyInputFilter::~MyInputFilter()
 {
-    next_packet->free();
+    //next_packet->free();
 }
 
 void* MyInputFilter::operator()(void*)
@@ -55,9 +61,10 @@ void* MyInputFilter::operator()(void*)
     } else {
         // Have more buffers to process.
     	next_packet->append((u_int64_t *)bb_->getNextBufferPtr(), bb_->getBufferWordCount());
-        TBBPacket& pkt = *next_packet;
-        next_packet = TBBPacket::allocate(bb_->getBufferWordCount());
-        return &pkt;
+        TBBPacket *pkt = next_packet;
+    	next_packet = TBBPacket::allocate(bb_->getBufferWordCount());
+    	//iq_->try_pop(next_packet);
+        return pkt;
     }
 }
 
@@ -66,6 +73,7 @@ class MyTransformFilter: public tbb::filter {
 public:
     MyTransformFilter();
     /*override*/void* operator()( void* item );
+private:
 };
 
 MyTransformFilter::MyTransformFilter() :
@@ -73,8 +81,7 @@ MyTransformFilter::MyTransformFilter() :
 {}
 
 /*override*/void* MyTransformFilter::operator()( void* item ) {
-    TBBPacket& input = *static_cast<TBBPacket*>(item);
-    TBBProcessedPacket& out = *TBBProcessedPacket::allocate(1022);
+    TBBPacket *input = static_cast<TBBPacket*>(item);
 
     // Add terminating null so that strtol works right even if number is at end of the input.
 	u_int64_t csTime = 0;
@@ -88,8 +95,8 @@ MyTransformFilter::MyTransformFilter() :
 	u_int64_t localEventCount = 0;
 	u_int64_t localCtrlCount = 0;
 	u_int64_t localTimeCount = 0;
-	int bufferWordCount = input.size();
-	u_int64_t *bPtr = input.begin();
+	int bufferWordCount = input->size();
+	u_int64_t *bPtr = input->begin();
 	for (int wIndex = 0; wIndex < bufferWordCount; wIndex++){
 		word = bPtr[wIndex];
 		//printf("Word: %x\n", word);
@@ -126,33 +133,38 @@ MyTransformFilter::MyTransformFilter() :
 			//tsArray[wIndex] = timeStamp;
 ///////////////////////////////////
 			//enArray[wIndex] = word & 0x0000000000003FFF;
-			out.append(((word >> 39) & 0x0000000000FFFFFF), timeStamp, (word & 0x0000000000003FFF));
+			input->setValue(((word >> 39) & 0x0000000000FFFFFF), timeStamp, (word & 0x0000000000003FFF));
 		}
 	}
 	//printf("processBuffer exit\n");
 	//recordEvent(localEventCount, localCtrlCount, localTimeCount);
-    input.free();
-    return &out;
+    //input.free();
+    //iq_->push(&input);
+    return input;
 }
 
 //! Filter that writes each buffer to a file.
 class MyOutputFilter: public tbb::filter
 {
 public:
-    MyOutputFilter();
+    MyOutputFilter(tbb::concurrent_queue<TBBPacket *> *inputQueue);
     /*override*/void* operator()( void* item );
+private:
+    tbb::concurrent_queue<TBBPacket *> *iq_;
 };
 
-MyOutputFilter::MyOutputFilter() :
-    tbb::filter(serial_in_order)
+MyOutputFilter::MyOutputFilter(tbb::concurrent_queue<TBBPacket *> *inputQueue) :
+    tbb::filter(serial_in_order),
+	iq_(inputQueue)
 {
 }
 
 void* MyOutputFilter::operator()( void* item )
 {
-    TBBProcessedPacket& out = *static_cast<TBBProcessedPacket*>(item);
-    //out.print(123);
-    out.free();
+    TBBPacket *out = static_cast<TBBPacket*>(item);
+    //out->report();
+    out->free();
+    //iq_->push(out);
     return NULL;
 }
 
@@ -161,8 +173,15 @@ double run_pipeline(BufferBuilder *bb, int nthreads)
     // Create the pipeline
     tbb::pipeline pipeline;
 
+    tbb::concurrent_queue<TBBPacket *> InputQueue;
+    // Add enough items to the queue so that we do not need to reallocate
+    //for (int i = 0; i < nthreads*10000; i++){
+	//	TBBPacket *pptr = TBBPacket::allocate(bb->getBufferWordCount());
+	//	InputQueue.push(pptr);
+    //}
+
     // Create file-reading writing stage and add it to the pipeline
-    MyInputFilter input_filter(bb);
+    MyInputFilter input_filter(bb, &InputQueue);
     pipeline.add_filter(input_filter);
 
     // Create squaring stage and add it to the pipeline
@@ -170,18 +189,18 @@ double run_pipeline(BufferBuilder *bb, int nthreads)
     pipeline.add_filter(transform_filter);
 
     // Create file-writing stage and add it to the pipeline
-    MyOutputFilter output_filter;
+    MyOutputFilter output_filter(&InputQueue);
     pipeline.add_filter(output_filter);
 
     // Run the pipeline
     tbb::tick_count t0 = tbb::tick_count::now();
     // Need more than one token in flight per thread to keep all threads
     // busy; 2-4 works
-    pipeline.run( nthreads );
+    pipeline.run( nthreads * 4);
     tbb::tick_count t1 = tbb::tick_count::now();
 
 
-    printf("time = %g\n", (t1-t0).seconds());
+    //printf("time = %g\n", (t1-t0).seconds());
 
     return (t1-t0).seconds();
 }
@@ -242,12 +261,32 @@ int main(int argc, char** argv)
 	bb.setNumIterations(iterations);
 
 
-	tbb::task_scheduler_init init_parallel;
-    double tTime = run_pipeline(&bb, threads);
-	double tData = (double)(bb.getBufferWordCount())/1024.0/1024.0*(double)(buffers*iterations*sizeof(u_int64_t));
-	printf("Data processed: %f MB\n", tData);
-	printf("Time taken %.6f s\n", tTime);
-	printf("Processing rate %.6f MB/s\n", tData/tTime);
+	tbb::task_scheduler_init init(threads);
+	double rates[tests];
+	for (int testNumber = 0; testNumber < tests; testNumber++){
+		bb.resetBufferPtr();
+		double tTime = run_pipeline(&bb, threads);
+		double tData = (double)(bb.getBufferWordCount())/1024.0/1024.0*(double)(buffers*iterations*sizeof(u_int64_t));
+		printf("=== Test %d ===\n", testNumber+1);
+		printf("Words per buffer: %d\n", bb.getBufferWordCount());
+		printf("Data processed: %f MB\n", tData);
+		printf("Time taken %.6f s\n", tTime);
+		printf("Processing rate %.6f MB/s\n", tData/tTime);
+		rates[testNumber] = tData/tTime;
+	}
+	double averageRate = 0.0;
+	double sdRate = 0.0;
+	for (int index = 0; index < tests; index++){
+		averageRate += rates[index];
+	}
+	averageRate = averageRate/(double)tests;
+	for (int index = 0; index < tests; index++){
+		sdRate += (rates[index] - averageRate) * (rates[index] - averageRate);
+	}
+	sdRate = sqrt(sdRate/(double)tests);
+	printf("Mean processing rate %.6f MB/s\n", averageRate);
+	printf("SD processing rate %.6f MB/s\n", sdRate);
+
 
 	return 0;
 }

@@ -21,6 +21,7 @@ public:
 	void setNumIterations(int iterations);
 	bool hasNextBufferPtr();
 	void *getNextBufferPtr();
+	void resetBufferPtr();
 
 	int getBufferWordCount();
 

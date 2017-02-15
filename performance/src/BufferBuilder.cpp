@@ -106,8 +106,15 @@ void *BufferBuilder::getNextBufferPtr()
 			iterations_++;
 			bufferIndex_ = 0;
 		}
+		//printf("Iterations : %d\n", iterations_);
 	}
 	return bPtr;
+}
+
+void BufferBuilder::resetBufferPtr()
+{
+	bufferIndex_ = 0;
+	iterations_ = 0;
 }
 
 int BufferBuilder::getBufferWordCount()
