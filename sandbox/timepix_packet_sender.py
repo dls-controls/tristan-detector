@@ -62,7 +62,7 @@ class TimepixPacketSender(object):
                 # Once we have our first timestamp then we can create UDP packets
                 udp_packet.add_word(word.raw)
                 if udp_packet.word_count == 1022:
-                    print("=== Packet ID ===", udp_packet._id)
+                    print("=== Packet ID ===", udp_packet._packet_number)
                     udp_packet.report()
                     self.send_packet(udp_packet)
                     self._packet_id += 1
