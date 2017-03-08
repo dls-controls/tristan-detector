@@ -12,6 +12,8 @@
 
 class TBBPacket
 {
+public:
+
 	//! Pointer to one past last character in sequence
 	size_t max_size_;
 	u_int64_t* beginning_;
@@ -21,7 +23,6 @@ class TBBPacket
 	u_int64_t* energies_;
 	int index_;
 
-public:
 
     static TBBPacket* allocate(size_t max_size)
     {

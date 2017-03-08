@@ -23,6 +23,7 @@
 #include "BufferBuilder.h"
 #include "TBBPacket.h"
 #include "TBBProcessedPacket.h"
+#include "FileWriter.h"
 
 namespace opt = boost::program_options;
 
@@ -147,15 +148,17 @@ MyTransformFilter::MyTransformFilter() :
 class MyOutputFilter: public tbb::filter
 {
 public:
-    MyOutputFilter(tbb::concurrent_queue<TBBPacket *> *inputQueue);
+    MyOutputFilter(tbb::concurrent_queue<TBBPacket *> *inputQueue, FileWriter *fPtr);
     /*override*/void* operator()( void* item );
 private:
     tbb::concurrent_queue<TBBPacket *> *iq_;
+    FileWriter *fPtr_;
 };
 
-MyOutputFilter::MyOutputFilter(tbb::concurrent_queue<TBBPacket *> *inputQueue) :
+MyOutputFilter::MyOutputFilter(tbb::concurrent_queue<TBBPacket *> *inputQueue, FileWriter *fPtr) :
     tbb::filter(serial_in_order),
-	iq_(inputQueue)
+	iq_(inputQueue),
+	fPtr_(fPtr)
 {
 }
 
@@ -163,12 +166,13 @@ void* MyOutputFilter::operator()( void* item )
 {
     TBBPacket *out = static_cast<TBBPacket*>(item);
     //out->report();
+    fPtr_->addTBBBuffer(out);
     out->free();
     //iq_->push(out);
     return NULL;
 }
 
-double run_pipeline(BufferBuilder *bb, int nthreads)
+double run_pipeline(BufferBuilder *bb, FileWriter *fPtr, int nthreads)
 {
     // Create the pipeline
     tbb::pipeline pipeline;
@@ -189,7 +193,7 @@ double run_pipeline(BufferBuilder *bb, int nthreads)
     pipeline.add_filter(transform_filter);
 
     // Create file-writing stage and add it to the pipeline
-    MyOutputFilter output_filter(&InputQueue);
+    MyOutputFilter output_filter(&InputQueue, fPtr);
     pipeline.add_filter(output_filter);
 
     // Run the pipeline
@@ -264,8 +268,13 @@ int main(int argc, char** argv)
 	tbb::task_scheduler_init init(threads);
 	double rates[tests];
 	for (int testNumber = 0; testNumber < tests; testNumber++){
+		FileWriter *fPtr = new FileWriter();
+		std::stringstream fname;
+		fname << "/scratch/gnx91527/latrd_" << testNumber << ".h5";
+		fPtr->startWriting(fname.str());
+
 		bb.resetBufferPtr();
-		double tTime = run_pipeline(&bb, threads);
+		double tTime = run_pipeline(&bb, fPtr, threads);
 		double tData = (double)(bb.getBufferWordCount())/1024.0/1024.0*(double)(buffers*iterations*sizeof(u_int64_t));
 		printf("=== Test %d ===\n", testNumber+1);
 		printf("Words per buffer: %d\n", bb.getBufferWordCount());
@@ -273,6 +282,9 @@ int main(int argc, char** argv)
 		printf("Time taken %.6f s\n", tTime);
 		printf("Processing rate %.6f MB/s\n", tData/tTime);
 		rates[testNumber] = tData/tTime;
+
+		fPtr->closeFile();
+		delete fPtr;
 	}
 	double averageRate = 0.0;
 	double sdRate = 0.0;
