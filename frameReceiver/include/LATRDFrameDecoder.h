@@ -44,11 +44,8 @@ public:
 
     void* get_packet_header_buffer(void);
 
-    uint8_t get_packet_type(void) const;
-    uint8_t get_subframe_number(void) const;
     uint32_t get_frame_number(void) const;
     uint16_t get_packet_number(void) const;
-    uint8_t* get_frame_info(void) const;
 
 private:
 

@@ -26,6 +26,8 @@ LATRDFrameDecoder::LATRDFrameDecoder() :
 
 void LATRDFrameDecoder::init(LoggerPtr& logger, bool enable_packet_logging, unsigned int frame_timeout_ms)
 {
+	FrameDecoder::init(logger, enable_packet_logging, frame_timeout_ms);
+
     if (enable_packet_logging_) {
         LOG4CXX_INFO(packet_logger_, "PktHdr: SourceAddress");
         LOG4CXX_INFO(packet_logger_, "PktHdr: |               SourcePort");
@@ -76,32 +78,39 @@ void LATRDFrameDecoder::process_packet_header(size_t bytes_received, int port, s
     if (enable_packet_logging_)
     {
         std::stringstream ss;
-        uint8_t* hdr_ptr = raw_packet_header();
         ss << "PktHdr: " << std::setw(15) << std::left << inet_ntoa(from_addr->sin_addr) << std::right << " "
            << std::setw(5) << ntohs(from_addr->sin_port) << " "
            << std::setw(5) << port << std::hex << std::setfill('0');
+
+        // Convert to host endian
+        uint64_t hostValue = be64toh(*(uint64_t *)raw_packet_header());
+        uint8_t *hdr_ptr = (uint8_t *)&hostValue;
+
         // Extract relevant bits into the next available size data type
-        uint8_t ctrlValue = (hdr_ptr[7] & 0xC0) >> 6;
-        uint8_t typeValue = (hdr_ptr[7] & 0x3C) >> 2;
-        uint8_t producerID = ((hdr_ptr[7] & 0x03) << 6) + ((hdr_ptr[6] & 0xFC) >> 2);
-        uint32_t timeSlice = ((hdr_ptr[6] & 0x03) << 30)
-        		+ (hdr_ptr[5] << 22)
-				+ (hdr_ptr[4] << 14)
-				+ (hdr_ptr[3] << 6)
-				+ ((hdr_ptr[2] & 0xFC) >> 2);
-        uint8_t spareValue = ((hdr_ptr[2] & 0x03) << 6) + ((hdr_ptr[1] & 0xF0) >> 2);
-        uint16_t wordCount = ((hdr_ptr[1] & 0x07) << 8) + hdr_ptr[0];
+        uint8_t ctrlValue = (hdr_ptr[0] & 0xC0) >> 6;
+        uint8_t typeValue = (hdr_ptr[0] & 0x3C) >> 2;
+        uint8_t producerID = ((hdr_ptr[0] & 0x03) << 6) + ((hdr_ptr[1] & 0xFC) >> 2);
+        uint32_t timeSlice = ((hdr_ptr[1] & 0x03) << 30)
+        		+ (hdr_ptr[2] << 22)
+				+ (hdr_ptr[3] << 14)
+				+ (hdr_ptr[4] << 6)
+				+ ((hdr_ptr[5] & 0xFC) >> 2);
+        uint8_t spareValue = ((hdr_ptr[5] & 0x03) << 6) + ((hdr_ptr[6] & 0xF0) >> 2);
+        uint16_t wordCount = ((hdr_ptr[6] & 0x07) << 8) + hdr_ptr[7];
         ss << " 0x" << std::setw(2) << unsigned(ctrlValue) << " 0x" << std::setw(2) << unsigned(typeValue)
 		   << " 0x" << std::setw(2) << unsigned(producerID) << " 0x" << std::setw(8) << timeSlice << " 0x"
 		   << std::setw(2) << unsigned(spareValue) << " 0x" << std::setw(4) << wordCount;
 
-        ctrlValue = (hdr_ptr[15] & 0xC0) >> 6;
-        typeValue = (hdr_ptr[15] & 0x3C) >> 2;
-        uint32_t packetNumber = ((hdr_ptr[15] & 0x03) << 30)
-        		+ (hdr_ptr[14] << 22)
-				+ (hdr_ptr[13] << 14)
-				+ (hdr_ptr[12] << 6)
-				+ ((hdr_ptr[11] & 0xFC) >> 2);
+        hostValue = be64toh(*(((uint64_t *)raw_packet_header())+1));
+        hdr_ptr = (uint8_t *)&hostValue;
+
+        ctrlValue = (hdr_ptr[0] & 0xC0) >> 6;
+        typeValue = (hdr_ptr[0] & 0x3C) >> 2;
+        uint32_t packetNumber = ((hdr_ptr[0] & 0x03) << 30)
+        		+ (hdr_ptr[1] << 22)
+				+ (hdr_ptr[2] << 14)
+				+ (hdr_ptr[3] << 6)
+				+ ((hdr_ptr[4] & 0xFC) >> 2);
 
         ss << " 0x" << std::setw(2) << unsigned(ctrlValue) << " 0x" << std::setw(2) << unsigned(typeValue)
 		   << " 0x" << std::setw(8) << unsigned(packetNumber);
@@ -112,13 +121,8 @@ void LATRDFrameDecoder::process_packet_header(size_t bytes_received, int port, s
 
 	uint32_t frame = get_frame_number();
 	uint16_t packet_number = get_packet_number();
-	uint8_t  subframe = get_subframe_number();
-	uint8_t  type = get_packet_type();
 
-    LOG4CXX_DEBUG_LEVEL(3, logger_, "Got packet header:"
-            << " type: "     << (int)type << " subframe: " << (int)subframe
-            << " packet: "   << packet_number    << " frame: "    << frame
-    );
+    LOG4CXX_DEBUG_LEVEL(3, logger_, "Got packet header:" << " packet: " << packet_number << " frame: " << frame);
 
     if (frame != current_frame_seen_)
     {
@@ -161,7 +165,6 @@ void LATRDFrameDecoder::process_packet_header(size_t bytes_received, int port, s
             current_frame_header_->frame_state = FrameDecoder::FrameReceiveStateIncomplete;
             current_frame_header_->packets_received = 0;
             memset(current_frame_header_->packet_state, 0, LATRD::num_frame_packets);
-            memcpy(current_frame_header_->frame_info, get_frame_info(), LATRD::frame_info_size);
             gettime(reinterpret_cast<struct timespec*>(&(current_frame_header_->frame_start_time)));
 
     	}
@@ -175,7 +178,7 @@ void LATRDFrameDecoder::process_packet_header(size_t bytes_received, int port, s
     }
 
     // Update packet_number state map in frame header
-    current_frame_header_->packet_state[type][subframe][packet_number] = 1;
+    current_frame_header_->packet_state[packet_number] = 1;
 
 }
 
@@ -183,29 +186,16 @@ void* LATRDFrameDecoder::get_next_payload_buffer(void) const
 {
 
     uint8_t* next_receive_location =
-            reinterpret_cast<uint8_t*>(current_frame_buffer_) +
-            get_frame_header_size() +
-            (LATRD::data_type_size * get_packet_type()) +
-            (LATRD::subframe_size * get_subframe_number()) +
-            (LATRD::primary_packet_size * get_packet_number());
+            reinterpret_cast<uint8_t*>(current_frame_buffer_)
+			+ get_frame_header_size()
+			+ (LATRD::primary_packet_size * get_packet_number());
 
     return reinterpret_cast<void*>(next_receive_location);
 }
 
 size_t LATRDFrameDecoder::get_next_payload_size(void) const
 {
-   size_t next_receive_size = 0;
-
-	if (get_packet_number() < LATRD::num_primary_packets)
-	{
-		next_receive_size = LATRD::primary_packet_size;
-	}
-	else
-	{
-		next_receive_size = LATRD::tail_packet_size;
-	}
-
-    return next_receive_size;
+    return LATRD::primary_packet_size;
 }
 
 FrameDecoder::FrameReceiveState LATRDFrameDecoder::process_packet(size_t bytes_received)
@@ -287,31 +277,16 @@ void LATRDFrameDecoder::monitor_buffers(void)
 
 }
 
-uint8_t LATRDFrameDecoder::get_packet_type(void) const
-{
-    return *(reinterpret_cast<uint8_t*>(raw_packet_header()+LATRD::packet_type_offset));
-}
-
-uint8_t LATRDFrameDecoder::get_subframe_number(void) const
-{
-    return *(reinterpret_cast<uint8_t*>(raw_packet_header()+LATRD::subframe_number_offset));
-}
-
 uint32_t LATRDFrameDecoder::get_frame_number(void) const
 {
-    uint32_t frame_number_raw = *(reinterpret_cast<uint32_t*>(raw_packet_header()+LATRD::frame_number_offset));
+    uint32_t frame_number_raw = 0; //*(reinterpret_cast<uint32_t*>(raw_packet_header()+LATRD::frame_number_offset));
     return ntohl(frame_number_raw);
 }
 
 uint16_t LATRDFrameDecoder::get_packet_number(void) const
 {
-	uint16_t packet_number_raw = *(reinterpret_cast<uint16_t*>(raw_packet_header()+LATRD::packet_number_offset));
+	uint16_t packet_number_raw = 0; //*(reinterpret_cast<uint16_t*>(raw_packet_header()+LATRD::packet_number_offset));
     return ntohs(packet_number_raw);
-}
-
-uint8_t* LATRDFrameDecoder::get_frame_info(void) const
-{
-    return (reinterpret_cast<uint8_t*>(raw_packet_header()+LATRD::frame_info_offset));
 }
 
 uint8_t* LATRDFrameDecoder::raw_packet_header(void) const
