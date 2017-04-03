@@ -6,6 +6,7 @@
  */
 
 #include "FileWriter.h"
+#include <sys/time.h>
 
 FileWriter::FileWriter(hsize_t chunkSize, hsize_t alignment) :
 	fileID_(-1),
@@ -149,8 +150,8 @@ void FileWriter::addBuffer(DataBlock *bPtr)
 	//printf("FileWriter::addBuffer Energy[65537]: %d\n", bPtr->energy_[65537]);
 	//printf("FileWriter::addBuffer bPtr->index_: %d\n", bPtr->index_);
 	this->writeDataset(eventID_, H5T_NATIVE_UINT32, bPtr->index_, bPtr->eventID_);
-	this->writeDataset(energy_, H5T_NATIVE_UINT32, bPtr->index_, bPtr->energy_);
-	this->writeDataset(timestamp_, H5T_NATIVE_UINT64, bPtr->index_, bPtr->timestamp_);
+//	this->writeDataset(energy_, H5T_NATIVE_UINT32, bPtr->index_, bPtr->energy_);
+//	this->writeDataset(timestamp_, H5T_NATIVE_UINT64, bPtr->index_, bPtr->timestamp_);
 }
 
 void FileWriter::addTBBBuffer(TBBPacket *bPtr)
@@ -185,8 +186,8 @@ void FileWriter::writeDataset(Dataset &dset, hid_t dataType, int size, void *dPt
     //printf("Calculated Size: %d\n", calcSize);
 	this->extendDataset(dset, calcSize);
 
-    hid_t filespace = H5Dget_space(dset.id_);
-    hsize_t dataSize = (hsize_t)size;
+//    hid_t filespace = H5Dget_space(dset.id_);
+//    hsize_t dataSize = (hsize_t)size;
     //printf("dataSize: %d\n", dataSize);
     // Select the hyperslab
 //    H5Sselect_hyperslab(filespace, H5S_SELECT_SET, offsets, NULL, &dataSize, NULL);
@@ -202,13 +203,26 @@ void FileWriter::writeDataset(Dataset &dset, hid_t dataType, int size, void *dPt
     //uint32_t *valPtr = (uint32_t *)dPtr;
 
     //printf("dset.dim_: %d\n", dset.dim_);
+	hsize_t offsets[1]; // = {offsetVal};
     while ((offsetVal+chunkdim) <= dset.dim_){
+		timeval curTime;
+		gettimeofday(&curTime, NULL);
+		unsigned long micro = curTime.tv_sec*(u_int64_t)1000000+curTime.tv_usec;
     	//printf("Offset Val: %d\n", offsetVal);
-    	hsize_t offsets[1] = {offsetVal};
+		offsets[0] = offsetVal;
     	status = H5DOwrite_chunk(dset.id_, H5P_DEFAULT,
     			filter_mask, offsets,
 				chunkSize_, dPtr);
     	offsetVal += calcSize;
+		gettimeofday(&curTime, NULL);
+		micro = curTime.tv_sec*(u_int64_t)1000000+curTime.tv_usec - micro;
+		double tTime = (double)micro / 1000000.0;
+		if (tTime > 0.002){
+			printf("Chunk write time: %f\n", tTime);
+			printf("  DSET ID: %d\n", dset.id_);
+			printf("  Offset: %d\n", offsets[0]);
+			printf("  CalcSize: %d\n", calcSize);
+		}
     	//valPtr += chunkdim;
     }
 

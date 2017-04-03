@@ -245,6 +245,7 @@ void processBuffer(u_int64_t *bPtr, int bufferWordCount, DataBlock *blockPtr, Wo
 DataBlock *writeBlock(FileWriter *fPtr, int &blocksProcessed, hsize_t chunkSize, DataBlock *bPtr, DataBlock *pbPtr)
 {
 	int offset = 0;
+
 	// Create blocks to process
 	while (offset < bPtr->index_){
 		if (pbPtr == NULL){
@@ -258,7 +259,14 @@ DataBlock *writeBlock(FileWriter *fPtr, int &blocksProcessed, hsize_t chunkSize,
 		if (remainingEvents >= freeSize){
 			pbPtr->copy(bPtr, offset, freeSize);
 			offset += freeSize;
+//			timeval curTime;
+//			gettimeofday(&curTime, NULL);
+//			unsigned long micro = curTime.tv_sec*(u_int64_t)1000000+curTime.tv_usec;
 			fPtr->addBuffer(pbPtr);
+//			gettimeofday(&curTime, NULL);
+//			micro = curTime.tv_sec*(u_int64_t)1000000+curTime.tv_usec - micro;
+//			double tTime = (double)micro / 1000000.0;
+//			printf("Write time: %f\n", tTime);
 			delete pbPtr;
 			pbPtr = NULL;
 		} else {
@@ -266,6 +274,8 @@ DataBlock *writeBlock(FileWriter *fPtr, int &blocksProcessed, hsize_t chunkSize,
 			offset += remainingEvents;
 		}
 	}
+
+
 	//printf("Test\n");
 	delete bPtr;
 	return pbPtr;
@@ -281,21 +291,22 @@ void processBlock(FileWriter *fPtr, int iterations, hsize_t chunkSize, WorkQueue
 
 	while (count < iterations){
 		DataBlock *bPtr = qPtr->remove();
+		pbPtr = writeBlock(fPtr, blocksProcessed, chunkSize, bPtr, pbPtr);
 
-		if (bPtr->ID_ == currentBlockNumber){
-			pbPtr = writeBlock(fPtr, blocksProcessed, chunkSize, bPtr, pbPtr);
-			currentBlockNumber++;
-			// Now check if any other blocks are ready
-			while (blockMap.count(currentBlockNumber) != 0){
-				bPtr = blockMap[currentBlockNumber];
-				blockMap.erase(currentBlockNumber);
-				pbPtr = writeBlock(fPtr, blocksProcessed, chunkSize, bPtr, pbPtr);
-				currentBlockNumber++;
-			}
-		} else {
-			// Store it for later use
-			blockMap[bPtr->ID_] = bPtr;
-		}
+//		if (bPtr->ID_ == currentBlockNumber){
+//			pbPtr = writeBlock(fPtr, blocksProcessed, chunkSize, bPtr, pbPtr);
+//			currentBlockNumber++;
+//			// Now check if any other blocks are ready
+//			while (blockMap.count(currentBlockNumber) != 0){
+//				bPtr = blockMap[currentBlockNumber];
+//				blockMap.erase(currentBlockNumber);
+//				pbPtr = writeBlock(fPtr, blocksProcessed, chunkSize, bPtr, pbPtr);
+//				currentBlockNumber++;
+//			}
+//		} else {
+//			// Store it for later use
+//			blockMap[bPtr->ID_] = bPtr;
+//		}
 		count++;
 	}
 	//if (pbPtr != NULL){
@@ -386,7 +397,9 @@ int main(int argc, char** argv)
 		FileWriter *fPtr = new FileWriter(chunkSize, alignment);
 		std::stringstream fname;
 		//fname << "/scratch/gnx91527/latrd_" << testNumber+fn << ".h5";
-		fname << "/mnt/lustre03/testdir/percival/latrd_" << testNumber+fn << ".h5";
+//		fname << "/mnt/lustre03/testdir/percival/latrd_" << testNumber+fn << ".h5";
+		fname << "/mnt/GPFS01/tmp/gnx91527/latrd/latrd_" << testNumber+fn << ".h5";
+//		fname << "/mnt/gpfs02/testdir/gnx91527/latrd/latrd_" << testNumber+fn << ".h5";
 		fPtr->startWriting(fname.str());
 
 		u_int64_t csTime = 0;
@@ -415,6 +428,7 @@ int main(int argc, char** argv)
 		// Loop over the words in the buffer
 		u_int64_t word = 0;
 
+		printf("Blocksize: %d\n", blockSize);
 		tp.run_task(boost::bind(processBlock, fPtr, iterations, blockSize, &queue));
 		DataBlock *blockPtr = NULL;
 		for (int loop=0; loop < iterations; loop++){
