@@ -3,6 +3,9 @@ include_directories(${Boost_INCLUDE_DIRS} ${TBB_INCLUDE_DIRS} ${HDF5_INCLUDE_DIR
 
 add_library(LATRD AsciiStackReader.cpp BufferBuilder.cpp DataWord.cpp DataBlock.cpp FileWriter.cpp)
 
+add_executable (simple_writing_performance_test simple_writing_performance_test.cpp)
+target_link_libraries (simple_writing_performance_test ${Boost_LIBRARIES} ${HDF5_LIBRARIES})
+
 add_executable (standard_performance standard_performance.cpp)
 target_link_libraries (standard_performance LATRD ${Boost_LIBRARIES} ${HDF5_LIBRARIES})
 
