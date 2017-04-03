@@ -45,19 +45,23 @@ public:
     void* get_packet_header_buffer(void);
 
     uint32_t get_frame_number(void) const;
-    uint16_t get_packet_number(void) const;
+    uint32_t get_packet_number(void) const;
+    uint8_t get_producer_ID(void) const;
+    uint32_t get_time_slice(void) const;
+    uint16_t get_word_count(void) const;
 
 private:
 
     uint8_t* raw_packet_header(void) const;
     unsigned int elapsed_ms(struct timespec& start, struct timespec& end);
 
-    boost::shared_ptr<void> current_packet_header_;
+    boost::shared_ptr<void> current_raw_packet_header_;
     boost::shared_ptr<void> dropped_frame_buffer_;
 
     uint32_t current_frame_seen_;
     int current_frame_buffer_id_;
     void* current_frame_buffer_;
+    LATRD::PacketHeader current_packet_header_;
     LATRD::FrameHeader* current_frame_header_;
 
     bool dropping_frame_data_;

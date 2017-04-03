@@ -17,7 +17,8 @@ namespace LATRD
 
     typedef struct
     {
-        uint8_t raw[packet_header_size];
+    	uint64_t headerWord1;
+    	uint64_t headerWord2;
     } PacketHeader;
 
     typedef struct

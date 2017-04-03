@@ -20,7 +20,7 @@ LATRDFrameDecoder::LATRDFrameDecoder() :
         		frame_timeout_ms_(1000),
         		frames_timedout_(0)
 {
-    current_packet_header_.reset(new uint8_t[sizeof(LATRD::PacketHeader)]);
+    current_raw_packet_header_.reset(new uint8_t[LATRD::packet_header_size]);
     dropped_frame_buffer_.reset(new uint8_t[LATRD::total_frame_size]);
 }
 
@@ -62,17 +62,28 @@ const size_t LATRDFrameDecoder::get_frame_header_size(void) const
 
 const size_t LATRDFrameDecoder::get_packet_header_size(void) const
 {
-    return sizeof(LATRD::PacketHeader);
+    return LATRD::packet_header_size;
 }
 
 void* LATRDFrameDecoder::get_packet_header_buffer(void)
 {
-    return current_packet_header_.get();
+    return current_raw_packet_header_.get();
 }
 
 void LATRDFrameDecoder::process_packet_header(size_t bytes_received, int port, struct sockaddr_in* from_addr)
 {
     //TODO validate header size and content, handle incoming new packet buffer allocation etc
+
+    // Convert both header 64bit values to host endian
+	current_packet_header_.headerWord1 = be64toh(*(uint64_t *)raw_packet_header());
+	current_packet_header_.headerWord2 = be64toh(*(((uint64_t *)raw_packet_header())+1));
+
+	// Read the decoded header information into local variables for use
+	uint32_t frame = get_frame_number();
+	uint16_t packetNumber = get_packet_number();
+	uint8_t producerID = get_producer_ID();
+	uint32_t timeSlice = get_time_slice();
+	uint16_t wordCount = get_word_count();
 
     // Dump raw header if packet logging enabled
     if (enable_packet_logging_)
@@ -82,36 +93,26 @@ void LATRDFrameDecoder::process_packet_header(size_t bytes_received, int port, s
            << std::setw(5) << ntohs(from_addr->sin_port) << " "
            << std::setw(5) << port << std::hex << std::setfill('0');
 
-        // Convert to host endian
-        uint64_t hostValue = be64toh(*(uint64_t *)raw_packet_header());
-        uint8_t *hdr_ptr = (uint8_t *)&hostValue;
+        // Obtain a pointer to the first 64 bit header word
+        uint8_t *hdr_ptr = (uint8_t *)&current_packet_header_.headerWord1;
 
         // Extract relevant bits into the next available size data type
         uint8_t ctrlValue = (hdr_ptr[0] & 0xC0) >> 6;
         uint8_t typeValue = (hdr_ptr[0] & 0x3C) >> 2;
-        uint8_t producerID = ((hdr_ptr[0] & 0x03) << 6) + ((hdr_ptr[1] & 0xFC) >> 2);
-        uint32_t timeSlice = ((hdr_ptr[1] & 0x03) << 30)
-        		+ (hdr_ptr[2] << 22)
-				+ (hdr_ptr[3] << 14)
-				+ (hdr_ptr[4] << 6)
-				+ ((hdr_ptr[5] & 0xFC) >> 2);
         uint8_t spareValue = ((hdr_ptr[5] & 0x03) << 6) + ((hdr_ptr[6] & 0xF0) >> 2);
-        uint16_t wordCount = ((hdr_ptr[6] & 0x07) << 8) + hdr_ptr[7];
+
+        // Format the data values into the stream
         ss << " 0x" << std::setw(2) << unsigned(ctrlValue) << " 0x" << std::setw(2) << unsigned(typeValue)
 		   << " 0x" << std::setw(2) << unsigned(producerID) << " 0x" << std::setw(8) << timeSlice << " 0x"
 		   << std::setw(2) << unsigned(spareValue) << " 0x" << std::setw(4) << wordCount;
 
-        hostValue = be64toh(*(((uint64_t *)raw_packet_header())+1));
-        hdr_ptr = (uint8_t *)&hostValue;
+        // Obtain a pointer to the second 64 bit header word
+        hdr_ptr = (uint8_t *)&current_packet_header_.headerWord2;
 
         ctrlValue = (hdr_ptr[0] & 0xC0) >> 6;
         typeValue = (hdr_ptr[0] & 0x3C) >> 2;
-        uint32_t packetNumber = ((hdr_ptr[0] & 0x03) << 30)
-        		+ (hdr_ptr[1] << 22)
-				+ (hdr_ptr[2] << 14)
-				+ (hdr_ptr[3] << 6)
-				+ ((hdr_ptr[4] & 0xFC) >> 2);
 
+        // Format the data values into the stream
         ss << " 0x" << std::setw(2) << unsigned(ctrlValue) << " 0x" << std::setw(2) << unsigned(typeValue)
 		   << " 0x" << std::setw(8) << unsigned(packetNumber);
 
@@ -119,10 +120,8 @@ void LATRDFrameDecoder::process_packet_header(size_t bytes_received, int port, s
         LOG4CXX_INFO(packet_logger_, ss.str());
     }
 
-	uint32_t frame = get_frame_number();
-	uint16_t packet_number = get_packet_number();
 
-    LOG4CXX_DEBUG_LEVEL(3, logger_, "Got packet header:" << " packet: " << packet_number << " frame: " << frame);
+//    LOG4CXX_DEBUG_LEVEL(3, logger_, "Got packet header:" << " packet: " << packet_number << " frame: " << frame);
 
     if (frame != current_frame_seen_)
     {
@@ -150,12 +149,12 @@ void LATRDFrameDecoder::process_packet_header(size_t bytes_received, int port, s
 
                 if (!dropping_frame_data_)
                 {
-                    LOG4CXX_DEBUG_LEVEL(2, logger_, "First packet from frame " << current_frame_seen_ << " detected, allocating frame buffer ID " << current_frame_buffer_id_);
+//                    LOG4CXX_DEBUG_LEVEL(2, logger_, "First packet from frame " << current_frame_seen_ << " detected, allocating frame buffer ID " << current_frame_buffer_id_);
                 }
                 else
                 {
                     dropping_frame_data_ = false;
-                    LOG4CXX_DEBUG_LEVEL(2, logger_, "Free buffer now available for frame " << current_frame_seen_ << ", allocating frame buffer ID " << current_frame_buffer_id_);
+//                    LOG4CXX_DEBUG_LEVEL(2, logger_, "Free buffer now available for frame " << current_frame_seen_ << ", allocating frame buffer ID " << current_frame_buffer_id_);
                 }
     	    }
 
@@ -178,7 +177,7 @@ void LATRDFrameDecoder::process_packet_header(size_t bytes_received, int port, s
     }
 
     // Update packet_number state map in frame header
-    current_frame_header_->packet_state[packet_number] = 1;
+    current_frame_header_->packet_state[packetNumber] = 1;
 
 }
 
@@ -250,9 +249,9 @@ void LATRDFrameDecoder::monitor_buffers(void)
 
         if (elapsed_ms(frame_header->frame_start_time, current_time) > frame_timeout_ms_)
         {
-            LOG4CXX_DEBUG_LEVEL(1, logger_, "Frame " << frame_num << " in buffer " << buffer_id
-                    << " addr 0x" << std::hex << buffer_addr << std::dec
-                    << " timed out with " << frame_header->packets_received << " packets received");
+//            LOG4CXX_DEBUG_LEVEL(1, logger_, "Frame " << frame_num << " in buffer " << buffer_id
+//                    << " addr 0x" << std::hex << buffer_addr << std::dec
+//                    << " timed out with " << frame_header->packets_received << " packets received");
 
             frame_header->frame_state = FrameReceiveStateTimedout;
             ready_callback_(buffer_id, frame_num);
@@ -271,9 +270,9 @@ void LATRDFrameDecoder::monitor_buffers(void)
     }
     frames_timedout_ += frames_timedout;
 
-    LOG4CXX_DEBUG_LEVEL(2, logger_, get_num_mapped_buffers() << " frame buffers in use, "
-            << get_num_empty_buffers() << " empty buffers available, "
-            << frames_timedout_ << " incomplete frames timed out");
+//    LOG4CXX_DEBUG_LEVEL(2, logger_, get_num_mapped_buffers() << " frame buffers in use, "
+//            << get_num_empty_buffers() << " empty buffers available, "
+//            << frames_timedout_ << " incomplete frames timed out");
 
 }
 
@@ -283,15 +282,52 @@ uint32_t LATRDFrameDecoder::get_frame_number(void) const
     return ntohl(frame_number_raw);
 }
 
-uint16_t LATRDFrameDecoder::get_packet_number(void) const
+uint32_t LATRDFrameDecoder::get_packet_number(void) const
 {
-	uint16_t packet_number_raw = 0; //*(reinterpret_cast<uint16_t*>(raw_packet_header()+LATRD::packet_number_offset));
-    return ntohs(packet_number_raw);
+	// Read the header word as bytes
+    uint8_t *hdr_ptr = (uint8_t *)&current_packet_header_.headerWord2;
+
+	return ((hdr_ptr[0] & 0x03) << 30)
+			+ (hdr_ptr[1] << 22)
+			+ (hdr_ptr[2] << 14)
+			+ (hdr_ptr[3] << 6)
+			+ ((hdr_ptr[4] & 0xFC) >> 2);
+}
+
+uint8_t LATRDFrameDecoder::get_producer_ID(void) const
+{
+	// Read the header word as bytes
+    uint8_t *hdr_ptr = (uint8_t *)&current_packet_header_.headerWord1;
+
+    // Extract relevant bits to obtain the producer ID
+    return ((hdr_ptr[0] & 0x03) << 6) + ((hdr_ptr[1] & 0xFC) >> 2);
+}
+
+uint32_t LATRDFrameDecoder::get_time_slice(void) const
+{
+	// Read the header word as bytes
+    uint8_t *hdr_ptr = (uint8_t *)&current_packet_header_.headerWord1;
+
+    // Extract relevant bits to obtain the time slice
+    return ((hdr_ptr[1] & 0x03) << 30)
+    		+ (hdr_ptr[2] << 22)
+			+ (hdr_ptr[3] << 14)
+			+ (hdr_ptr[4] << 6)
+			+ ((hdr_ptr[5] & 0xFC) >> 2);
+}
+
+uint16_t LATRDFrameDecoder::get_word_count(void) const
+{
+	// Read the header word as bytes
+    uint8_t *hdr_ptr = (uint8_t *)&current_packet_header_.headerWord1;
+
+    // Extract relevant bits to obtain the word count
+    return ((hdr_ptr[6] & 0x07) << 8) + hdr_ptr[7];
 }
 
 uint8_t* LATRDFrameDecoder::raw_packet_header(void) const
 {
-    return reinterpret_cast<uint8_t*>(current_packet_header_.get());
+    return reinterpret_cast<uint8_t*>(current_raw_packet_header_.get());
 }
 
 
