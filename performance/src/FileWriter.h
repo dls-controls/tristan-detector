@@ -13,6 +13,7 @@
 #include <assert.h>
 #include <string>
 #include <hdf5_hl.h>
+//#include <hdf5.h>
 #include <sstream>
 #include <stdexcept>
 #include <vector>
