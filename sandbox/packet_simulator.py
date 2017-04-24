@@ -17,7 +17,7 @@ def main():
     args = options()
 
     ps = TimepixPacketSender(args.datadir)
-    ps.open_connection(["127.0.0.1:21567"])
+    ps.open_connection(["127.0.0.1:8989"])
     ps.execute(args.samples)
 
 
