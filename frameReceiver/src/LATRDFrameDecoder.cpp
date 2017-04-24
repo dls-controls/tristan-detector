@@ -40,9 +40,9 @@ void LATRDFrameDecoder::init(LoggerPtr& logger, bool enable_packet_logging, unsi
         LOG4CXX_INFO(packet_logger_, "PktHdr: |               |     |      |   |   |    |          |    Word Count [10:0]");
         LOG4CXX_INFO(packet_logger_, "PktHdr: |               |     |      |   |   |    |          |    |    Control [63:62]");
         LOG4CXX_INFO(packet_logger_, "PktHdr: |               |     |      |   |   |    |          |    |    |   Type [61:58]");
-        LOG4CXX_INFO(packet_logger_, "PktHdr: |               |     |      |   |   |    |          |    |    |   |   Packet Number [57:25]");
-        LOG4CXX_INFO(packet_logger_, "PktHdr: |               |     |      |   |   |    |          |    |    |   |   |          Spare [24:0]");
-        LOG4CXX_INFO(packet_logger_, "PktHdr: |               |     |      |   |   |    |          |    |    |   |   |          |        |");
+        LOG4CXX_INFO(packet_logger_, "PktHdr: |               |     |      |   |   |    |          |    |    |   |   Spare [57:32]");
+        LOG4CXX_INFO(packet_logger_, "PktHdr: |               |     |      |   |   |    |          |    |    |   |   |        Packet Number [31:0]");
+        LOG4CXX_INFO(packet_logger_, "PktHdr: |               |     |      |   |   |    |          |    |    |   |   |        |          |");
     }
 }
 
@@ -287,11 +287,10 @@ uint32_t LATRDFrameDecoder::get_packet_number(void) const
 	// Read the header word as bytes
     uint8_t *hdr_ptr = (uint8_t *)&current_packet_header_.headerWord2;
 
-	return ((hdr_ptr[0] & 0x03) << 30)
-			+ (hdr_ptr[1] << 22)
-			+ (hdr_ptr[2] << 14)
-			+ (hdr_ptr[3] << 6)
-			+ ((hdr_ptr[4] & 0xFC) >> 2);
+	return (hdr_ptr[4] << 24)
+			+ (hdr_ptr[5] << 16)
+			+ (hdr_ptr[6] << 8)
+			+ hdr_ptr[7];
 }
 
 uint8_t LATRDFrameDecoder::get_producer_ID(void) const
