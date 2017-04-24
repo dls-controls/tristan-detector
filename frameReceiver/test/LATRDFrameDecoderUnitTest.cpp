@@ -31,7 +31,7 @@ BOOST_FIXTURE_TEST_SUITE(LATRDFrameDecoderUnitTest, FrameDecoderTestFixture);
 
 BOOST_AUTO_TEST_CASE( LATRDDecoderLibraryTest )
 {
-    boost::shared_ptr<FrameReceiver::FrameDecoder> decoder(new FrameReceiver::LATRDFrameDecoder());
+    boost::shared_ptr<FrameReceiver::LATRDFrameDecoder> decoder(new FrameReceiver::LATRDFrameDecoder());
     BOOST_CHECK_NO_THROW(decoder->init(logger));
 
     // Verify the size of a LATRD buffer is 10*1024+40.
@@ -52,24 +52,63 @@ BOOST_AUTO_TEST_CASE( LATRDDecoderLibraryTest )
     BOOST_CHECK_EQUAL(require_header_peek, true);
 
     // Get a pointer to the header buffer
-    unsigned char *hdrPtr = (unsigned char *)decoder->get_packet_header_buffer();
+    uint64_t *hdrPtr = (uint64_t *)decoder->get_packet_header_buffer();
 
     // Write a sensible header value
+    // Producer ID - 1
+    // Time Slice  - 1
+    // Word Count  - 1024
+    // Packet Number - 1
+    hdrPtr[0] = 0xE004000000040400;
+    hdrPtr[1] = 0xE000000000000001;
+
     // Call decode header on the decoder
-    // Verify the frame number
-    // Verify the packet number
-    // Verify the number of empty buffers
-    // Verify the number of mapped buffers
+	struct sockaddr_in from_addr;
+    decoder->process_packet_header(16, 9999, &from_addr);
 
-    decoder->get_packet_header_buffer();
+    // Verify the packet number is 1
+    uint32_t packet_number = decoder->get_packet_number();
+    BOOST_CHECK_EQUAL(packet_number, 1);
 
-    decoder->get_next_payload_buffer();
+    // Verify the producer ID is 1
+    uint32_t producer_ID = decoder->get_producer_ID();
+    BOOST_CHECK_EQUAL(producer_ID, 1);
 
-    decoder->get_next_payload_size();
+    // Verify the word count is 1024
+    uint32_t word_count = decoder->get_word_count();
+    BOOST_CHECK_EQUAL(word_count, 1024);
 
-    decoder->get_num_empty_buffers();
+    // Verify the time slice is 1
+    uint32_t time_slice = decoder->get_time_slice();
+    BOOST_CHECK_EQUAL(time_slice, 1);
 
-    decoder->get_num_mapped_buffers();
+
+    // Write a sensible header value
+    // Producer ID - 8
+    // Time Slice  - 10241024
+    // Word Count  - 1022
+    // Packet Number - 512256
+    hdrPtr[0] = 0xE0200271100003FE;
+    hdrPtr[1] = 0xE00000000007D100;
+
+    // Call decode header on the decoder
+    decoder->process_packet_header(16, 9999, &from_addr);
+
+    // Verify the packet number is 1
+    packet_number = decoder->get_packet_number();
+    BOOST_CHECK_EQUAL(packet_number, 512256);
+
+    // Verify the producer ID is 8
+    producer_ID = decoder->get_producer_ID();
+    BOOST_CHECK_EQUAL(producer_ID, 8);
+
+    // Verify the word count is 1022
+    word_count = decoder->get_word_count();
+    BOOST_CHECK_EQUAL(word_count, 1022);
+
+    // Verify the time slice is 1
+    time_slice = decoder->get_time_slice();
+    BOOST_CHECK_EQUAL(time_slice, 10241024);
 
 }
 
