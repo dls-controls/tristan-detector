@@ -35,12 +35,21 @@ message(STATUS "  TBB include dirs: ${TBB_INCLUDE_DIRS}")
 message(STATUS "  TBB libs:         ${TBB_LIBRARIES}")
 
 
-find_package( HDF5 1.8.9
-	          REQUIRED C )
-if(HDF5_FOUND)
-  message(STATUS "  HDF5 include dirs: ${HDF5_INCLUDE_DIRS}")
-  message(STATUS "  HDF5 definitions:  ${HDF5_DEFINITIONS}")
-endif()
+# Set up the HDF5 libraries
+set(HDF5_DIR /dls_sw/prod/tools/RHEL6-x86_64/hdf5/1-10-0/prefix)
+set(HDF5_INCLUDE_DIRS ${HDF5_DIR}/include)
+set(HDF5_LIBRARIES ${HDF5_DIR}/lib/libhdf5.so;
+				   ${HDF5_DIR}/lib/libhdf5_hl.so;)
+message(STATUS "  HDF5 include dirs: ${HDF5_INCLUDE_DIRS}")
+message(STATUS "  HDF5 libs:         ${HDF5_LIBRARIES}")
+
+
+#find_package( HDF5 1.8.9
+#	          REQUIRED C )
+#if(HDF5_FOUND)
+#  message(STATUS "  HDF5 include dirs: ${HDF5_INCLUDE_DIRS}")
+#  message(STATUS "  HDF5 definitions:  ${HDF5_DEFINITIONS}")
+#endif()
 
 # Add include directory to include path
 include_directories(Include)
