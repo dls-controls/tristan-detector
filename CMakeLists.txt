@@ -12,6 +12,9 @@ set(CMAKE_CONFIG_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/test_config)
 # Set the frameReceiver directory
 set(FRAMERECEIVER_DIR ${LATRD_SOURCE_DIR}/frameReceiver)
 
+# Set the frameProcessor directory
+set(FRAMEPROCESSOR_DIR ${LATRD_SOURCE_DIR}/frameProcessor)
+
 # Appends the cmake/modules path inside the MAKE_MODULE_PATH variable which stores the
 # directories of additional CMake modules (ie. MacroOutOfSourceBuild.cmake):
 set(CMAKE_MODULE_PATH ${LATRD_SOURCE_DIR}/cmake ${CMAKE_MODULE_PATH})
@@ -61,12 +64,8 @@ ENDIF(HDF5_ROOT)
 # Add the frameReceiver subdirectory
 add_subdirectory(${FRAMERECEIVER_DIR})
 
-#IF (NOT HDF5_FOUND)
-#    message(WARNING "Did not find HDF5. Not building frameProcessor application")
-#ELSE (NOT HDF5_FOUND)
-#    add_subdirectory(${FRAMEPROCESSOR_DIR})
-#ENDIF (NOT HDF5_FOUND)
-
+# Add the frameProcessor subdirectory
+add_subdirectory(${FRAMEPROCESSOR_DIR})
 
 # Add the test subdirectory
 add_subdirectory(test)
