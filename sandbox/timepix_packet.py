@@ -23,7 +23,7 @@ class TimepixPacket(object):
         header |= (self._word_count+2)
         self._header1 = header
         header = 0xE400000000000000
-        header |= (self._packet_number << 26)
+        header |= (self._packet_number)
         self._header2 = header
 
     @property

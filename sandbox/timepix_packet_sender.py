@@ -1,4 +1,5 @@
 import socket
+import time
 from ascii_stack_reader import AsciiStackReader
 from data_word import DataWord
 from timepix_packet import TimepixPacket
@@ -16,11 +17,12 @@ class TimepixPacketSender(object):
         self._timestamp_course = 0
         self._timestamp_word = None
         self._timeslice_id = 1
-        self._packet_id = 1
+        self._packet_id = 0
         self._host = None
         self._port = None
         self._sock = None
         self._bytes_sent = 0
+        self._packets = None
 
     def open_connection(self, destination_addresses):
         (self._host, self._port) = ([], [])
@@ -39,6 +41,7 @@ class TimepixPacketSender(object):
         self._bytes_sent += self._sock.sendto(packet.to_bytes(), (host, port))
 
     def execute(self, samples):
+        self._packets = []
         eof = False
         udp_packet = TimepixPacket(self._packet_id)
         while not eof:
@@ -64,7 +67,8 @@ class TimepixPacketSender(object):
                 if udp_packet.word_count == 1022:
                     print("=== Packet ID ===", udp_packet._packet_number)
                     udp_packet.report()
-                    self.send_packet(udp_packet)
+                    self._packets.append(udp_packet)
+                    #self.send_packet(udp_packet)
                     self._packet_id += 1
                     udp_packet = TimepixPacket(self._packet_id)
                     udp_packet.add_word(self._timestamp_word.raw)
@@ -78,3 +82,7 @@ class TimepixPacketSender(object):
 
             if self._count == samples:
                 eof = True
+
+        for packet in self._packets:
+            self.send_packet(packet)
+            time.sleep(0.02)
