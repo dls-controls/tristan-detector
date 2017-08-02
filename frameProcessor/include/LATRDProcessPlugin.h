@@ -30,6 +30,9 @@ public:
 
 private:
   void processFrame(boost::shared_ptr<Frame> frame);
+  void processDataWord(uint64_t data_word);
+  uint32_t get_packet_number(void *headerWord2) const;
+  uint16_t get_word_count(void *headerWord1) const;
 
   /** Pointer to logger */
   LoggerPtr logger_;
