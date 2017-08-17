@@ -16,6 +16,20 @@ LATRDProcessPlugin::LATRDProcessPlugin()
     logger_ = Logger::getLogger("FW.LATRDProcessPlugin");
     logger_->setLevel(Level::getAll());
     LOG4CXX_TRACE(logger_, "LATRDProcessPlugin constructor.");
+
+    // Create the work queue for processing jobs
+    jobQueue_ = boost::shared_ptr<WorkQueue<process_job_t> >(new WorkQueue<process_job_t>);
+    // Create the work queue for completed jobs
+    resultsQueue_ = boost::shared_ptr<WorkQueue<process_job_t> >(new WorkQueue<process_job_t>);
+
+    // Create the buffer manager
+    buffer_ = boost::shared_ptr<LATRDBuffer>(new LATRDBuffer(LATRD::frame_size, "frame"));
+
+    // Configure threads for processing
+    // Now start the worker thread to monitor the queue
+    for (size_t index = 0; index < LATRD::number_of_processing_threads; index++){
+    	thread_[index] = new boost::thread(&LATRDProcessPlugin::processTask, this);
+    }
 }
 
 LATRDProcessPlugin::~LATRDProcessPlugin()
@@ -59,27 +73,218 @@ void LATRDProcessPlugin::processFrame(boost::shared_ptr<Frame> frame)
 			// Loop over words to process
 			uint64_t *data_ptr = (uint64_t *)payload_ptr;
 			data_ptr += packet_header_count;
-			for (uint16_t index = 0; index < words_to_process; index++){
-				uint64_t data_word = be64toh(*data_ptr);
-				processDataWord(data_word);
-			}
+			process_job_t job;
+			job.job_id = index;
+			job.data_ptr = data_ptr;
+			job.words_to_process = words_to_process;
+			// Allocate the expected size for each block of returned data
+			job.event_ts_ptr = (uint64_t *)malloc(words_to_process * sizeof(uint64_t));
+			job.event_id_ptr = (uint32_t *)malloc(words_to_process * sizeof(uint32_t));
+			job.event_energy_ptr = (uint32_t *)malloc(words_to_process * sizeof(uint32_t));
+			jobQueue_->add(job);
 		}
 		payload_ptr += LATRD::primary_packet_size;
 	}
+	// Now we need to reconstruct the full dataset from the individual processing jobs
+	std::map<uint32_t, process_job_t> results;
+	uint32_t qty_data_points = 0;
+	while (results.size() < LATRD::num_primary_packets){
+		process_job_t job = resultsQueue_->remove();
+		qty_data_points += job.valid_results;
+	    LOG4CXX_DEBUG(logger_, "Processing job [" << job.job_id << "] completed with " << job.timestamp_mismatches << " timestamp mismatches");
+		results[job.job_id] = job;
+	}
+    LOG4CXX_DEBUG(logger_, "Total number of valid data points [" << qty_data_points << "]");
 
-	LOG4CXX_TRACE(logger_, "Pushing data frame.");
-	std::vector<dimsize_t> dims;
-	dims.push_back(10240);
-	dims.push_back(1);
-	frame->set_dataset_name("frame");
-	frame->set_data_type(3);
-	frame->set_dimensions("frame", dims);
-	this->push(frame);
+    // Loop over the jobs in order, appending the results to the buffer.  If a buffer is filled
+    // then a frame is created and can be pushed onto the next plugin.
+	for (uint32_t index = 0; index < LATRD::num_primary_packets; index++){
+		process_job_t job = results[index];
+		// Copy the number of valid results into the buffer
+		LOG4CXX_TRACE(logger_, "Appending "<< job.valid_results << " data points from job [" << job.job_id << "]");
+		boost::shared_ptr<Frame> frame = buffer_->appendData(job.event_ts_ptr, job.event_id_ptr, job.event_energy_ptr, job.valid_results);
+
+		// Now that we have stored the processed data from the job the memory needs to be freed
+		if (job.event_ts_ptr){
+			free(job.event_ts_ptr);
+		}
+		if (job.event_id_ptr){
+			free(job.event_id_ptr);
+		}
+		if (job.event_energy_ptr){
+			free(job.event_energy_ptr);
+		}
+
+		// Check if a full frame was returned by the append.  If it was then push it on to the next plugin.
+		if (frame){
+			LOG4CXX_TRACE(logger_, "Pushing data frame.");
+			std::vector<dimsize_t> dims;
+			dims.push_back(LATRD::frame_size);
+			frame->set_dataset_name("frame");
+			frame->set_data_type(3);
+			frame->set_dimensions("frame", dims);
+			this->push(frame);
+		}
+	}
 }
 
-void LATRDProcessPlugin::processDataWord(uint64_t data_word)
+void LATRDProcessPlugin::processTask()
 {
+	LOG4CXX_TRACE(logger_, "Starting processing task with ID [" << boost::this_thread::get_id() << "]");
+	bool executing = true;
+	while (executing){
+	    process_job_t job = jobQueue_->remove();
+	    job.valid_results = 0;
+	    job.timestamp_mismatches = 0;
+	    uint64_t previous_course_timestamp = 0;
+	    uint64_t current_course_timestamp = 0;
+	    LOG4CXX_DEBUG(logger_, "Processing job [" << job.job_id << "] on task [" << boost::this_thread::get_id() << "]");
+	    LOG4CXX_DEBUG(logger_, "Data pointer [" << job.data_ptr << "]");
+		uint64_t *data_word_ptr = job.data_ptr;
+		uint64_t *event_ts_ptr = job.event_ts_ptr;
+		uint32_t *event_id_ptr = job.event_id_ptr;
+		uint32_t *event_energy_ptr = job.event_energy_ptr;
+		// Verify the first word is an extended timestamp word
+		if (getControlType(*data_word_ptr) != ExtendedTimestamp){
+		    LOG4CXX_DEBUG(logger_, "*** ERROR in job [" << job.job_id << "].  The first word is not an extended timestamp");
+		}
+		for (uint16_t index = 0; index < job.words_to_process; index++){
+			try
+			{
+				if (processDataWord(*data_word_ptr,
+						&previous_course_timestamp,
+						&current_course_timestamp,
+						event_ts_ptr,
+						event_id_ptr,
+						event_energy_ptr)){
+					// Increment the event ptrs and the valid result count
+					event_ts_ptr++;
+					event_id_ptr++;
+					event_energy_ptr++;
+					job.valid_results++;
+				}
+			}
+			catch (LATRDTimestampMismatchException& ex)
+			{
+				job.timestamp_mismatches++;
+			}
+			data_word_ptr++;
+		}
+	    LOG4CXX_DEBUG(logger_, "Processing complete for job [" << job.job_id << "] on task [" << boost::this_thread::get_id() << "]");
+	    LOG4CXX_DEBUG(logger_, "Number of valid results [" << job.valid_results << "]");
+	    resultsQueue_->add(job);
+	}
+}
 
+bool LATRDProcessPlugin::processDataWord(uint64_t data_word,
+		uint64_t *previous_course_timestamp,
+		uint64_t *current_course_timestamp,
+		uint64_t *event_ts,
+		uint32_t *event_id,
+		uint32_t *event_energy)
+{
+	bool event_word = false;
+	//LOG4CXX_DEBUG(logger_, "Data Word: 0x" << std::hex << data_word);
+	if (isControlWord(data_word)){
+		if (getControlType(data_word) == ExtendedTimestamp){
+			//LOG4CXX_DEBUG(logger_, "Parsing extended timestamp control word [" << std::hex << data_word << "]");
+			*previous_course_timestamp = *current_course_timestamp;
+			*current_course_timestamp = getCourseTimestamp(data_word);
+		}
+	} else {
+		*event_ts = getFullTimestmap(data_word, *previous_course_timestamp, *current_course_timestamp);
+		*event_energy = getEnergy(data_word);
+		*event_id = getPositionID(data_word);
+		event_word = true;
+	}
+	return event_word;
+}
+
+bool LATRDProcessPlugin::isControlWord(uint64_t data_word)
+{
+	bool ctrlWord = false;
+	if ((data_word & LATRD::control_word_mask) > 0){
+		//LOG4CXX_DEBUG(logger_, "Control Word TRUE");
+		ctrlWord = true;
+	}
+	return ctrlWord;
+}
+
+LATRDDataControlType LATRDProcessPlugin::getControlType(uint64_t data_word)
+{
+	LATRDDataControlType ctrl_type = Unknown;
+	if (!isControlWord(data_word)){
+		throw LATRDProcessingException("Data word is not a control word");
+	}
+    uint8_t ctrl_word = (data_word >> 58) & LATRD::control_type_mask;
+    if (ctrl_word == LATRD::control_course_timestamp_mask){
+    	ctrl_type = ExtendedTimestamp;
+    } else if (ctrl_word == LATRD::control_header_0_mask){
+    	ctrl_type = HeaderWord0;
+    } else if (ctrl_word == LATRD::control_header_1_mask){
+    	ctrl_type = HeaderWord1;
+    }
+    return ctrl_type;
+}
+
+uint64_t LATRDProcessPlugin::getCourseTimestamp(uint64_t data_word)
+{
+	if (getControlType(data_word) != ExtendedTimestamp){
+		throw LATRDProcessingException("Data word is not an extended time stamp");
+	}
+	return data_word & LATRD::course_timestamp_mask;
+}
+
+uint64_t LATRDProcessPlugin::getFineTimestamp(uint64_t data_word)
+{
+	if (isControlWord(data_word)){
+		throw LATRDProcessingException("Data word is a control word, not an event");
+	}
+    return (data_word >> 14) & LATRD::fine_timestamp_mask;
+}
+
+uint16_t LATRDProcessPlugin::getEnergy(uint64_t data_word)
+{
+	if (isControlWord(data_word)){
+		throw LATRDProcessingException("Data word is a control word, not an event");
+	}
+    return data_word & LATRD::energy_mask;
+}
+
+uint32_t LATRDProcessPlugin::getPositionID(uint64_t data_word)
+{
+	if (isControlWord(data_word)){
+		throw LATRDProcessingException("Data word is a control word, not an event");
+	}
+    return (data_word >> 39) & LATRD::energy_mask;
+}
+
+uint64_t LATRDProcessPlugin::getFullTimestmap(uint64_t data_word, uint64_t prev_course, uint64_t course)
+{
+    uint64_t full_ts = 0;
+    uint64_t fine_ts = 0;
+    if (isControlWord(data_word)){
+		throw LATRDProcessingException("Data word is a control word, not an event");
+    }
+    fine_ts = getFineTimestamp(data_word);
+    if ((findTimestampMatch(course) == findTimestampMatch(fine_ts)) || (findTimestampMatch(course)+1 == (fine_ts))){
+        full_ts = (course & LATRD::timestamp_match_mask) + fine_ts;
+    	//LOG4CXX_DEBUG(logger_, "Full timestamp generated 1");
+    } else if ((findTimestampMatch(prev_course) == findTimestampMatch(fine_ts)) || (findTimestampMatch(prev_course)+1 == findTimestampMatch(fine_ts))){
+        full_ts = (prev_course & LATRD::timestamp_match_mask) + fine_ts;
+    	//LOG4CXX_DEBUG(logger_, "Full timestamp generated 2");
+    } else {
+    	throw LATRDTimestampMismatchException("Timestamp mismatch");
+    	//LOG4CXX_DEBUG(logger_, "Timestamp mismatch");
+    }
+    return full_ts;
+}
+
+uint8_t LATRDProcessPlugin::findTimestampMatch(uint64_t time_stamp)
+{
+    // This method will return the 2 bits required for
+    // matching a course timestamp to an extended timestamp
+    return (time_stamp >> 22) & 0x03;
 }
 
 uint32_t LATRDProcessPlugin::get_packet_number(void *headerWord2) const

@@ -12,15 +12,67 @@
 #include <log4cxx/basicconfigurator.h>
 #include <log4cxx/propertyconfigurator.h>
 #include <log4cxx/helpers/exception.h>
+#include <exception>
 using namespace log4cxx;
 using namespace log4cxx::helpers;
 
 #include "FrameProcessorPlugin.h"
+#include "WorkQueue.h"
 #include "LATRDDefinitions.h"
+#include "LATRDBuffer.h"
 #include "ClassLoader.h"
 
 namespace FrameProcessor
 {
+enum LATRDDataControlType {Unknown, HeaderWord0, HeaderWord1, ExtendedTimestamp};
+
+struct process_job_t
+{
+	uint32_t job_id;
+	uint16_t words_to_process;
+	uint16_t valid_results;
+	uint16_t timestamp_mismatches;
+	uint64_t *data_ptr;
+	uint64_t *event_ts_ptr;
+	uint32_t *event_id_ptr;
+	uint32_t *event_energy_ptr;
+};
+
+class LATRDProcessingException: public std::runtime_error
+{
+public:
+	LATRDProcessingException(const std::string& message) :
+		msg_(message),
+		std::runtime_error(message)
+	{
+
+	}
+
+	virtual ~LATRDProcessingException() throw()
+	{
+	}
+
+	virtual const char* what() const throw()
+	{
+		return msg_.c_str();
+	}
+
+private:
+	std::string msg_;
+};
+
+class LATRDTimestampMismatchException: public LATRDProcessingException
+{
+public:
+	LATRDTimestampMismatchException(const std::string& message) :
+		LATRDProcessingException(message)
+	{
+	}
+
+	virtual ~LATRDTimestampMismatchException() throw()
+	{
+	}
+};
 
 class LATRDProcessPlugin : public FrameProcessorPlugin
 {
@@ -29,10 +81,35 @@ public:
 	virtual ~LATRDProcessPlugin();
 
 private:
-  void processFrame(boost::shared_ptr<Frame> frame);
-  void processDataWord(uint64_t data_word);
-  uint32_t get_packet_number(void *headerWord2) const;
-  uint16_t get_word_count(void *headerWord1) const;
+
+	/** Pointer to worker queue thread */
+	boost::thread *thread_[LATRD::number_of_processing_threads];
+
+	/** Pointers to job queues for processing packets and results notification */
+	boost::shared_ptr<WorkQueue<process_job_t> > jobQueue_;
+	boost::shared_ptr<WorkQueue<process_job_t> > resultsQueue_;
+
+	/** Pointer to LATRD buffer and frame manager */
+	boost::shared_ptr<LATRDBuffer> buffer_;
+
+	void processFrame(boost::shared_ptr<Frame> frame);
+	void processTask();
+	bool processDataWord(uint64_t data_word,
+			uint64_t *previous_course_timestamp,
+			uint64_t *current_course_timestamp,
+			uint64_t *event_ts,
+			uint32_t *event_id,
+			uint32_t *event_energy);
+	bool isControlWord(uint64_t data_word);
+	LATRDDataControlType getControlType(uint64_t data_word);
+	uint64_t getCourseTimestamp(uint64_t data_word);
+	uint64_t getFineTimestamp(uint64_t data_word);
+	uint16_t getEnergy(uint64_t data_word);
+	uint32_t getPositionID(uint64_t data_word);
+	uint64_t getFullTimestmap(uint64_t data_word, uint64_t prev_course, uint64_t course);
+	uint8_t findTimestampMatch(uint64_t time_stamp);
+	uint32_t get_packet_number(void *headerWord2) const;
+	uint16_t get_word_count(void *headerWord1) const;
 
   /** Pointer to logger */
   LoggerPtr logger_;
