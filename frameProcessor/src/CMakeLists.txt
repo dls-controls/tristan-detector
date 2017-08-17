@@ -1,10 +1,15 @@
 set(CMAKE_INCLUDE_CURRENT_DIR on)
+set(CMAKE_BUILD_TYPE Debug)
 
-include_directories(${FRAMEPROCESSOR_DIR}/include ${ODINDATA_INCLUDE_DIRS} ${Boost_INCLUDE_DIRS} ${LOG4CXX_INCLUDE_DIRS}/.. ${ZEROMQ_INCLUDE_DIRS})
+include_directories(${FRAMEPROCESSOR_DIR}/include ${ODINDATA_INCLUDE_DIRS} ${HDF5_INCLUDE_DIRS} ${Boost_INCLUDE_DIRS} ${LOG4CXX_INCLUDE_DIRS}/.. ${ZEROMQ_INCLUDE_DIRS})
 
 # Add library for LATRD processing plugin
-add_library(LATRDProcessPlugin SHARED LATRDProcessPlugin.cpp LATRDProcessPluginLib.cpp)
+add_library(LATRDProcessPlugin SHARED LATRDProcessPlugin.cpp LATRDProcessPluginLib.cpp LATRDBuffer.cpp)
 target_link_libraries(LATRDProcessPlugin ${ODINDATA_LIBRARIES} ${Boost_LIBRARIES} ${LOG4CXX_LIBRARIES} ${ZEROMQ_LIBRARIES})
+
+# Add library for LATRD file writing plugin
+add_library(LATRDFileWriterPlugin SHARED LATRDFileWriterPlugin.cpp LATRDFileWriterPluginLib.cpp)
+target_link_libraries(LATRDFileWriterPlugin ${ODINDATA_LIBRARIES} /home/gnx91527/work/odin-data/prefix/lib/libHdf5Plugin.so ${Boost_LIBRARIES} ${LOG4CXX_LIBRARIES} ${ZEROMQ_LIBRARIES})
 
 string(TIMESTAMP EXEC_TIME)
 set(LATRD_EXEC_SCRIPT ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/execute_latrd_processor)
@@ -15,10 +20,17 @@ file(APPEND ${LATRD_EXEC_SCRIPT} "# Generated on ${EXEC_TIME}\n")
 file(APPEND ${LATRD_EXEC_SCRIPT} "\n")
 file(APPEND ${LATRD_EXEC_SCRIPT} "# Executes the LATRD ODIN-DATA FrameProcessor\n")
 file(APPEND ${LATRD_EXEC_SCRIPT} "\n")
-file(APPEND ${LATRD_EXEC_SCRIPT} "${ODINDATA_ROOT_DIR}/bin/frameProcessor --path ${CMAKE_BINARY_DIR}/lib -d LATRD \"$@\"")
+file(APPEND ${LATRD_EXEC_SCRIPT} "cwd=$(pwd)\n")
+file(APPEND ${LATRD_EXEC_SCRIPT} "cd ${ODINDATA_ROOT_DIR}\n")
+file(APPEND ${LATRD_EXEC_SCRIPT} "./bin/frameProcessor --path ${CMAKE_BINARY_DIR}/lib -d LATRD \"$@\"\n")
+file(APPEND ${LATRD_EXEC_SCRIPT} "cd $cwd\n")
 
 install(
 	FILES ${LATRD_EXEC_SCRIPT}
 	PERMISSIONS OWNER_EXECUTE OWNER_READ
 	DESTINATION bin
 	)
+
+install(TARGETS LATRDProcessPlugin LIBRARY DESTINATION lib)
+
+install(TARGETS LATRDFileWriterPlugin LIBRARY DESTINATION lib)
