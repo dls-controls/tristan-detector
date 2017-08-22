@@ -7,10 +7,6 @@ include_directories(${FRAMEPROCESSOR_DIR}/include ${ODINDATA_INCLUDE_DIRS} ${HDF
 add_library(LATRDProcessPlugin SHARED LATRDProcessPlugin.cpp LATRDProcessPluginLib.cpp LATRDBuffer.cpp)
 target_link_libraries(LATRDProcessPlugin ${ODINDATA_LIBRARIES} ${Boost_LIBRARIES} ${LOG4CXX_LIBRARIES} ${ZEROMQ_LIBRARIES})
 
-# Add library for LATRD file writing plugin
-add_library(LATRDFileWriterPlugin SHARED LATRDFileWriterPlugin.cpp LATRDFileWriterPluginLib.cpp)
-target_link_libraries(LATRDFileWriterPlugin ${ODINDATA_LIBRARIES} /home/gnx91527/work/odin-data/prefix/lib/libHdf5Plugin.so ${Boost_LIBRARIES} ${LOG4CXX_LIBRARIES} ${ZEROMQ_LIBRARIES})
-
 string(TIMESTAMP EXEC_TIME)
 set(LATRD_EXEC_SCRIPT ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/execute_latrd_processor)
 file(WRITE ${LATRD_EXEC_SCRIPT} "#!/bin/bash\n")
@@ -32,5 +28,3 @@ install(
 	)
 
 install(TARGETS LATRDProcessPlugin LIBRARY DESTINATION lib)
-
-install(TARGETS LATRDFileWriterPlugin LIBRARY DESTINATION lib)
