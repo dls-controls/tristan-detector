@@ -18,29 +18,33 @@
 #include <log4cxx/helpers/exception.h>
 #include <string>
 #include "Frame.h"
+#include "LATRDExceptions.h"
+
 using namespace log4cxx;
 using namespace log4cxx::helpers;
 
 namespace FrameProcessor
 {
+enum LATRDBufferType {UINT64_TYPE, UINT32_TYPE};
 
 class LATRDBuffer {
 
 public:
-    static const size_t bytes_per_data_point = sizeof(uint64_t) + sizeof(uint32_t) + sizeof(uint32_t);
-
-	LATRDBuffer(size_t numberOfDataPoints, const std::string& frame);
+	LATRDBuffer(size_t numberOfDataPoints, const std::string& frame, LATRDBufferType type);
 	virtual ~LATRDBuffer();
-	boost::shared_ptr<Frame> appendData(uint64_t *ts_ptr, uint32_t *id_ptr, uint32_t *energy_ptr, size_t qty_pts);
+	boost::shared_ptr<Frame> appendData(void *data_ptr, size_t qty_pts);
+	void configureProcess(size_t processes, size_t rank);
 
 private:
 	void *rawDataPtr_;
-	uint64_t *eventTimestampPtr_;
-	uint32_t *eventIDPtr_;
-	uint32_t *eventEnergyPtr_;
 	size_t numberOfPoints_;
 	size_t currentPoint_;
 	std::string frameName_;
+	LATRDBufferType type_;
+	size_t dataSize_;
+	uint64_t frameNumber_;
+	size_t concurrent_processes_;
+	size_t concurrent_rank_;
 
 	/** Pointer to logger */
 	LoggerPtr logger_;

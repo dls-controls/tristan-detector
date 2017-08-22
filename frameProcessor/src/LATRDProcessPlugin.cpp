@@ -9,8 +9,13 @@
 
 namespace FrameProcessor
 {
+const std::string LATRDProcessPlugin::CONFIG_PROCESS             = "process";
+const std::string LATRDProcessPlugin::CONFIG_PROCESS_NUMBER      = "number";
+const std::string LATRDProcessPlugin::CONFIG_PROCESS_RANK        = "rank";
 
-LATRDProcessPlugin::LATRDProcessPlugin()
+LATRDProcessPlugin::LATRDProcessPlugin() :
+		concurrent_processes_(1),
+		concurrent_rank_(0)
 {
     // Setup logging for the class
     logger_ = Logger::getLogger("FW.LATRDProcessPlugin");
@@ -22,8 +27,10 @@ LATRDProcessPlugin::LATRDProcessPlugin()
     // Create the work queue for completed jobs
     resultsQueue_ = boost::shared_ptr<WorkQueue<process_job_t> >(new WorkQueue<process_job_t>);
 
-    // Create the buffer manager
-    buffer_ = boost::shared_ptr<LATRDBuffer>(new LATRDBuffer(LATRD::frame_size, "frame"));
+    // Create the buffer managers
+    timeStampBuffer_ = boost::shared_ptr<LATRDBuffer>(new LATRDBuffer(LATRD::frame_size, "event_time_offset", UINT64_TYPE));
+    idBuffer_ = boost::shared_ptr<LATRDBuffer>(new LATRDBuffer(LATRD::frame_size, "event_id", UINT32_TYPE));
+    energyBuffer_ = boost::shared_ptr<LATRDBuffer>(new LATRDBuffer(LATRD::frame_size, "event_energy", UINT32_TYPE));
 
     // Configure threads for processing
     // Now start the worker thread to monitor the queue
@@ -37,9 +44,63 @@ LATRDProcessPlugin::~LATRDProcessPlugin()
 	// TODO Auto-generated destructor stub
 }
 
+/**
+ * Set configuration options for the LATRD processing plugin.
+ *
+ * This sets up the process plugin according to the configuration IpcMessage
+ * objects that are received. The options are searched for:
+ * CONFIG_PROCESS - Calls the method processConfig
+ *
+ * \param[in] config - IpcMessage containing configuration data.
+ * \param[out] reply - Response IpcMessage.
+ */
+void LATRDProcessPlugin::configure(OdinData::IpcMessage& config, OdinData::IpcMessage& reply)
+{
+  // Protect this method
+  boost::lock_guard<boost::recursive_mutex> lock(mutex_);
+
+  LOG4CXX_DEBUG(logger_, config.encode());
+
+  // Check to see if we are configuring the process number and rank
+  if (config.has_param(LATRDProcessPlugin::CONFIG_PROCESS)) {
+    OdinData::IpcMessage processConfig(config.get_param<const rapidjson::Value&>(LATRDProcessPlugin::CONFIG_PROCESS));
+    this->configureProcess(processConfig, reply);
+  }
+}
+
+/**
+ * Set configuration options for the LATRD process count.
+ *
+ * This sets up the process plugin according to the configuration IpcMessage
+ * objects that are received. The options are searched for:
+ * CONFIG_PROCESS_NUMBER - Sets the number of writer processes executing
+ * CONFIG_PROCESS_RANK - Sets the rank of this process
+ *
+ * The configuration is not applied if the writer is currently writing.
+ *
+ * \param[in] config - IpcMessage containing configuration data.
+ * \param[out] reply - Response IpcMessage.
+ */
+void LATRDProcessPlugin::configureProcess(OdinData::IpcMessage& config, OdinData::IpcMessage& reply)
+{
+  // Check for process number and rank number
+  if (config.has_param(LATRDProcessPlugin::CONFIG_PROCESS_NUMBER)) {
+    this->concurrent_processes_ = config.get_param<size_t>(LATRDProcessPlugin::CONFIG_PROCESS_NUMBER);
+    LOG4CXX_DEBUG(logger_, "Concurrent processes changed to " << this->concurrent_processes_);
+  }
+  if (config.has_param(LATRDProcessPlugin::CONFIG_PROCESS_RANK)) {
+    this->concurrent_rank_ = config.get_param<size_t>(LATRDProcessPlugin::CONFIG_PROCESS_RANK);
+    LOG4CXX_DEBUG(logger_, "Process rank changed to " << this->concurrent_rank_);
+  }
+  this->timeStampBuffer_->configureProcess(this->concurrent_processes_, this->concurrent_rank_);
+  this->idBuffer_->configureProcess(this->concurrent_processes_, this->concurrent_rank_);
+  this->energyBuffer_->configureProcess(this->concurrent_processes_, this->concurrent_rank_);
+}
+
 void LATRDProcessPlugin::processFrame(boost::shared_ptr<Frame> frame)
 {
 	LATRD::PacketHeader packet_header;
+	boost::shared_ptr<Frame> processedFrame;
 	LOG4CXX_TRACE(logger_, "Processing raw frame.");
 
 	// Extract the header from the buffer and print the details
@@ -102,7 +163,41 @@ void LATRDProcessPlugin::processFrame(boost::shared_ptr<Frame> frame)
 		process_job_t job = results[index];
 		// Copy the number of valid results into the buffer
 		LOG4CXX_TRACE(logger_, "Appending "<< job.valid_results << " data points from job [" << job.job_id << "]");
-		boost::shared_ptr<Frame> frame = buffer_->appendData(job.event_ts_ptr, job.event_id_ptr, job.event_energy_ptr, job.valid_results);
+		processedFrame = timeStampBuffer_->appendData(job.event_ts_ptr, job.valid_results);
+		// Check if a full frame was returned by the append.  If it was then push it on to the next plugin.
+		if (processedFrame){
+			LOG4CXX_TRACE(logger_, "Pushing timestamp data frame.");
+			std::vector<dimsize_t> dims(0);
+//			dims.push_back(LATRD::frame_size);
+			processedFrame->set_dataset_name("event_time_offset");
+			processedFrame->set_data_type(3);
+			processedFrame->set_dimensions("event_time_offset", dims);
+			this->push(processedFrame);
+		}
+
+		processedFrame = idBuffer_->appendData(job.event_id_ptr, job.valid_results);
+		// Check if a full frame was returned by the append.  If it was then push it on to the next plugin.
+		if (processedFrame){
+			LOG4CXX_TRACE(logger_, "Pushing ID data frame.");
+			std::vector<dimsize_t> dims(0);
+//			dims.push_back(LATRD::frame_size);
+			processedFrame->set_dataset_name("event_id");
+			processedFrame->set_data_type(2);
+			processedFrame->set_dimensions("event_id", dims);
+			this->push(processedFrame);
+		}
+
+		processedFrame = energyBuffer_->appendData(job.event_energy_ptr, job.valid_results);
+		// Check if a full frame was returned by the append.  If it was then push it on to the next plugin.
+		if (processedFrame){
+			LOG4CXX_TRACE(logger_, "Pushing energy data frame.");
+			std::vector<dimsize_t> dims(0);
+//			dims.push_back(LATRD::frame_size);
+			processedFrame->set_dataset_name("event_energy");
+			processedFrame->set_data_type(2);
+			processedFrame->set_dimensions("event_energy", dims);
+			this->push(processedFrame);
+		}
 
 		// Now that we have stored the processed data from the job the memory needs to be freed
 		if (job.event_ts_ptr){
@@ -115,16 +210,6 @@ void LATRDProcessPlugin::processFrame(boost::shared_ptr<Frame> frame)
 			free(job.event_energy_ptr);
 		}
 
-		// Check if a full frame was returned by the append.  If it was then push it on to the next plugin.
-		if (frame){
-			LOG4CXX_TRACE(logger_, "Pushing data frame.");
-			std::vector<dimsize_t> dims;
-			dims.push_back(LATRD::frame_size);
-			frame->set_dataset_name("frame");
-			frame->set_data_type(3);
-			frame->set_dimensions("frame", dims);
-			this->push(frame);
-		}
 	}
 }
 
@@ -187,9 +272,10 @@ bool LATRDProcessPlugin::processDataWord(uint64_t data_word,
 	//LOG4CXX_DEBUG(logger_, "Data Word: 0x" << std::hex << data_word);
 	if (isControlWord(data_word)){
 		if (getControlType(data_word) == ExtendedTimestamp){
-			//LOG4CXX_DEBUG(logger_, "Parsing extended timestamp control word [" << std::hex << data_word << "]");
+			LOG4CXX_DEBUG(logger_, "Parsing extended timestamp control word [" << std::hex << data_word << "]");
 			*previous_course_timestamp = *current_course_timestamp;
 			*current_course_timestamp = getCourseTimestamp(data_word);
+			LOG4CXX_DEBUG(logger_, "New extended timestamp [" << std::dec << *current_course_timestamp << "]");
 		}
 	} else {
 		*event_ts = getFullTimestmap(data_word, *previous_course_timestamp, *current_course_timestamp);
@@ -267,7 +353,7 @@ uint64_t LATRDProcessPlugin::getFullTimestmap(uint64_t data_word, uint64_t prev_
 		throw LATRDProcessingException("Data word is a control word, not an event");
     }
     fine_ts = getFineTimestamp(data_word);
-    if ((findTimestampMatch(course) == findTimestampMatch(fine_ts)) || (findTimestampMatch(course)+1 == (fine_ts))){
+    if ((findTimestampMatch(course) == findTimestampMatch(fine_ts)) || (findTimestampMatch(course)+1 == findTimestampMatch(fine_ts))){
         full_ts = (course & LATRD::timestamp_match_mask) + fine_ts;
     	//LOG4CXX_DEBUG(logger_, "Full timestamp generated 1");
     } else if ((findTimestampMatch(prev_course) == findTimestampMatch(fine_ts)) || (findTimestampMatch(prev_course)+1 == findTimestampMatch(fine_ts))){
