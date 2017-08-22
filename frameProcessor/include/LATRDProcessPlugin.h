@@ -12,13 +12,13 @@
 #include <log4cxx/basicconfigurator.h>
 #include <log4cxx/propertyconfigurator.h>
 #include <log4cxx/helpers/exception.h>
-#include <exception>
 using namespace log4cxx;
 using namespace log4cxx::helpers;
 
 #include "FrameProcessorPlugin.h"
 #include "WorkQueue.h"
 #include "LATRDDefinitions.h"
+#include "LATRDExceptions.h"
 #include "LATRDBuffer.h"
 #include "ClassLoader.h"
 
@@ -38,49 +38,27 @@ struct process_job_t
 	uint32_t *event_energy_ptr;
 };
 
-class LATRDProcessingException: public std::runtime_error
-{
-public:
-	LATRDProcessingException(const std::string& message) :
-		msg_(message),
-		std::runtime_error(message)
-	{
-
-	}
-
-	virtual ~LATRDProcessingException() throw()
-	{
-	}
-
-	virtual const char* what() const throw()
-	{
-		return msg_.c_str();
-	}
-
-private:
-	std::string msg_;
-};
-
-class LATRDTimestampMismatchException: public LATRDProcessingException
-{
-public:
-	LATRDTimestampMismatchException(const std::string& message) :
-		LATRDProcessingException(message)
-	{
-	}
-
-	virtual ~LATRDTimestampMismatchException() throw()
-	{
-	}
-};
-
 class LATRDProcessPlugin : public FrameProcessorPlugin
 {
 public:
 	LATRDProcessPlugin();
 	virtual ~LATRDProcessPlugin();
+	void configure(OdinData::IpcMessage& config, OdinData::IpcMessage& reply);
+	void configureProcess(OdinData::IpcMessage& config, OdinData::IpcMessage& reply);
 
 private:
+
+	/** Configuration constant for process related items */
+	static const std::string CONFIG_PROCESS;
+	/** Configuration constant for number of processes */
+	static const std::string CONFIG_PROCESS_NUMBER;
+	/** Configuration constant for this process rank */
+	static const std::string CONFIG_PROCESS_RANK;
+
+	/** Pointer to logger */
+	LoggerPtr logger_;
+	/** Mutex used to make this class thread safe */
+	boost::recursive_mutex mutex_;
 
 	/** Pointer to worker queue thread */
 	boost::thread *thread_[LATRD::number_of_processing_threads];
@@ -90,7 +68,12 @@ private:
 	boost::shared_ptr<WorkQueue<process_job_t> > resultsQueue_;
 
 	/** Pointer to LATRD buffer and frame manager */
-	boost::shared_ptr<LATRDBuffer> buffer_;
+	boost::shared_ptr<LATRDBuffer> timeStampBuffer_;
+	boost::shared_ptr<LATRDBuffer> idBuffer_;
+	boost::shared_ptr<LATRDBuffer> energyBuffer_;
+
+	size_t concurrent_processes_;
+	size_t concurrent_rank_;
 
 	void processFrame(boost::shared_ptr<Frame> frame);
 	void processTask();
@@ -110,9 +93,6 @@ private:
 	uint8_t findTimestampMatch(uint64_t time_stamp);
 	uint32_t get_packet_number(void *headerWord2) const;
 	uint16_t get_word_count(void *headerWord1) const;
-
-  /** Pointer to logger */
-  LoggerPtr logger_;
 };
 
 } /* namespace filewriter */
