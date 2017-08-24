@@ -17,6 +17,7 @@ class TimepixPacketSender(object):
         self._timestamp_course = 0
         self._timestamp_word = None
         self._timeslice_id = 1
+        self._timeslice_counter = 1
         self._packet_id = 0
         self._host = None
         self._port = None
@@ -70,7 +71,11 @@ class TimepixPacketSender(object):
                     self._packets.append(udp_packet)
                     #self.send_packet(udp_packet)
                     self._packet_id += 1
-                    udp_packet = TimepixPacket(self._packet_id)
+                    self._timeslice_counter += 1
+                    if self._timeslice_counter == 20:
+                        self._timeslice_counter = 1
+                        self._timeslice_id += 1
+                    udp_packet = TimepixPacket(self._packet_id, self._timeslice_id)
                     udp_packet.add_word(self._timestamp_word.raw)
                 if word.is_event:
                     self._count += 1
