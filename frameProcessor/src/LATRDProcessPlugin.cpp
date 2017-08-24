@@ -117,18 +117,21 @@ void LATRDProcessPlugin::processFrame(boost::shared_ptr<Frame> frame)
 
 	for (int index = 0; index < LATRD::num_primary_packets; index++){
 		if (hdrPtr->packet_state[index] == 0){
-			LOG4CXX_TRACE(logger_, "   Packet number: [Missing Packet]");
+			LOG4CXX_DEBUG(logger_, "   Packet number: [Missing Packet]");
 		} else {
-			packet_header.headerWord1 = be64toh(*(uint64_t *)payload_ptr);
-			packet_header.headerWord2 = be64toh(*(((uint64_t *)payload_ptr)+1));
+			packet_header.headerWord1 = *(uint64_t *)payload_ptr;
+			packet_header.headerWord2 = *(((uint64_t *)payload_ptr)+1);
+			LOG4CXX_DEBUG(logger_, "   Header Word 1: 0x" << std::hex << packet_header.headerWord1);
+			LOG4CXX_DEBUG(logger_, "   Header Word 2: 0x" << std::hex << packet_header.headerWord2);
 
 			// We need to decode how many values are in the packet
-			uint32_t packet_number = get_packet_number(&packet_header.headerWord2);
-			uint16_t word_count = get_word_count(&packet_header.headerWord1);
+			uint32_t packet_number = get_packet_number(packet_header.headerWord2);
+			uint16_t word_count = get_word_count(packet_header.headerWord1);
+			uint32_t time_slice = get_time_slice(packet_header.headerWord1);
 
-			LOG4CXX_TRACE(logger_, "   Packet number: " << packet_number);
-
-			LOG4CXX_TRACE(logger_, "   Word count: " << word_count);
+			LOG4CXX_DEBUG(logger_, "   Packet number: " << packet_number);
+			LOG4CXX_DEBUG(logger_, "   Word count: " << word_count);
+			LOG4CXX_DEBUG(logger_, "   Time Slice ID: " << time_slice);
 
 			uint16_t words_to_process = word_count - packet_header_count;
 			// Loop over words to process
@@ -373,24 +376,22 @@ uint8_t LATRDProcessPlugin::findTimestampMatch(uint64_t time_stamp)
     return (time_stamp >> 22) & 0x03;
 }
 
-uint32_t LATRDProcessPlugin::get_packet_number(void *headerWord2) const
+uint32_t LATRDProcessPlugin::get_packet_number(uint64_t headerWord2) const
 {
-	// Read the header word as bytes
-    uint8_t *hdr_ptr = (uint8_t *)headerWord2;
-
-	return (hdr_ptr[4] << 24)
-			+ (hdr_ptr[5] << 16)
-			+ (hdr_ptr[6] << 8)
-			+ hdr_ptr[7];
+    // Extract relevant bits to obtain the packet count
+	return headerWord2 & 0xFFFFFFFF;
 }
 
-uint16_t LATRDProcessPlugin::get_word_count(void *headerWord1) const
+uint16_t LATRDProcessPlugin::get_word_count(uint64_t headerWord1) const
 {
-	// Read the header word as bytes
-    uint8_t *hdr_ptr = (uint8_t *)headerWord1;
-
     // Extract relevant bits to obtain the word count
-    return ((hdr_ptr[6] & 0x07) << 8) + hdr_ptr[7];
+    return headerWord1 & 0x7FF;
+}
+
+uint32_t LATRDProcessPlugin::get_time_slice(uint64_t headerWord1) const
+{
+    // Extract relevant bits to obtain the time slice ID
+    return (headerWord1 & 0x3FFFFFFFC0000) >> 18;
 }
 
 

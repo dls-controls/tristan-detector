@@ -91,8 +91,9 @@ private:
 	uint32_t getPositionID(uint64_t data_word);
 	uint64_t getFullTimestmap(uint64_t data_word, uint64_t prev_course, uint64_t course);
 	uint8_t findTimestampMatch(uint64_t time_stamp);
-	uint32_t get_packet_number(void *headerWord2) const;
-	uint16_t get_word_count(void *headerWord1) const;
+	uint32_t get_packet_number(uint64_t headerWord2) const;
+	uint16_t get_word_count(uint64_t headerWord1) const;
+	uint32_t get_time_slice(uint64_t headerWord1) const;
 };
 
 } /* namespace filewriter */
