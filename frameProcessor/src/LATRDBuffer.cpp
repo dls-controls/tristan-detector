@@ -76,7 +76,7 @@ boost::shared_ptr<Frame> LATRDBuffer::appendData(void *data_ptr, size_t qty_pts)
 		// The buffer should now be full so create the frame and copy the buffer in
 	    LOG4CXX_DEBUG(logger_, "Creating a new frame for [" << frameName_ << "]");
 		frame = boost::shared_ptr<Frame>(new Frame(frameName_));
-	    LOG4CXX_DEBUG(logger_, "Copying data [" << numberOfPoints_ << "points] into " << frameName_);
+	    LOG4CXX_DEBUG(logger_, "Copying data [" << numberOfPoints_ << " points] into " << frameName_);
 		frame->copy_data(rawDataPtr_, numberOfPoints_ * dataSize_);
 		frame->set_frame_number(concurrent_rank_ + (frameNumber_ * concurrent_processes_));
 		frameNumber_++;
