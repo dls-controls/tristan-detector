@@ -15,11 +15,13 @@
 using namespace log4cxx;
 using namespace log4cxx::helpers;
 
+#include <stack>
 #include "FrameProcessorPlugin.h"
 #include "WorkQueue.h"
 #include "LATRDDefinitions.h"
 #include "LATRDExceptions.h"
 #include "LATRDBuffer.h"
+#include "LATRDProcessJob.h"
 #include "ClassLoader.h"
 
 namespace FrameProcessor
@@ -30,12 +32,17 @@ struct process_job_t
 {
 	uint32_t job_id;
 	uint16_t words_to_process;
+	uint32_t time_slice;
 	uint16_t valid_results;
+	uint16_t valid_control_words;
 	uint16_t timestamp_mismatches;
 	uint64_t *data_ptr;
 	uint64_t *event_ts_ptr;
 	uint32_t *event_id_ptr;
 	uint32_t *event_energy_ptr;
+	uint64_t *ctrl_ts_ptr;
+	uint8_t *ctrl_id_ptr;
+	uint32_t *ctrl_index_ptr;
 };
 
 class LATRDProcessPlugin : public FrameProcessorPlugin
@@ -45,6 +52,7 @@ public:
 	virtual ~LATRDProcessPlugin();
 	void configure(OdinData::IpcMessage& config, OdinData::IpcMessage& reply);
 	void configureProcess(OdinData::IpcMessage& config, OdinData::IpcMessage& reply);
+	void createMetaHeader();
 
 private:
 
@@ -64,25 +72,41 @@ private:
 	boost::thread *thread_[LATRD::number_of_processing_threads];
 
 	/** Pointers to job queues for processing packets and results notification */
-	boost::shared_ptr<WorkQueue<process_job_t> > jobQueue_;
-	boost::shared_ptr<WorkQueue<process_job_t> > resultsQueue_;
+	boost::shared_ptr<WorkQueue<boost::shared_ptr<LATRDProcessJob> > > jobQueue_;
+	boost::shared_ptr<WorkQueue<boost::shared_ptr<LATRDProcessJob> > > resultsQueue_;
+
+	/** Stack of processing job objects **/
+	std::stack<boost::shared_ptr<LATRDProcessJob> > jobStack_;
 
 	/** Pointer to LATRD buffer and frame manager */
 	boost::shared_ptr<LATRDBuffer> timeStampBuffer_;
 	boost::shared_ptr<LATRDBuffer> idBuffer_;
 	boost::shared_ptr<LATRDBuffer> energyBuffer_;
 
+    rapidjson::Document meta_document_;
+
 	size_t concurrent_processes_;
 	size_t concurrent_rank_;
 
+	/** Management of time slice information **/
+	uint64_t current_point_index_;
+	uint32_t current_time_slice_;
+
+	boost::shared_ptr<LATRDProcessJob> getJob();
+	void releaseJob(boost::shared_ptr<LATRDProcessJob> job);
+
 	void processFrame(boost::shared_ptr<Frame> frame);
 	void processTask();
+	void publishControlMetaData(boost::shared_ptr<LATRDProcessJob> job);
 	bool processDataWord(uint64_t data_word,
 			uint64_t *previous_course_timestamp,
 			uint64_t *current_course_timestamp,
 			uint64_t *event_ts,
 			uint32_t *event_id,
 			uint32_t *event_energy);
+	bool processControlWord(uint64_t data_word,
+			uint64_t *course_timestamp,
+			uint8_t *control_type);
 	bool isControlWord(uint64_t data_word);
 	LATRDDataControlType getControlType(uint64_t data_word);
 	uint64_t getCourseTimestamp(uint64_t data_word);
