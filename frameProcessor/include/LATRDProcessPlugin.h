@@ -28,23 +28,6 @@ namespace FrameProcessor
 {
 enum LATRDDataControlType {Unknown, HeaderWord0, HeaderWord1, ExtendedTimestamp};
 
-struct process_job_t
-{
-	uint32_t job_id;
-	uint16_t words_to_process;
-	uint32_t time_slice;
-	uint16_t valid_results;
-	uint16_t valid_control_words;
-	uint16_t timestamp_mismatches;
-	uint64_t *data_ptr;
-	uint64_t *event_ts_ptr;
-	uint32_t *event_id_ptr;
-	uint32_t *event_energy_ptr;
-	uint64_t *ctrl_ts_ptr;
-	uint8_t *ctrl_id_ptr;
-	uint32_t *ctrl_index_ptr;
-};
-
 class LATRDProcessPlugin : public FrameProcessorPlugin
 {
 public:
