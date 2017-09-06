@@ -30,8 +30,7 @@ public:
 	uint64_t *event_ts_ptr;
 	uint32_t *event_id_ptr;
 	uint32_t *event_energy_ptr;
-	uint64_t *ctrl_ts_ptr;
-	uint8_t *ctrl_id_ptr;
+	uint64_t *ctrl_word_ptr;
 	uint32_t *ctrl_index_ptr;
 };
 

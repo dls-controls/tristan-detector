@@ -87,9 +87,6 @@ private:
 			uint64_t *event_ts,
 			uint32_t *event_id,
 			uint32_t *event_energy);
-	bool processControlWord(uint64_t data_word,
-			uint64_t *course_timestamp,
-			uint8_t *control_type);
 	bool isControlWord(uint64_t data_word);
 	LATRDDataControlType getControlType(uint64_t data_word);
 	uint64_t getCourseTimestamp(uint64_t data_word);

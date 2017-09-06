@@ -289,8 +289,7 @@ void LATRDProcessPlugin::processTask()
 		uint64_t *event_ts_ptr = job->event_ts_ptr;
 		uint32_t *event_id_ptr = job->event_id_ptr;
 		uint32_t *event_energy_ptr = job->event_energy_ptr;
-		uint64_t *ctrl_ts_ptr = job->ctrl_ts_ptr;
-		uint8_t *ctrl_id_ptr = job->ctrl_id_ptr;
+		uint64_t *ctrl_word_ptr = job->ctrl_word_ptr;
 		uint32_t *ctrl_index_ptr = job->ctrl_index_ptr;
 		// Verify the first word is an extended timestamp word
 		if (getControlType(*data_word_ptr) != ExtendedTimestamp){
@@ -310,19 +309,18 @@ void LATRDProcessPlugin::processTask()
 					event_id_ptr++;
 					event_energy_ptr++;
 					job->valid_results++;
-				} else if (processControlWord(*data_word_ptr,
-						ctrl_ts_ptr,
-						ctrl_id_ptr)){
+				} else if (isControlWord(*data_word_ptr)){
+					// Set the control word value
+					*ctrl_word_ptr = *data_word_ptr;
 					// Set the index value for the control word
 					*ctrl_index_ptr = job->valid_results;
+					//
+				    LOG4CXX_DEBUG(logger_, "Control word processed: [" << *ctrl_word_ptr
+				    		<< "] index [" << *ctrl_index_ptr << "]");
 					// Increment the control pointers and the valid result count
-					ctrl_ts_ptr++;
-					ctrl_id_ptr++;
+					ctrl_word_ptr++;
 					ctrl_index_ptr++;
 					job->valid_control_words++;
-				    LOG4CXX_DEBUG(logger_, "Control word processed: ID [" << *ctrl_id_ptr
-				    		<< "] timestamp [" << *ctrl_ts_ptr
-				    		<< "] index [" << *ctrl_index_ptr << "]");
 				    LOG4CXX_DEBUG(logger_, "Valid control words [" << job->valid_control_words << "]");
 				}
 			}
@@ -351,8 +349,7 @@ void LATRDProcessPlugin::publishControlMetaData(boost::shared_ptr<LATRDProcessJo
 		// Loop over the number of control words
 		for (uint16_t index = 0; index < job->valid_control_words; index++){
 			// For each control word publish the appropriate meta data
-			publishMeta("control_word_ts", job->ctrl_ts_ptr[index], buffer.GetString());
-			publishMeta("control_word_type", job->ctrl_id_ptr[index], buffer.GetString());
+			publishMeta("control_word", job->ctrl_word_ptr[index], buffer.GetString());
 			publishMeta("control_word_index", job->ctrl_index_ptr[index]+current_point_index_, buffer.GetString());
 		}
 	}
@@ -381,22 +378,6 @@ bool LATRDProcessPlugin::processDataWord(uint64_t data_word,
 		event_word = true;
 	}
 	return event_word;
-}
-
-bool LATRDProcessPlugin::processControlWord(uint64_t data_word,
-		uint64_t *course_timestamp,
-		uint8_t *control_type)
-{
-	bool control_word = false;
-	if (isControlWord(data_word)){
-		if (getControlType(data_word) != ExtendedTimestamp){
-			LOG4CXX_DEBUG(logger_, "Processing control word [" << std::hex << data_word << "]");
-			*course_timestamp = getCourseTimestamp(data_word);
-			*control_type = (data_word >> 58) & LATRD::control_word_id_mask;
-			control_word = true;
-		}
-	}
-	return control_word;
 }
 
 bool LATRDProcessPlugin::isControlWord(uint64_t data_word)

@@ -22,8 +22,7 @@ LATRDProcessJob::LATRDProcessJob(size_t size) :
 	event_ts_ptr = (uint64_t *)malloc(size * sizeof(uint64_t));
 	event_id_ptr = (uint32_t *)malloc(size * sizeof(uint32_t));
 	event_energy_ptr = (uint32_t *)malloc(size * sizeof(uint32_t));
-	ctrl_ts_ptr = (uint64_t *)malloc(size * sizeof(uint64_t));
-	ctrl_id_ptr = (uint8_t *)malloc(size * sizeof(uint8_t));
+	ctrl_word_ptr = (uint64_t *)malloc(size * sizeof(uint64_t));
 	ctrl_index_ptr = (uint32_t *)malloc(size * sizeof(uint32_t));
 }
 
@@ -39,11 +38,8 @@ LATRDProcessJob::~LATRDProcessJob()
 	if (event_energy_ptr){
 		free(event_energy_ptr);
 	}
-	if (ctrl_ts_ptr){
-		free(ctrl_ts_ptr);
-	}
-	if (ctrl_id_ptr){
-		free(ctrl_id_ptr);
+	if (ctrl_word_ptr){
+		free(ctrl_word_ptr);
 	}
 	if (ctrl_index_ptr){
 		free(ctrl_index_ptr);
