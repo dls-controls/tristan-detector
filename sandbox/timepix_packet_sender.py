@@ -88,6 +88,10 @@ class TimepixPacketSender(object):
             if self._count == samples:
                 eof = True
 
+        counter = 0
         for packet in self._packets:
             self.send_packet(packet)
-            time.sleep(0.02)
+            counter += 1
+            if counter == 10:
+                time.sleep(0.01)
+                counter = 0
