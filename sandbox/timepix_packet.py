@@ -2,10 +2,10 @@ import numpy as np
 
 class TimepixPacket(object):
 
-    def __init__(self, packet_number):
+    def __init__(self, packet_number=1, time_slice_id=1):
         self._size_of_packet = 1024
         self._producer_id = 1
-        self._time_slice_id = 1
+        self._time_slice_id = time_slice_id
         self._packet_number = packet_number
         self._word_count = 0
         self._header1 = 0
@@ -23,7 +23,7 @@ class TimepixPacket(object):
         header |= (self._word_count+2)
         self._header1 = header
         header = 0xE400000000000000
-        header |= (self._packet_number << 26)
+        header |= (self._packet_number)
         self._header2 = header
 
     @property

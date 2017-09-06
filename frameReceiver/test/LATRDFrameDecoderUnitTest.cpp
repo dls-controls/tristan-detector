@@ -10,11 +10,11 @@
 #include <boost/shared_ptr.hpp>
 #include <iostream>
 #include <log4cxx/logger.h>
-#include <log4cxx/consoleappender.h>
-#include <log4cxx/basicconfigurator.h>
-#include <log4cxx/simplelayout.h>
+#include <DebugLevelLogger.h>
 
 #include "LATRDFrameDecoder.h"
+
+IMPLEMENT_DEBUG_LEVEL
 
 class FrameDecoderTestFixture
 {

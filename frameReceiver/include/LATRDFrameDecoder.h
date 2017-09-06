@@ -8,7 +8,7 @@
 #ifndef SRC_LATRDFRAMEDECODER_H_
 #define SRC_LATRDFRAMEDECODER_H_
 
-#include "FrameDecoder.h"
+#include "FrameDecoderUDP.h"
 #include "LATRDDefinitions.h"
 #include "gettime.h"
 #include <stdint.h>
@@ -23,7 +23,7 @@
 namespace FrameReceiver
 {
 
-class LATRDFrameDecoder : public FrameDecoder
+class LATRDFrameDecoder : public FrameDecoderUDP
 {
 public:
 	LATRDFrameDecoder();
@@ -46,6 +46,7 @@ public:
 
     uint32_t get_frame_number(void) const;
     uint32_t get_packet_number(void) const;
+    uint32_t get_frame_packet_number(void) const;
     uint8_t get_producer_ID(void) const;
     uint32_t get_time_slice(void) const;
     uint16_t get_word_count(void) const;
