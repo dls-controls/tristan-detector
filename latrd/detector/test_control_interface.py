@@ -82,6 +82,14 @@ def main():
     reply = LATRDMessage.parse_json(ctrl_channel.recv())
     log.debug("Reply: %s", reply)
 
+    log.debug("*** Error test, send a PUT with bad exposure time")
+    msg = PutMessage()
+    msg.set_param('Config', {'Exposure': 'BadValue'})
+    log.debug("Sending message: %s", msg)
+    ctrl_channel.send(msg)
+    reply = LATRDMessage.parse_json(ctrl_channel.recv())
+    log.debug("Reply: %s", reply)
+
 if __name__ == '__main__':
     main()
 
