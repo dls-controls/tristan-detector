@@ -81,7 +81,7 @@ setup(
     entry_points={
         'console_scripts': [
             'latrd-simulator=latrd.control_simulator:main',
-            'test-control-interface=latrd.test_control_interface:main',
+            'test-control-interface=latrd.detector.test_control_interface:main',
         ],
     },
 )
