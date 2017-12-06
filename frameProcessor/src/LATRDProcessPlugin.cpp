@@ -9,6 +9,8 @@
 
 namespace FrameProcessor
 {
+const std::string LATRDProcessPlugin::META_NAME                  = "TristanProcessor";
+
 const std::string LATRDProcessPlugin::CONFIG_PROCESS             = "process";
 const std::string LATRDProcessPlugin::CONFIG_PROCESS_NUMBER      = "number";
 const std::string LATRDProcessPlugin::CONFIG_PROCESS_RANK        = "rank";
@@ -148,7 +150,7 @@ void LATRDProcessPlugin::releaseJob(boost::shared_ptr<LATRDProcessJob> job)
 	jobStack_.push(job);
 }
 
-void LATRDProcessPlugin::processFrame(boost::shared_ptr<Frame> frame)
+void LATRDProcessPlugin::process_frame(boost::shared_ptr<Frame> frame)
 {
 	LATRD::PacketHeader packet_header;
 	boost::shared_ptr<Frame> processedFrame;
@@ -220,8 +222,8 @@ void LATRDProcessPlugin::processFrame(boost::shared_ptr<Frame> frame)
 			rapidjson::StringBuffer buffer;
 			rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
 			meta_document_.Accept(writer);
-			publishMeta("time_slice_ts", job->event_ts_ptr[0], buffer.GetString());
-			publishMeta("time_slice_index", current_point_index_, buffer.GetString());
+			publish_meta(META_NAME, "time_slice_ts", job->event_ts_ptr[0], buffer.GetString());
+			publish_meta(META_NAME, "time_slice_index", current_point_index_, buffer.GetString());
 
 			current_time_slice_ = job->time_slice;
 		}
@@ -349,8 +351,8 @@ void LATRDProcessPlugin::publishControlMetaData(boost::shared_ptr<LATRDProcessJo
 		// Loop over the number of control words
 		for (uint16_t index = 0; index < job->valid_control_words; index++){
 			// For each control word publish the appropriate meta data
-			publishMeta("control_word", job->ctrl_word_ptr[index], buffer.GetString());
-			publishMeta("control_word_index", job->ctrl_index_ptr[index]+current_point_index_, buffer.GetString());
+			publish_meta(META_NAME, "control_word", job->ctrl_word_ptr[index], buffer.GetString());
+			publish_meta(META_NAME, "control_word_index", job->ctrl_index_ptr[index]+current_point_index_, buffer.GetString());
 		}
 	}
 }

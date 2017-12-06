@@ -39,6 +39,9 @@ public:
 
 private:
 
+	/** Constant for this decoders name when publishing meta data */
+	static const std::string META_NAME;
+
 	/** Configuration constant for process related items */
 	static const std::string CONFIG_PROCESS;
 	/** Configuration constant for number of processes */
@@ -78,7 +81,7 @@ private:
 	boost::shared_ptr<LATRDProcessJob> getJob();
 	void releaseJob(boost::shared_ptr<LATRDProcessJob> job);
 
-	void processFrame(boost::shared_ptr<Frame> frame);
+	void process_frame(boost::shared_ptr<Frame> frame);
 	void processTask();
 	void publishControlMetaData(boost::shared_ptr<LATRDProcessJob> job);
 	bool processDataWord(uint64_t data_word,
