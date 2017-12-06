@@ -6,7 +6,7 @@ Created on 1st November 2017
 import json
 import logging
 from latrd_channel import LATRDChannel
-from latrd_message import LATRDMessage, GetMessage, PutMessage
+from latrd_message import LATRDMessage, GetMessage, PutMessage, PostMessage
 from odin.adapters.adapter import ApiAdapter, ApiAdapterResponse, request_types, response_types
 from tornado import escape
 from tornado.ioloop import IOLoop
@@ -177,6 +177,19 @@ class TristanControlAdapter(ApiAdapter):
 
         request_command = path.strip('/')
         config_items = request_command.split('/')
+        # Check to see if this is a command
+        if 'command' in config_items[0]:
+            logging.debug("Command message: %s", config_items[1])
+            msg = PostMessage()
+            msg.set_param('Command', config_items[1])
+            logging.debug("Sending message: %s", msg)
+            self._detector.send(msg)
+            pollevts = self._detector.poll(TristanControlAdapter.DETECTOR_TIMEOUT)
+            reply = None
+            if pollevts == LATRDChannel.POLLIN:
+                reply = LATRDMessage.parse_json(self._detector.recv())
+            logging.debug("Reply: %s", reply)
+
         # Verify that config[0] is a config item
         if 'config' in config_items[0]:
             value_dict = {}
@@ -199,46 +212,6 @@ class TristanControlAdapter(ApiAdapter):
             if pollevts == LATRDChannel.POLLIN:
                 reply = LATRDMessage.parse_json(self._detector.recv())
             logging.debug("Reply: %s", reply)
-
-
-        #parameters = json.loads(str(escape.url_unescape(request.body)))
-
-        # Check if the parameters object is a list
-        # if isinstance(parameters, list):
-        #     logging.debug("List of parameters provided: %s", parameters)
-        #     # Check the length of the list matches the number of clients
-        #     if len(parameters) != len(self._clients):
-        #         status_code = 503
-        #         response['error'] = TristanControlAdapter.ERROR_PUT_MISMATCH
-        #     else:
-        #         # Loop over the clients and parameters, sending each one
-        #         for client, param_set in zip(self._clients, parameters):
-        #             if param_set:
-        #                 try:
-        #                     response = client.send_configuration(param_set, request_command)[1]
-        #                     if not response:
-        #                         logging.debug(TristanControlAdapter.ERROR_NO_RESPONSE)
-        #                         status_code = 503
-        #                         response['error'] = TristanControlAdapter.ERROR_NO_RESPONSE
-        #                 except:
-        #                     logging.debug(TristanControlAdapter.ERROR_FAILED_TO_SEND)
-        #                     status_code = 503
-        #                     response['error'] = TristanControlAdapter.ERROR_FAILED_TO_SEND
-        #
-        # else:
-        #     logging.debug("Single parameter set provided: %s", parameters)
-        #     for client in self._clients:
-        #         try:
-        #             response = client.send_configuration(parameters, request_command)[1]
-        #             if not response:
-        #                 logging.debug(TristanControlAdapter.ERROR_NO_RESPONSE)
-        #                 status_code = 503
-        #                 response['error'] = TristanControlAdapter.ERROR_NO_RESPONSE
-        #         except:
-        #             logging.debug(TristanControlAdapter.ERROR_FAILED_TO_SEND)
-        #             status_code = 503
-        #             response['error'] = TristanControlAdapter.ERROR_FAILED_TO_SEND
-
 
         return ApiAdapterResponse(response, status_code=status_code)
 
@@ -266,70 +239,96 @@ class TristanControlAdapter(ApiAdapter):
         and preparing the JSON encoded reply in a format that can be easily parsed.
         """
 
-        logging.debug("Updating status from detector...")
-        # Update server uptime
-        self._kwargs['up_time'] = str(datetime.now() - self._start_time)
+        try:
+            logging.debug("Updating status from detector...")
+            # Update server uptime
+            self._kwargs['up_time'] = str(datetime.now() - self._start_time)
 
-        status_dict = {}
-        for item in TristanControlAdapter.STATUS_ITEM_LIST:
-            status_dict[item] = None
-        msg = GetMessage()
-        msg.set_param('Config', status_dict)
-        self._detector.send(msg)
-        pollevts = self._detector.poll(TristanControlAdapter.DETECTOR_TIMEOUT)
+            status_dict = {}
+            for item in TristanControlAdapter.STATUS_ITEM_LIST:
+                status_dict[item] = None
+            msg = GetMessage()
+            msg.set_param('Config', status_dict)
+            logging.debug("Message Request: %s", msg)
+            self._detector.send(msg)
 
-        reply = None
-        if pollevts == LATRDChannel.POLLIN:
-            reply = LATRDMessage.parse_json(self._detector.recv())
+            pollevts = self._detector.poll(TristanControlAdapter.DETECTOR_TIMEOUT)
+            reply = None
+            if pollevts == LATRDChannel.POLLIN:
+                reply = LATRDMessage.parse_json(self._detector.recv())
 
-        if reply:
-            logging.debug("Raw reply: %s", reply)
-            if LATRDMessage.MSG_TYPE_RESPONSE in reply.msg_type:
-                data = reply.data
-                self._parameters['status'] = data['Config']
-                self._parameters['status']['Connected'] = True
-                if self._firmware == self._parameters['status']['Software_Version']:
-                    self._parameters['status']['Version_Check'] = True
-                else:
-                    self._parameters['status']['Version_Check'] = False
-        else:
-            self._parameters['status']['Connected'] = False
-            self._parameters['status']['Version_Check'] = False
+            while reply and reply.msg_id != msg.msg_id:
+                pollevts = self._detector.poll(TristanControlAdapter.DETECTOR_TIMEOUT)
+                reply = None
+                if pollevts == LATRDChannel.POLLIN:
+                    reply = LATRDMessage.parse_json(self._detector.recv())
 
-        config_dict = {}
-        for item in TristanControlAdapter.CONFIG_ITEM_LIST:
-            config_dict[item] = None
-        msg = GetMessage()
-        msg.set_param('Config', config_dict)
-        self._detector.send(msg)
-        pollevts = self._detector.poll(TristanControlAdapter.DETECTOR_TIMEOUT)
+            if reply:
+                logging.debug("Raw reply: %s", reply)
+                if LATRDMessage.MSG_TYPE_RESPONSE in reply.msg_type:
+                    data = reply.data
+                    self._parameters['status'] = data['Config']
+                    self._parameters['status']['Connected'] = True
+                    if self._firmware == self._parameters['status']['Software_Version']:
+                        self._parameters['status']['Version_Check'] = True
+                    else:
+                        self._parameters['status']['Version_Check'] = False
+            else:
+                self._parameters['status']['Connected'] = False
+                self._parameters['status']['Version_Check'] = False
 
-        reply = None
-        if pollevts == LATRDChannel.POLLIN:
-            reply = LATRDMessage.parse_json(self._detector.recv())
+            # Detector status message
+            msg = GetMessage()
+            msg.set_param('Status', None)
+            logging.debug("Message Request: %s", msg)
+            self._detector.send(msg)
 
-        if reply:
-            logging.debug("Raw reply: %s", reply)
-            if LATRDMessage.MSG_TYPE_RESPONSE in reply.msg_type:
-                data = reply.data
-                self._parameters['config'] = data['Config']
+            pollevts = self._detector.poll(TristanControlAdapter.DETECTOR_TIMEOUT)
+            reply = None
+            if pollevts == LATRDChannel.POLLIN:
+                reply = LATRDMessage.parse_json(self._detector.recv())
 
-        logging.debug("Status items: %s", self._parameters)
+            while reply and reply.msg_id != msg.msg_id:
+                pollevts = self._detector.poll(TristanControlAdapter.DETECTOR_TIMEOUT)
+                reply = None
+                if pollevts == LATRDChannel.POLLIN:
+                    reply = LATRDMessage.parse_json(self._detector.recv())
 
-            # Handle background tasks
-#        self._status = []
-#        for client in self._clients:
-#            try:
-#                response = client.send_request('status')
-#                if response:
-#                    if 'ack' in response['msg_type']:
-#                        param_set = response['params']
-#                        param_set['connected'] = True
-#                        self._status.append(response['params'])
-#            except:
-#                # Any failure to read from FrameProcessor, results in empty status
-#                self._status.append({'connected': False})
-#        logging.debug("Status updated to: %s", self._status)
+            if reply:
+                logging.debug("Raw reply: %s", reply)
+                if LATRDMessage.MSG_TYPE_RESPONSE in reply.msg_type:
+                    data = reply.data
+                    self._parameters['status']['State'] = data['Status']
+
+            config_dict = {}
+            for item in TristanControlAdapter.CONFIG_ITEM_LIST:
+                config_dict[item] = None
+            msg = GetMessage()
+            msg.set_param('Config', config_dict)
+            logging.debug("Message Request: %s", msg)
+            self._detector.send(msg)
+
+            pollevts = self._detector.poll(TristanControlAdapter.DETECTOR_TIMEOUT)
+            reply = None
+            if pollevts == LATRDChannel.POLLIN:
+                reply = LATRDMessage.parse_json(self._detector.recv())
+
+            while reply and reply.msg_id != msg.msg_id:
+                pollevts = self._detector.poll(TristanControlAdapter.DETECTOR_TIMEOUT)
+                reply = None
+                if pollevts == LATRDChannel.POLLIN:
+                    reply = LATRDMessage.parse_json(self._detector.recv())
+
+            if reply:
+                logging.debug("Raw reply: %s", reply)
+                if LATRDMessage.MSG_TYPE_RESPONSE in reply.msg_type:
+                    data = reply.data
+                    self._parameters['config'] = data['Config']
+
+            logging.debug("Status items: %s", self._parameters)
+
+        except:
+            pass
 
         # Schedule the update loop to run in the IOLoop instance again after appropriate interval
         IOLoop.instance().call_later(self._update_interval, self.update_loop)
