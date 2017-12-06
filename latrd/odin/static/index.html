@@ -65,13 +65,13 @@
 							<div class="col-xs-2">Detector Connection:</div>
 							<div class="col-xs-5 status vertical-align">
 								<table>
-									<tr><td>Username:</td><td align="center" id="detector-hw-username"></td></tr>
+									<tr><td width="180px">Username:</td><td width="200px" align="center" id="detector-hw-username"></td></tr>
 									<tr><td>Start Time:</td><td align="center" id="detector-hw-start-time"></td></tr>
 									<tr><td>Up Time:</td><td align="center" id="detector-hw-up-time"></td></tr>
 									<tr><td>Endpoint:</td><td align="center" id="detector-hw-endpoint"></td></tr>
 									<tr><td>Connected:</td><td align="center" id="detector-hw-connected"></td></tr>
 									<tr><td>Description:</td><td align="center" id="detector-hw-description"></td></tr>
-									<tr><td>Firmware Version:</td><td align="center" id="detector-hw-version"></td><td align="center" id="detector-hw-version-good"></td></tr>
+									<tr><td>Firmware Version:</td><td align="center"><div id="detector-hw-version"></div><div id="detector-hw-version-good"></div></td></tr>
 									<tr><td>Exposure:</td><td align="center" id="detector-hw-exposure"></td><td><span><input type="text" id="set-hw-exposure"></input></span></td></tr>
 									<tr><td>Frames:</td><td align="center" id="detector-hw-frames"></td><td><span><input type="text" id="set-hw-frames"></input></span></td></tr>
 									<tr><td>Frames Per Trigger:</td><td align="center" id="detector-hw-frames-per-trigger"></td><td><span><input type="text" id="set-hw-frames-per-trigger"></input></span></td></tr>
@@ -87,6 +87,29 @@
 										<option>User</option>
 										<option>Current</option>
 									</select></td></tr>
+									<tr><td>Command:</td><td align="center" id="detector-hw-state"></td><td>
+										<span><button id="detector-arm-cmd">Arm</button></span>
+										<span><button id="detector-run-cmd">Run</button></span>
+										<span><button id="detector-stop-cmd">Stop</button></span>
+										<span><button id="detector-abort-cmd">Abort</button></span>
+									</td></tr>
+								</table>
+							</div>
+						</div>
+						<div class="row sidebar-row vertical-align">
+							<div class="col-xs-2">&nbsp;</div>
+						</div>
+						<div class="row sidebar-row vertical-align">
+							<div class="col-xs-2">DAQ Connection:</div>
+							<div class="col-xs-5 status vertical-align">
+								<table>
+									<tr><td width="180px" colspan="2">Connected:</td><td width="200px" align="center" id="fp-connected"></td>
+										<td colspan="2"><span><button id="fp-config-cmd">Initialise DAQ</button></span></td></tr>
+									<tr><td>HDF Plugin:</td><td>Writing</td><td align="center" id="fp-hdf-writing"></td></tr>
+									<tr><td></td><td>File</td><td align="center" id="fp-hdf-file-path"></td><td>File Path:</td><td><span><input type="text" id="set-fp-path"></input></span></td></tr>
+									<tr><td></td><td>Acquisition ID</td><td align="center" id="fp-hdf-acq-id"></td><td>File Name:</td><td><span><input type="text" id="set-fp-filename"></input></span></td></tr>
+									<tr><td></td><td>Processes</td><td align="center" id="fp-hdf-processes"></td><td colspan="2"><span><button id="fp-start-cmd">Start</button></span><span><button id="fp-stop-cmd">Stop</button></span></td></tr>
+									<tr><td></td><td>Rank</td><td align="center" id="fp-hdf-rank"></td></tr>
 								</table>
 							</div>
 						</div>
