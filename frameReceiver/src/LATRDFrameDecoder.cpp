@@ -24,9 +24,9 @@ LATRDFrameDecoder::LATRDFrameDecoder() :
     dropped_frame_buffer_.reset(new uint8_t[LATRD::total_frame_size]);
 }
 
-void LATRDFrameDecoder::init(LoggerPtr& logger, bool enable_packet_logging, unsigned int frame_timeout_ms)
+void LATRDFrameDecoder::init(LoggerPtr& logger, OdinData::IpcMessage& config_msg)
 {
-	FrameDecoder::init(logger, enable_packet_logging, frame_timeout_ms);
+	FrameDecoder::init(logger, config_msg);
 
     if (enable_packet_logging_) {
         LOG4CXX_INFO(packet_logger_, "PktHdr: SourceAddress");
@@ -254,10 +254,10 @@ void LATRDFrameDecoder::monitor_buffers(void)
     gettime(&current_time);
 
     // Loop over frame buffers currently in map and check their state
-    std::map<uint32_t, int>::iterator buffer_map_iter = frame_buffer_map_.begin();
+    std::map<int, int>::iterator buffer_map_iter = frame_buffer_map_.begin();
     while (buffer_map_iter != frame_buffer_map_.end())
     {
-        uint32_t frame_num = buffer_map_iter->first;
+        int      frame_num = buffer_map_iter->first;
         int      buffer_id = buffer_map_iter->second;
         void*    buffer_addr = buffer_manager_->get_buffer_address(buffer_id);
         LATRD::FrameHeader* frame_header = reinterpret_cast<LATRD::FrameHeader*>(buffer_addr);
