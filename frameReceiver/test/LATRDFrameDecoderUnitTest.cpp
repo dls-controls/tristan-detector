@@ -32,7 +32,8 @@ BOOST_FIXTURE_TEST_SUITE(LATRDFrameDecoderUnitTest, FrameDecoderTestFixture);
 BOOST_AUTO_TEST_CASE( LATRDDecoderLibraryTest )
 {
     boost::shared_ptr<FrameReceiver::LATRDFrameDecoder> decoder(new FrameReceiver::LATRDFrameDecoder());
-    BOOST_CHECK_NO_THROW(decoder->init(logger));
+    OdinData::IpcMessage config_msg;
+    BOOST_CHECK_NO_THROW(decoder->init(logger, config_msg));
 
     // Verify the size of a LATRD buffer is 10*1024+40.
     // That is 10 packets of 1024 bytes plus a header of 40 bytes
