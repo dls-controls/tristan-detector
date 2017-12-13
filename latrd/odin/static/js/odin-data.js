@@ -30,12 +30,28 @@ $.put = function(url, data, callback, type)
   });
 }
 
+function render(url)
+{
+  // This function decides what type of page to show
+  // depending on the current url hash value.
+  // Get the keyword from the url.
+  var temp = "." + url.split('/')[1];
+  // Hide whatever page is currently shown.
+  $(".page").hide();
+
+  // Show the new page
+  $(temp).show();
+  odin_data.current_page = temp;
+
+}
+
 
 $( document ).ready(function() 
 {
   $("#fp-tabs").tabs();
   update_api_version();
   update_api_adapters();
+  render(decodeURI(window.location.hash));
 
   setInterval(update_api_version, 5000);
   setInterval(update_detector_status, 1000);
@@ -75,6 +91,14 @@ $( document ).ready(function()
 
   $('#detector-abort-cmd').click(function(){
     ctrl_command('Abort');
+  });
+
+  $('#detector-config-put-cmd').click(function(){
+    detector_json_put_command();
+  });
+
+  $('#detector-config-get-cmd').click(function(){
+    detector_json_get_command();
   });
 
   $('#fp-config-cmd').click(function(){
@@ -127,6 +151,54 @@ function update_profile() {
 
 function ctrl_command(command) {
     $.put('/api/' + odin_data.api_version + '/ctrl/command/' + command, process_cmd_response);
+}
+
+function detector_json_put_command()
+{
+    try
+    {
+        value = JSON.stringify(JSON.parse($('#engineering-cmd').val()));
+        $.ajax({
+            url: '/api/' + odin_data.api_version + '/ctrl/engineering_put',
+            type: 'PUT',
+            dataType: 'json',
+            data: value,
+            headers: {'Content-Type': 'application/json',
+                      'Accept': 'application/json'},
+            success: function(response){
+                $('#engineering-rsp').val(JSON.stringify(JSON.parse(response['reply'])));
+            },
+            async: false
+        });
+    }
+    catch(err)
+    {
+        alert("Failed to submit JSON PUT command.\nError: " + err.message);
+    }
+}
+
+function detector_json_get_command()
+{
+    try
+    {
+        value = JSON.stringify(JSON.parse($('#engineering-cmd').val()));
+        $.ajax({
+            url: '/api/' + odin_data.api_version + '/ctrl/engineering_get',
+            type: 'PUT',
+            dataType: 'json',
+            data: value,
+            headers: {'Content-Type': 'application/json',
+                      'Accept': 'application/json'},
+            success: function(response){
+                $('#engineering-rsp').val(JSON.stringify(JSON.parse(response['reply'])));
+            },
+            async: false
+        });
+    }
+    catch(err)
+    {
+        alert("Failed to submit JSON GET command.\nError: " + err.message);
+    }
 }
 
 function send_fp_command(command, params)

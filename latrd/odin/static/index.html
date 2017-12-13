@@ -33,6 +33,10 @@
                         class="glyphicon glyphicon-home"></span> <strong>Home</strong><span
                         class="label"></span></a></li>
 
+                <li class="home"><a href="#/engineering-view"> <span
+                        class="glyphicon glyphicon-home"></span> <strong>Engineering</strong><span
+                        class="label"></span></a></li>
+
             </ul>
         </div>
       </div>
@@ -117,6 +121,43 @@
 				</div> <!--  well sidebar-nav-fixed -->
 			</div> <!-- span3 -->
 		</div> <!-- row fluid-row -->	
+	</div> <!--  container-fluid -->
+<!-- HOME PAGE -->
+	<div class="container-fluid engineering-view page">
+		<div class="row fluid-row">
+			<div class="span3">
+				<div class="well sidebar-nav-fixed">
+					<div class="container-fluid">
+						<div class="row sidebar-title">
+							<h3>Engineering Command</h3>
+						</div>
+						<div class="row sidebar-row vertical-align">
+							<div class="col-xs-2">&nbsp;</div>
+						</div>
+						<div class="row sidebar-row vertical-align">
+							<div class="col-xs-2">Detector Command:</div>
+							<div class="col-xs-5 status vertical-align">
+								<textarea rows="15" cols="80" id="engineering-cmd"></textarea>
+								<span><button id="detector-config-put-cmd">Submit PUT</button></span>
+								<span><button id="detector-config-get-cmd">Submit GET</button></span>
+							</div>
+						</div>
+						<div class="row sidebar-row vertical-align">
+							<div class="col-xs-2">&nbsp;</div>
+						</div>
+						<div class="row sidebar-row vertical-align">
+							<div class="col-xs-2">Detector Response:</div>
+							<div class="col-xs-5 status vertical-align">
+								<textarea readonly rows="15" cols="80" id="engineering-rsp"></textarea>
+							</div>
+						</div>
+						<div class="row sidebar-row vertical-align">
+							<div class="col-xs-2">&nbsp;</div>
+						</div>
+					</div> <!-- container-fluid -->
+				</div> <!--  well sidebar-nav-fixed -->
+			</div> <!-- span3 -->
+		</div> <!-- row fluid-row -->
 	</div> <!--  container-fluid -->
 
     <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
