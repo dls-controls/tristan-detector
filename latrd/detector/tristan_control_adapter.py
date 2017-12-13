@@ -190,6 +190,27 @@ class TristanControlAdapter(ApiAdapter):
                 reply = LATRDMessage.parse_json(self._detector.recv())
             logging.debug("Reply: %s", reply)
 
+        if 'engineering' in config_items[0]:
+            # This is a special command that allows an arbitrary JSON object to be sent to the hardware
+            # The JSON object must be encoded into the body of the PUT request
+            logging.debug("PUT request.body: %s", str(escape.url_unescape(request.body)))
+            value_dict = json.loads(str(escape.url_unescape(request.body)))
+            logging.debug("Config dict: %s", value_dict)
+            msg = GetMessage()
+            if 'engineering_put' in config_items[0]:
+                msg = PutMessage()
+            if 'engineering_get' in config_items[0]:
+                msg = GetMessage()
+            msg.set_param('Config', value_dict)
+            logging.debug("Sending message: %s", msg)
+            self._detector.send(msg)
+            pollevts = self._detector.poll(TristanControlAdapter.DETECTOR_TIMEOUT)
+            reply = None
+            if pollevts == LATRDChannel.POLLIN:
+                reply = LATRDMessage.parse_json(self._detector.recv())
+            logging.debug("Reply: %s", reply)
+            response['reply'] = str(reply)
+
         # Verify that config[0] is a config item
         if 'config' in config_items[0]:
             value_dict = {}
