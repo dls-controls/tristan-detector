@@ -81,14 +81,23 @@ find_library(ODINDATA_LIBRARY
 )
 
 find_library(FRAMEPROCESSOR_LIBRARY
-	NAMES
-		FrameProcessor
-	PATHS
-		${ODINDATA_ROOT_DIR}/lib
-		${PC_ODINDATA_LIBDIR}
-		${PC_ODINDATA_LIBRARY_DIRS}
+    NAMES
+        FrameProcessor
+    PATHS
+        ${ODINDATA_ROOT_DIR}/lib
+        ${PC_ODINDATA_LIBDIR}
+        ${PC_ODINDATA_LIBRARY_DIRS}
 )
-			 
+             
+find_library(FRAMERECEIVER_LIBRARY
+    NAMES
+        FrameReceiver
+    PATHS
+        ${ODINDATA_ROOT_DIR}/lib
+        ${PC_ODINDATA_LIBDIR}
+        ${PC_ODINDATA_LIBRARY_DIRS}
+)
+             
 include(FindPackageHandleStandardArgs)
 
 # handle the QUIETLY and REQUIRED arguments and set ODINDATA_FOUND to TRUE
