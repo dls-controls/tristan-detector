@@ -74,9 +74,14 @@ void LATRDFrameDecoder::process_packet_header(size_t bytes_received, int port, s
 {
     //TODO validate header size and content, handle incoming new packet buffer allocation etc
 
-    // Convert both header 64bit values to host endian
-	current_packet_header_.headerWord1 = be64toh(*(uint64_t *)raw_packet_header());
-	current_packet_header_.headerWord2 = be64toh(*(((uint64_t *)raw_packet_header())+1));
+  // Convert both header 64bit values to host endian
+//  current_packet_header_.headerWord1 = be64toh(*(uint64_t *)raw_packet_header());
+//  current_packet_header_.headerWord2 = be64toh(*(((uint64_t *)raw_packet_header())+1));
+
+  // TODO: This is a fudge because currently packets are arriving with the first
+  // 64 bits all set to 1.  Ignore this word.
+  current_packet_header_.headerWord1 = be64toh(*(((uint64_t *)raw_packet_header())+1));
+  current_packet_header_.headerWord2 = be64toh(*(((uint64_t *)raw_packet_header())+2));
 
 	// Read the decoded header information into local variables for use
 	uint16_t packetNumber = get_packet_number();

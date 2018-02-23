@@ -13,7 +13,10 @@ namespace LATRD
     static const size_t primary_packet_size    = 8192; // 1024x64bit words per packet
     static const size_t num_primary_packets    = 10;  // Number of packets in a buffer
 
-    static const size_t packet_header_size     = 16;   // 2x64bit words in a packet header
+//    static const size_t packet_header_size     = 16;   // 2x64bit words in a packet header
+    // TODO: This is a fudge because currently packets are arriving with the first
+    // 64 bits all set to 1.  Ignore this word.
+    static const size_t packet_header_size     = 24;   // 2x64bit words in a packet header
 
     typedef struct
     {
