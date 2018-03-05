@@ -65,7 +65,8 @@ private:
 	std::stack<boost::shared_ptr<LATRDProcessJob> > jobStack_;
 
 	/** Pointer to LATRD buffer and frame manager */
-	boost::shared_ptr<LATRDBuffer> timeStampBuffer_;
+  boost::shared_ptr<LATRDBuffer> rawBuffer_;
+  boost::shared_ptr<LATRDBuffer> timeStampBuffer_;
 	boost::shared_ptr<LATRDBuffer> idBuffer_;
 	boost::shared_ptr<LATRDBuffer> energyBuffer_;
 
@@ -81,7 +82,8 @@ private:
 	boost::shared_ptr<LATRDProcessJob> getJob();
 	void releaseJob(boost::shared_ptr<LATRDProcessJob> job);
 
-	void process_frame(boost::shared_ptr<Frame> frame);
+  void process_frame(boost::shared_ptr<Frame> frame);
+  void process_raw(boost::shared_ptr<Frame> frame);
 	void processTask();
 	void publishControlMetaData(boost::shared_ptr<LATRDProcessJob> job);
 	bool processDataWord(uint64_t data_word,

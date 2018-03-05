@@ -37,12 +37,13 @@ LATRDProcessPlugin::LATRDProcessPlugin() :
     }
 
     // Create the buffer managers
+    rawBuffer_ = boost::shared_ptr<LATRDBuffer>(new LATRDBuffer(LATRD::frame_size, "raw_data", UINT64_TYPE));
     timeStampBuffer_ = boost::shared_ptr<LATRDBuffer>(new LATRDBuffer(LATRD::frame_size, "event_time_offset", UINT64_TYPE));
     idBuffer_ = boost::shared_ptr<LATRDBuffer>(new LATRDBuffer(LATRD::frame_size, "event_id", UINT32_TYPE));
     energyBuffer_ = boost::shared_ptr<LATRDBuffer>(new LATRDBuffer(LATRD::frame_size, "event_energy", UINT32_TYPE));
 
     // Create the meta header document
-    this->createMetaHeader();
+//    this->createMetaHeader();
 
     // Configure threads for processing
     // Now start the worker thread to monitor the queue
@@ -156,121 +157,174 @@ void LATRDProcessPlugin::process_frame(boost::shared_ptr<Frame> frame)
 	boost::shared_ptr<Frame> processedFrame;
 	LOG4CXX_TRACE(logger_, "Processing raw frame.");
 
-	// Extract the header from the buffer and print the details
-	const LATRD::FrameHeader* hdrPtr = static_cast<const LATRD::FrameHeader*>(frame->get_data());
-	LOG4CXX_TRACE(logger_, "Raw Frame Number: " << hdrPtr->frame_number);
-	LOG4CXX_TRACE(logger_, "Frame State: " << hdrPtr->frame_state);
-	LOG4CXX_TRACE(logger_, "Packets Received: " << hdrPtr->packets_received);
+	int process_raw = 1;
+	if (process_raw ==1){
+	  this->process_raw(frame);
+	} else {
+    // Extract the header from the buffer and print the details
+    const LATRD::FrameHeader* hdrPtr = static_cast<const LATRD::FrameHeader*>(frame->get_data());
+    LOG4CXX_TRACE(logger_, "Raw Frame Number: " << hdrPtr->frame_number);
+    LOG4CXX_TRACE(logger_, "Frame State: " << hdrPtr->frame_state);
+    LOG4CXX_TRACE(logger_, "Packets Received: " << hdrPtr->packets_received);
 
-	// Extract the header words from each packet
-	uint8_t *payload_ptr = (uint8_t*)(frame->get_data()) + sizeof(LATRD::FrameHeader);
+    // Extract the header words from each packet
+    uint8_t *payload_ptr = (uint8_t*)(frame->get_data()) + sizeof(LATRD::FrameHeader);
 
-	// Number of packet header 64bit words
-	uint16_t packet_header_count = LATRD::packet_header_size/sizeof(uint64_t);
+    // Number of packet header 64bit words
+    uint16_t packet_header_count = LATRD::packet_header_size/sizeof(uint64_t);
 
-	for (int index = 0; index < LATRD::num_primary_packets; index++){
-		if (hdrPtr->packet_state[index] == 0){
-			LOG4CXX_DEBUG(logger_, "   Packet number: [Missing Packet]");
-		} else {
-			packet_header.headerWord1 = *(uint64_t *)payload_ptr;
-			packet_header.headerWord2 = *(((uint64_t *)payload_ptr)+1);
-			LOG4CXX_DEBUG(logger_, "   Header Word 1: 0x" << std::hex << packet_header.headerWord1);
-			LOG4CXX_DEBUG(logger_, "   Header Word 2: 0x" << std::hex << packet_header.headerWord2);
+    for (int index = 0; index < LATRD::num_primary_packets; index++){
+      if (hdrPtr->packet_state[index] == 0){
+        LOG4CXX_DEBUG(logger_, "   Packet number: [Missing Packet]");
+      } else {
+        packet_header.headerWord1 = *(uint64_t *)payload_ptr;
+        packet_header.headerWord2 = *(((uint64_t *)payload_ptr)+1);
+        LOG4CXX_DEBUG(logger_, "   Header Word 1: 0x" << std::hex << packet_header.headerWord1);
+        LOG4CXX_DEBUG(logger_, "   Header Word 2: 0x" << std::hex << packet_header.headerWord2);
 
-			// We need to decode how many values are in the packet
-			uint32_t packet_number = get_packet_number(packet_header.headerWord2);
-			uint16_t word_count = get_word_count(packet_header.headerWord1);
-			uint32_t time_slice = get_time_slice(packet_header.headerWord1);
+        // We need to decode how many values are in the packet
+        uint32_t packet_number = get_packet_number(packet_header.headerWord2);
+        uint16_t word_count = get_word_count(packet_header.headerWord1);
+        uint32_t time_slice = get_time_slice(packet_header.headerWord1);
 
-			LOG4CXX_DEBUG(logger_, "   Packet number: " << packet_number);
-			LOG4CXX_DEBUG(logger_, "   Word count: " << word_count);
-			LOG4CXX_DEBUG(logger_, "   Time Slice ID: " << time_slice);
+        LOG4CXX_DEBUG(logger_, "   Packet number: " << packet_number);
+        LOG4CXX_DEBUG(logger_, "   Word count: " << word_count);
+        LOG4CXX_DEBUG(logger_, "   Time Slice ID: " << time_slice);
 
-			uint16_t words_to_process = word_count - packet_header_count;
-			// Loop over words to process
-			uint64_t *data_ptr = (uint64_t *)payload_ptr;
-			data_ptr += packet_header_count;
-			boost::shared_ptr<LATRDProcessJob> job = this->getJob();
-			job->job_id = index;
-			job->data_ptr = data_ptr;
-			job->time_slice = time_slice;
-			job->words_to_process = words_to_process;
-			jobQueue_->add(job);
-		}
-		payload_ptr += LATRD::primary_packet_size;
+        uint16_t words_to_process = word_count - packet_header_count;
+        // Loop over words to process
+        uint64_t *data_ptr = (uint64_t *)payload_ptr;
+        data_ptr += packet_header_count;
+        boost::shared_ptr<LATRDProcessJob> job = this->getJob();
+        job->job_id = index;
+        job->data_ptr = data_ptr;
+        job->time_slice = time_slice;
+        job->words_to_process = words_to_process;
+        jobQueue_->add(job);
+      }
+      payload_ptr += LATRD::primary_packet_size;
+    }
+    // Now we need to reconstruct the full dataset from the individual processing jobs
+    std::map<uint32_t, boost::shared_ptr<LATRDProcessJob> > results;
+    uint32_t qty_data_points = 0;
+    while (results.size() < LATRD::num_primary_packets){
+      boost::shared_ptr<LATRDProcessJob> job = resultsQueue_->remove();
+      qty_data_points += job->valid_results;
+        LOG4CXX_DEBUG(logger_, "Processing job [" << job->job_id << "] completed with " << job->timestamp_mismatches << " timestamp mismatches");
+      results[job->job_id] = job;
+    }
+      LOG4CXX_DEBUG(logger_, "Total number of valid data points [" << qty_data_points << "]");
+
+      // Loop over the jobs in order, appending the results to the buffer.  If a buffer is filled
+      // then a frame is created and can be pushed onto the next plugin.
+    for (uint32_t index = 0; index < LATRD::num_primary_packets; index++){
+      boost::shared_ptr<LATRDProcessJob> job = results[index];
+      // Check if the time slice has changed
+      if (job->time_slice != current_time_slice_){
+        // Record the time slice index and time
+        LOG4CXX_DEBUG(logger_, "New Time Slice ID: " << job->time_slice << " at index " << current_point_index_ << " at time " << job->event_ts_ptr[0]);
+        // The new time slice needs to be published as meta data
+        rapidjson::StringBuffer buffer;
+        rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+        meta_document_.Accept(writer);
+        publish_meta(META_NAME, "time_slice_ts", job->event_ts_ptr[0], buffer.GetString());
+        publish_meta(META_NAME, "time_slice_index", current_point_index_, buffer.GetString());
+
+        current_time_slice_ = job->time_slice;
+      }
+      // Copy the number of valid results into the buffer
+      LOG4CXX_TRACE(logger_, "Appending "<< job->valid_results << " data points from job [" << job->job_id << "]");
+      processedFrame = timeStampBuffer_->appendData(job->event_ts_ptr, job->valid_results);
+      // Check if a full frame was returned by the append.  If it was then push it on to the next plugin.
+      if (processedFrame){
+        LOG4CXX_TRACE(logger_, "Pushing timestamp data frame.");
+        std::vector<dimsize_t> dims(0);
+        processedFrame->set_dataset_name("event_time_offset");
+        processedFrame->set_data_type(3);
+        processedFrame->set_dimensions("event_time_offset", dims);
+        this->push(processedFrame);
+      }
+
+      processedFrame = idBuffer_->appendData(job->event_id_ptr, job->valid_results);
+      // Check if a full frame was returned by the append.  If it was then push it on to the next plugin.
+      if (processedFrame){
+        LOG4CXX_TRACE(logger_, "Pushing ID data frame.");
+        std::vector<dimsize_t> dims(0);
+        processedFrame->set_dataset_name("event_id");
+        processedFrame->set_data_type(2);
+        processedFrame->set_dimensions("event_id", dims);
+        this->push(processedFrame);
+      }
+
+      processedFrame = energyBuffer_->appendData(job->event_energy_ptr, job->valid_results);
+      // Check if a full frame was returned by the append.  If it was then push it on to the next plugin.
+      if (processedFrame){
+        LOG4CXX_TRACE(logger_, "Pushing energy data frame.");
+        std::vector<dimsize_t> dims(0);
+        processedFrame->set_dataset_name("event_energy");
+        processedFrame->set_data_type(2);
+        processedFrame->set_dimensions("event_energy", dims);
+        this->push(processedFrame);
+      }
+
+      // Finally publish any control word meta data
+      this->publishControlMetaData(job);
+
+      // Increment the current point index by the number of valid results
+      current_point_index_ += job->valid_results;
+
+      // Processing job is complete, release it
+      this->releaseJob(job);
+    }
 	}
-	// Now we need to reconstruct the full dataset from the individual processing jobs
-	std::map<uint32_t, boost::shared_ptr<LATRDProcessJob> > results;
-	uint32_t qty_data_points = 0;
-	while (results.size() < LATRD::num_primary_packets){
-		boost::shared_ptr<LATRDProcessJob> job = resultsQueue_->remove();
-		qty_data_points += job->valid_results;
-	    LOG4CXX_DEBUG(logger_, "Processing job [" << job->job_id << "] completed with " << job->timestamp_mismatches << " timestamp mismatches");
-		results[job->job_id] = job;
-	}
-    LOG4CXX_DEBUG(logger_, "Total number of valid data points [" << qty_data_points << "]");
+}
 
-    // Loop over the jobs in order, appending the results to the buffer.  If a buffer is filled
-    // then a frame is created and can be pushed onto the next plugin.
-	for (uint32_t index = 0; index < LATRD::num_primary_packets; index++){
-		boost::shared_ptr<LATRDProcessJob> job = results[index];
-		// Check if the time slice has changed
-		if (job->time_slice != current_time_slice_){
-			// Record the time slice index and time
-			LOG4CXX_DEBUG(logger_, "*** New Time Slice ID: " << job->time_slice << " at index " << current_point_index_ << " at time " << job->event_ts_ptr[0]);
-			// The new time slice needs to be published as meta data
-			rapidjson::StringBuffer buffer;
-			rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
-			meta_document_.Accept(writer);
-			publish_meta(META_NAME, "time_slice_ts", job->event_ts_ptr[0], buffer.GetString());
-			publish_meta(META_NAME, "time_slice_index", current_point_index_, buffer.GetString());
+void LATRDProcessPlugin::process_raw(boost::shared_ptr<Frame> frame)
+{
+  // TODO: Fudge factor of 8 introduced as packets are not formed correctly
+  LATRD::PacketHeader packet_header;
+  boost::shared_ptr<Frame> processedFrame;
 
-			current_time_slice_ = job->time_slice;
-		}
-		// Copy the number of valid results into the buffer
-		LOG4CXX_TRACE(logger_, "Appending "<< job->valid_results << " data points from job [" << job->job_id << "]");
-		processedFrame = timeStampBuffer_->appendData(job->event_ts_ptr, job->valid_results);
-		// Check if a full frame was returned by the append.  If it was then push it on to the next plugin.
-		if (processedFrame){
-			LOG4CXX_TRACE(logger_, "Pushing timestamp data frame.");
-			std::vector<dimsize_t> dims(0);
-			processedFrame->set_dataset_name("event_time_offset");
-			processedFrame->set_data_type(3);
-			processedFrame->set_dimensions("event_time_offset", dims);
-			this->push(processedFrame);
-		}
+  // Extract the header from the buffer and print the details
+  const LATRD::FrameHeader* hdrPtr = static_cast<const LATRD::FrameHeader*>(frame->get_data());
+  LOG4CXX_TRACE(logger_, "Raw Frame Number: " << hdrPtr->frame_number);
+  LOG4CXX_TRACE(logger_, "Frame State: " << hdrPtr->frame_state);
+  LOG4CXX_TRACE(logger_, "Packets Received: " << hdrPtr->packets_received);
 
-		processedFrame = idBuffer_->appendData(job->event_id_ptr, job->valid_results);
-		// Check if a full frame was returned by the append.  If it was then push it on to the next plugin.
-		if (processedFrame){
-			LOG4CXX_TRACE(logger_, "Pushing ID data frame.");
-			std::vector<dimsize_t> dims(0);
-			processedFrame->set_dataset_name("event_id");
-			processedFrame->set_data_type(2);
-			processedFrame->set_dimensions("event_id", dims);
-			this->push(processedFrame);
-		}
+  // Extract the header words from each packet
+  uint8_t *payload_ptr = (uint8_t*)(frame->get_data()) + sizeof(LATRD::FrameHeader);
 
-		processedFrame = energyBuffer_->appendData(job->event_energy_ptr, job->valid_results);
-		// Check if a full frame was returned by the append.  If it was then push it on to the next plugin.
-		if (processedFrame){
-			LOG4CXX_TRACE(logger_, "Pushing energy data frame.");
-			std::vector<dimsize_t> dims(0);
-			processedFrame->set_dataset_name("event_energy");
-			processedFrame->set_data_type(2);
-			processedFrame->set_dimensions("event_energy", dims);
-			this->push(processedFrame);
-		}
+  // Number of packet header 64bit words
+  uint16_t packet_header_count = LATRD::packet_header_size/sizeof(uint64_t);
 
-		// Finally publish any control word meta data
-		this->publishControlMetaData(job);
+  for (int index = 0; index < LATRD::num_primary_packets; index++){
+    if (hdrPtr->packet_state[index] == 0){
+      LOG4CXX_DEBUG(logger_, "   Packet number: [Missing Packet]");
+    } else {
+      packet_header.headerWord1 = *(((uint64_t *)payload_ptr)+1);
+      packet_header.headerWord2 = *(((uint64_t *)payload_ptr)+2);
+      LOG4CXX_DEBUG(logger_, "   Header Word 1: 0x" << std::hex << packet_header.headerWord1);
+      LOG4CXX_DEBUG(logger_, "   Header Word 2: 0x" << std::hex << packet_header.headerWord2);
 
-		// Increment the current point index by the number of valid results
-		current_point_index_ += job->valid_results;
+      // We need to decode how many values are in the packet
+      uint32_t packet_number = get_packet_number(packet_header.headerWord2);
+      uint16_t word_count = get_word_count(packet_header.headerWord1) + 2;
+      uint32_t time_slice = get_time_slice(packet_header.headerWord1);
 
-		// Processing job is complete, release it
-		this->releaseJob(job);
-	}
+      // Copy the number of valid results into the buffer
+      LOG4CXX_TRACE(logger_, "Appending "<< word_count << " raw values");
+      processedFrame = rawBuffer_->appendData(payload_ptr, word_count);
+      // Check if a full frame was returned by the append.  If it was then push it on to the next plugin.
+      if (processedFrame){
+        LOG4CXX_TRACE(logger_, "Pushing a raw data frame.");
+        std::vector<dimsize_t> dims(0);
+        processedFrame->set_dataset_name("raw_data");
+        processedFrame->set_data_type(3);
+        processedFrame->set_dimensions("raw_data", dims);
+        this->push(processedFrame);
+      }
+    }
+  }
 }
 
 void LATRDProcessPlugin::processTask()
@@ -316,7 +370,6 @@ void LATRDProcessPlugin::processTask()
 					*ctrl_word_ptr = *data_word_ptr;
 					// Set the index value for the control word
 					*ctrl_index_ptr = job->valid_results;
-					//
 				    LOG4CXX_DEBUG(logger_, "Control word processed: [" << *ctrl_word_ptr
 				    		<< "] index [" << *ctrl_index_ptr << "]");
 					// Increment the control pointers and the valid result count
@@ -324,6 +377,8 @@ void LATRDProcessPlugin::processTask()
 					ctrl_index_ptr++;
 					job->valid_control_words++;
 				    LOG4CXX_DEBUG(logger_, "Valid control words [" << job->valid_control_words << "]");
+				} else {
+				    LOG4CXX_DEBUG(logger_, "Unknown word type [" << *data_word_ptr << "]");
 				}
 			}
 			catch (LATRDTimestampMismatchException& ex)
@@ -334,14 +389,15 @@ void LATRDProcessPlugin::processTask()
 		}
 	    LOG4CXX_DEBUG(logger_, "Processing complete for job [" << job->job_id
 	    		<< "] on task [" << boost::this_thread::get_id()
-	    		<< "] : Number of valid results [" << job->valid_results << "]");
+		<< "] : Number of valid results [" << job->valid_results
+		<< "] : Number of mismatches [" << job->timestamp_mismatches << "]");
 	    resultsQueue_->add(job);
 	}
 }
 
 void LATRDProcessPlugin::publishControlMetaData(boost::shared_ptr<LATRDProcessJob> job)
 {
-    LOG4CXX_DEBUG(logger_, "**** Number of control words [" << job->valid_control_words << "]");
+    LOG4CXX_DEBUG(logger_, "Number of control words [" << job->valid_control_words << "]");
 	if (job->valid_control_words > 0){
 		// Prepare the meta data header information
 		rapidjson::StringBuffer buffer;
@@ -438,7 +494,7 @@ uint32_t LATRDProcessPlugin::getPositionID(uint64_t data_word)
 	if (isControlWord(data_word)){
 		throw LATRDProcessingException("Data word is a control word, not an event");
 	}
-    return (data_word >> 39) & LATRD::energy_mask;
+    return (data_word >> 39) & LATRD::position_mask;
 }
 
 uint64_t LATRDProcessPlugin::getFullTimestmap(uint64_t data_word, uint64_t prev_course, uint64_t course)
