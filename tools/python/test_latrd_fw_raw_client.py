@@ -26,6 +26,7 @@ def options():
     parser.add_argument("-f", "--filename", default="test.h5", help="File name to write to (test.h5)")
     parser.add_argument("-w", "--write", action="store_true", help="Start writing data")
     parser.add_argument("-s", "--stop", action="store_true", help="Stop writing data")
+    parser.add_argument("-r", "--raw", action="store_true", help="Write data in raw mode")
     args = parser.parse_args()
     return args
 
@@ -98,6 +99,16 @@ def main():
         success, reply = client._send_message(msg, 1.0)
 
         print(reply)
+
+    if args.raw:
+        config = {
+            "raw_mode": 1
+        }
+    else:
+        config = {
+            "raw_mode": 0
+        }
+    client.send_configuration(config, "latrd")
 
     if args.write:
         config = {

@@ -42,7 +42,10 @@ private:
 	/** Constant for this decoders name when publishing meta data */
 	static const std::string META_NAME;
 
-	/** Configuration constant for process related items */
+  /** Configuration constant for setting raw mode */
+  static const std::string CONFIG_RAW_MODE;
+
+  /** Configuration constant for process related items */
 	static const std::string CONFIG_PROCESS;
 	/** Configuration constant for number of processes */
 	static const std::string CONFIG_PROCESS_NUMBER;
@@ -78,6 +81,9 @@ private:
 	/** Management of time slice information **/
 	uint64_t current_point_index_;
 	uint32_t current_time_slice_;
+
+	/** Process raw mode **/
+	uint32_t raw_mode_;
 
 	boost::shared_ptr<LATRDProcessJob> getJob();
 	void releaseJob(boost::shared_ptr<LATRDProcessJob> job);

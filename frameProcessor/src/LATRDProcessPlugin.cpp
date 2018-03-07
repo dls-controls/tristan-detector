@@ -11,6 +11,8 @@ namespace FrameProcessor
 {
 const std::string LATRDProcessPlugin::META_NAME                  = "TristanProcessor";
 
+const std::string LATRDProcessPlugin::CONFIG_RAW_MODE            = "raw_mode";
+
 const std::string LATRDProcessPlugin::CONFIG_PROCESS             = "process";
 const std::string LATRDProcessPlugin::CONFIG_PROCESS_NUMBER      = "number";
 const std::string LATRDProcessPlugin::CONFIG_PROCESS_RANK        = "rank";
@@ -19,7 +21,8 @@ LATRDProcessPlugin::LATRDProcessPlugin() :
 		concurrent_processes_(1),
 		concurrent_rank_(0),
 		current_point_index_(0),
-		current_time_slice_(0)
+		current_time_slice_(0),
+		raw_mode_(0)
 {
     // Setup logging for the class
     logger_ = Logger::getLogger("FW.LATRDProcessPlugin");
@@ -73,6 +76,12 @@ void LATRDProcessPlugin::configure(OdinData::IpcMessage& config, OdinData::IpcMe
   boost::lock_guard<boost::recursive_mutex> lock(mutex_);
 
   LOG4CXX_DEBUG(logger_, config.encode());
+
+  // Check for raw mode
+  if (config.has_param(LATRDProcessPlugin::CONFIG_RAW_MODE)) {
+    this->raw_mode_ = config.get_param<uint32_t>(LATRDProcessPlugin::CONFIG_RAW_MODE);
+    LOG4CXX_DEBUG(logger_, "Raw mode set to " << this->raw_mode_);
+  }
 
   // Check to see if we are configuring the process number and rank
   if (config.has_param(LATRDProcessPlugin::CONFIG_PROCESS)) {
@@ -157,8 +166,7 @@ void LATRDProcessPlugin::process_frame(boost::shared_ptr<Frame> frame)
 	boost::shared_ptr<Frame> processedFrame;
 	LOG4CXX_TRACE(logger_, "Processing raw frame.");
 
-	int process_raw = 1;
-	if (process_raw ==1){
+	if (this->raw_mode_ == 1){
 	  this->process_raw(frame);
 	} else {
     // Extract the header from the buffer and print the details
@@ -227,8 +235,8 @@ void LATRDProcessPlugin::process_frame(boost::shared_ptr<Frame> frame)
         rapidjson::StringBuffer buffer;
         rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
         meta_document_.Accept(writer);
-        publish_meta(META_NAME, "time_slice_ts", job->event_ts_ptr[0], buffer.GetString());
-        publish_meta(META_NAME, "time_slice_index", current_point_index_, buffer.GetString());
+//        publish_meta(META_NAME, "time_slice_ts", job->event_ts_ptr[0], buffer.GetString());
+//        publish_meta(META_NAME, "time_slice_index", current_point_index_, buffer.GetString());
 
         current_time_slice_ = job->time_slice;
       }
