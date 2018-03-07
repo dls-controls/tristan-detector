@@ -94,6 +94,33 @@ def main():
             }
         }
         client.send_configuration(config, "hdf")
+        config = {
+            "dataset": {
+                "event_id": {
+                    "datatype": 2,
+                    "chunks": [1638400]
+                }
+            }
+        }
+        client.send_configuration(config, "hdf")
+        config = {
+            "dataset": {
+                "event_time_offset": {
+                    "datatype": 3,
+                    "chunks": [1638400]
+                }
+            }
+        }
+        client.send_configuration(config, "hdf")
+        config = {
+            "dataset": {
+                "event_energy": {
+                    "datatype": 2,
+                    "chunks": [1638400]
+                }
+            }
+        }
+        client.send_configuration(config, "hdf")
 
         msg = IpcMessage("cmd", "request_configuration")
         success, reply = client._send_message(msg, 1.0)
