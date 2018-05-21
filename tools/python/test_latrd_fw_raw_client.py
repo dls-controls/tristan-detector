@@ -50,7 +50,7 @@ def main():
         client.send_configuration(config, "fr_setup")
         config = {
             "load": {
-                "library": "/home/gnx91527/work/LATRD/prefix/lib/libLATRDProcessPlugin.so",
+                "library": "/home/gnx91527/work/tristan/LATRD/build/lib/libLATRDProcessPlugin.so",
                 "index": "latrd",
                 "name": "LATRDProcessPlugin"
             }
@@ -58,7 +58,7 @@ def main():
         client.send_configuration(config, "plugin")
         config = {
             "load": {
-                "library": "/home/gnx91527/work/odin-data/prefix/lib/libHdf5Plugin.so",
+                "library": "/dls_sw/work/tools/RHEL6-x86_64/odin/lab29/odin-data/prefix/lib/libHdf5Plugin.so",
                 "index": "hdf",
                 "name": "FileWriterPlugin"
             }
