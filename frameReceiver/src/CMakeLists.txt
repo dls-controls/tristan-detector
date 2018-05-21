@@ -5,7 +5,6 @@ include_directories(${FRAMERECEIVER_DIR}/include ${ODINDATA_INCLUDE_DIRS} ${Boos
 
 # Add library for LATRD decoder
 add_library(LATRDFrameDecoder SHARED LATRDFrameDecoder.cpp LATRDFrameDecoderLib.cpp)
-target_link_libraries(LATRDFrameDecoder ${ODINDATA_LIBRARIES} ${Boost_LIBRARIES} ${LOG4CXX_LIBRARIES} ${ZEROMQ_LIBRARIES})
 
 string(TIMESTAMP EXEC_TIME)
 set(LATRD_EXEC_SCRIPT ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/execute_latrd_receiver)

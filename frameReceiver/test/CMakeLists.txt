@@ -31,7 +31,7 @@ endif()
 # Define libraries to link against
 target_link_libraries(LATRDDecoderTest 
 		${ODINDATA_LIBRARIES} 
-        ${FRAMERECEIVER_LIBRARY}
+    ${FRAMERECEIVER_LIBRARY}
 		${Boost_LIBRARIES} 
 		${LOG4CXX_LIBRARIES} 
 		${ZEROMQ_LIBRARIES} )
