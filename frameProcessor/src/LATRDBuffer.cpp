@@ -97,6 +97,26 @@ boost::shared_ptr<Frame> LATRDBuffer::appendData(void *data_ptr, size_t qty_pts)
 	return frame;
 }
 
+boost::shared_ptr<Frame> LATRDBuffer::retrieveCurrentFrame()
+{
+  boost::shared_ptr<Frame> frame;
+	if (currentPoint_ > 0) {
+		// The buffer should now be full so create the frame and copy the buffer in
+		LOG4CXX_DEBUG(logger_, "Creating a new frame for [" << frameName_ << "]");
+		frame = boost::shared_ptr<Frame>(new Frame(frameName_));
+		LOG4CXX_DEBUG(logger_, "Copying data [" << currentPoint_ << " points] into " << frameName_);
+		frame->copy_data(rawDataPtr_, currentPoint_ * dataSize_);
+		frame->set_frame_number(concurrent_rank_ + (frameNumber_ * concurrent_processes_));
+		frameNumber_++;
+    // Reset the buffer
+    memset(rawDataPtr_, 0, numberOfPoints_ * dataSize_);
+    currentPoint_ = 0;
+	} else {
+		LOG4CXX_DEBUG(logger_, "No frame created from Idle buffer as there were no data points");
+	}
+	return frame;
+}
+
 void LATRDBuffer::configureProcess(size_t processes, size_t rank)
 {
 	concurrent_processes_ = processes;

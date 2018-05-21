@@ -33,6 +33,7 @@ public:
 	LATRDBuffer(size_t numberOfDataPoints, const std::string& frame, LATRDBufferType type);
 	virtual ~LATRDBuffer();
 	boost::shared_ptr<Frame> appendData(void *data_ptr, size_t qty_pts);
+	boost::shared_ptr<Frame> retrieveCurrentFrame();
 	void configureProcess(size_t processes, size_t rank);
 
 private:
