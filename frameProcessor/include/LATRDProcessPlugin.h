@@ -26,7 +26,7 @@ using namespace log4cxx::helpers;
 
 namespace FrameProcessor
 {
-enum LATRDDataControlType {Unknown, HeaderWord0, HeaderWord1, ExtendedTimestamp};
+enum LATRDDataControlType {Unknown, HeaderWord0, HeaderWord1, ExtendedTimestamp, IdleControlWord};
 
 class LATRDProcessPlugin : public FrameProcessorPlugin
 {
@@ -99,6 +99,7 @@ private:
 			uint32_t *event_id,
 			uint32_t *event_energy);
 	bool isControlWord(uint64_t data_word);
+	bool isIdleWord(uint64_t data_word);
 	LATRDDataControlType getControlType(uint64_t data_word);
 	uint64_t getCourseTimestamp(uint64_t data_word);
 	uint64_t getFineTimestamp(uint64_t data_word);

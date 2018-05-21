@@ -8,6 +8,14 @@
 #ifndef INCLUDE_LATRDDEFINITIONS_H_
 #define INCLUDE_LATRDDEFINITIONS_H_
 
+#include "gettime.h"
+#include <stdint.h>
+#include <time.h>
+#include <iostream>
+#include <iomanip>
+#include <sstream>
+#include <time.h>
+
 namespace LATRD
 {
     static const size_t primary_packet_size    = 8192; // 1024x64bit words per packet
@@ -29,6 +37,7 @@ namespace LATRD
     {
         uint32_t frame_number;
         uint32_t frame_state;
+        uint8_t idle_frame;
         struct timespec frame_start_time;
         uint32_t packets_received;
         uint8_t  packet_state[num_primary_packets];
@@ -44,6 +53,7 @@ namespace LATRD
     static const uint8_t  control_header_1_mask         = 0x39;
     static const uint8_t  control_course_timestamp_mask = 0x20;
     static const uint8_t  control_word_id_mask          = 0x0F;
+    static const uint64_t control_word_idle_mask        = 0xFC00000000000000;
     static const uint64_t course_timestamp_mask         = 0x000FFFFFFFFFFFF8;
     static const uint64_t fine_timestamp_mask           = 0x0000000000FFFFFF;
     static const uint64_t energy_mask                   = 0x0000000000003FFF;
