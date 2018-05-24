@@ -133,7 +133,7 @@ void LATRDFrameDecoder::process_packet_header(size_t bytes_received, int port, s
 
     LOG4CXX_DEBUG_LEVEL(3, logger_, "Got packet header:" << " packet: " << packetNumber);
     LOG4CXX_DEBUG_LEVEL(3, logger_, "Frame packet number: " << framePacketNumber << " frame: " << frameNumber);
-    LOG4CXX_ERROR(logger_, "" << std::hex << std::setfill('0')
+    LOG4CXX_DEBUG_LEVEL(3, logger_, "" << std::hex << std::setfill('0')
                               << "Header 0x" << std::setw(8)
                               << *(((uint64_t *)raw_packet_header())+1));
     if (frameNumber != current_frame_seen_)
@@ -230,7 +230,7 @@ FrameDecoder::FrameReceiveState LATRDFrameDecoder::process_packet(size_t bytes_r
 
     // Increment the number of packets received for this frame
 	current_frame_header_->packets_received++;
-  LOG4CXX_ERROR(logger_, "Processing packet received packets: " << current_frame_header_->packets_received);
+  LOG4CXX_INFO(logger_, "Processing packet received packets: " << current_frame_header_->packets_received);
 	// Check to see if the number of packets we have received is equal to the total number
 	// of packets for this frame or if this is an idle frame
 	if (current_frame_header_->packets_received == LATRD::num_frame_packets || current_frame_header_->idle_frame == 1){
