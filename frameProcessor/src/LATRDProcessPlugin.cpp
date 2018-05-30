@@ -14,6 +14,8 @@ const std::string LATRDProcessPlugin::META_NAME                  = "TristanProce
 
 const std::string LATRDProcessPlugin::CONFIG_RAW_MODE            = "raw_mode";
 
+const std::string LATRDProcessPlugin::CONFIG_RESET_FRAME         = "reset_frame";
+
 const std::string LATRDProcessPlugin::CONFIG_PROCESS             = "process";
 const std::string LATRDProcessPlugin::CONFIG_PROCESS_NUMBER      = "number";
 const std::string LATRDProcessPlugin::CONFIG_PROCESS_RANK        = "rank";
@@ -83,6 +85,14 @@ void LATRDProcessPlugin::configure(OdinData::IpcMessage& config, OdinData::IpcMe
   if (config.has_param(LATRDProcessPlugin::CONFIG_RAW_MODE)) {
     this->raw_mode_ = config.get_param<uint32_t>(LATRDProcessPlugin::CONFIG_RAW_MODE);
     LOG4CXX_DEBUG(logger_, "Raw mode set to " << this->raw_mode_);
+  }
+
+  // Check for a frame reset
+  if (config.has_param(LATRDProcessPlugin::CONFIG_RESET_FRAME)) {
+    rawBuffer_->resetFrameNumber();
+    timeStampBuffer_->resetFrameNumber();
+    idBuffer_->resetFrameNumber();
+    energyBuffer_->resetFrameNumber();
   }
 
   // Check to see if we are configuring the process number and rank

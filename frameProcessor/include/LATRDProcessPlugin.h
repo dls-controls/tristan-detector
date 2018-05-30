@@ -42,10 +42,13 @@ private:
 	/** Constant for this decoders name when publishing meta data */
 	static const std::string META_NAME;
 
-  /** Configuration constant for setting raw mode */
-  static const std::string CONFIG_RAW_MODE;
+	/** Configuration constant for setting raw mode */
+	static const std::string CONFIG_RAW_MODE;
 
-  /** Configuration constant for process related items */
+	/** Configuration constant for resetting the frame counter */
+	static const std::string CONFIG_RESET_FRAME;
+
+	/** Configuration constant for process related items */
 	static const std::string CONFIG_PROCESS;
 	/** Configuration constant for number of processes */
 	static const std::string CONFIG_PROCESS_NUMBER;
