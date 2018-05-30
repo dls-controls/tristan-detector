@@ -139,6 +139,10 @@ def main():
 
     if args.write:
         config = {
+            "reset_frame": 1
+        }
+        client.send_configuration(config, "latrd")
+        config = {
             "file": {
                 "path": args.path,
                 "name": args.filename
