@@ -123,4 +123,9 @@ void LATRDBuffer::configureProcess(size_t processes, size_t rank)
 	concurrent_rank_ = rank;
 }
 
+void LATRDBuffer::resetFrameNumber()
+{
+  frameNumber_ = 0;
+}
+
 } /* namespace FrameProcessor */
