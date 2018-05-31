@@ -131,8 +131,8 @@ void LATRDFrameDecoder::process_packet_header(size_t bytes_received, int port, s
         LOG4CXX_INFO(packet_logger_, ss.str());
     }
 
-    LOG4CXX_DEBUG_LEVEL(3, logger_, "Got packet header:" << " packet: " << packetNumber);
-    LOG4CXX_DEBUG_LEVEL(3, logger_, "Frame packet number: " << framePacketNumber << " frame: " << frameNumber);
+    LOG4CXX_ERROR(logger_, "Got packet header for packet number: " << packetNumber);
+    LOG4CXX_ERROR(logger_, "  Frame number: " << frameNumber << "  Frame packet number: " << framePacketNumber);
     LOG4CXX_DEBUG_LEVEL(3, logger_, "" << std::hex << std::setfill('0')
                               << "Header 0x" << std::setw(8)
                               << *(((uint64_t *)raw_packet_header())+1));
@@ -180,7 +180,7 @@ void LATRDFrameDecoder::process_packet_header(size_t bytes_received, int port, s
             memset(current_frame_header_->packet_state, 0, LATRD::num_frame_packets);
             gettime(reinterpret_cast<struct timespec*>(&(current_frame_header_->frame_start_time)));
             if (*(((uint64_t *)raw_packet_header())+1)&LATRD::packet_header_idle_mask == LATRD::packet_header_idle_mask){
-              LOG4CXX_ERROR(logger_, "** Processing an IDLE packet");
+              LOG4CXX_ERROR(logger_, "  IDLE packet detected");
               // Mark this buffer as a last frame buffer
               current_frame_header_->idle_frame = 1;
             }
@@ -230,11 +230,32 @@ FrameDecoder::FrameReceiveState LATRDFrameDecoder::process_packet(size_t bytes_r
 
     // Increment the number of packets received for this frame
 	current_frame_header_->packets_received++;
-  LOG4CXX_INFO(logger_, "Processing packet received packets: " << current_frame_header_->packets_received);
+  LOG4CXX_ERROR(logger_, "  Packet count: " << current_frame_header_->packets_received << " for frame: " << current_frame_header_->frame_number);
+  LOG4CXX_ERROR(logger_, "  IDLE frame flag: " << current_frame_header_->idle_frame);
 	// Check to see if the number of packets we have received is equal to the total number
 	// of packets for this frame or if this is an idle frame
 	if (current_frame_header_->packets_received == LATRD::num_frame_packets || current_frame_header_->idle_frame == 1){
-		// We have received the correct number of packets, the frame is complete
+    // If this is an idle frame then empty the current buffer map
+    if (current_frame_header_->idle_frame == 1) {
+      // Loop over frame buffers currently in map and flush them, not including this idle buffer as
+      // that will be flushed last
+      std::map<int, int>::iterator buffer_map_iter = frame_buffer_map_.begin();
+      while (buffer_map_iter != frame_buffer_map_.end()) {
+        int frame_num = buffer_map_iter->first;
+        int buffer_id = buffer_map_iter->second;
+        void *buffer_addr = buffer_manager_->get_buffer_address(buffer_id);
+        LATRD::FrameHeader *frame_header = reinterpret_cast<LATRD::FrameHeader *>(buffer_addr);
+        if (current_frame_header_->frame_number != frame_num){
+          frame_header->frame_state = FrameReceiveStateComplete;
+          ready_callback_(buffer_id, frame_num);
+          frame_buffer_map_.erase(buffer_map_iter++);
+        } else {
+          buffer_map_iter++;
+        }
+      }
+    }
+
+    // We have received the correct number of packets, the frame is complete
 
 	    // Set frame state accordingly
 		frame_state = FrameDecoder::FrameReceiveStateComplete;
