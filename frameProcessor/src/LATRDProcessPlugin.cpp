@@ -407,6 +407,8 @@ void LATRDProcessPlugin::process_raw(boost::shared_ptr<Frame> frame)
           this->push(processedFrame);
         }
       }
+      // Increment the payload_ptr by the correct number of bytes in a packet
+      payload_ptr += LATRD::primary_packet_size;
     }
   }
 }
