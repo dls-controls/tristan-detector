@@ -331,8 +331,11 @@ uint32_t LATRDFrameDecoder::get_frame_number(void) const
 {
 	// Frame number is derived from the packet number and the number of packets in a frame
 	// Frame number starts at 1
-    uint32_t frame_number = get_packet_number() / LATRD::num_primary_packets;
-    return frame_number;
+  uint32_t frame_number = (get_packet_number() / LATRD::num_primary_packets) + 1;
+  if ((*(((uint64_t *)raw_packet_header())+1)&LATRD::packet_header_idle_mask) == LATRD::packet_header_idle_mask){
+    frame_number = 0;
+  }
+  return frame_number;
 }
 
 uint32_t LATRDFrameDecoder::get_packet_number(void) const
