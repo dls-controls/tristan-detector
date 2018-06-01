@@ -36,7 +36,7 @@ namespace LATRD
     {
         uint32_t frame_number;
         uint32_t frame_state;
-        uint8_t idle_frame;
+        uint32_t idle_frame;
         struct timespec frame_start_time;
         uint32_t packets_received;
         uint8_t  packet_state[num_primary_packets];

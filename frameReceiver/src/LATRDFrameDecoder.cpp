@@ -179,11 +179,12 @@ void LATRDFrameDecoder::process_packet_header(size_t bytes_received, int port, s
             current_frame_header_->idle_frame = 0;
             memset(current_frame_header_->packet_state, 0, LATRD::num_frame_packets);
             gettime(reinterpret_cast<struct timespec*>(&(current_frame_header_->frame_start_time)));
-            if (*(((uint64_t *)raw_packet_header())+1)&LATRD::packet_header_idle_mask == LATRD::packet_header_idle_mask){
+            if ((*(((uint64_t *)raw_packet_header())+1)&LATRD::packet_header_idle_mask) == LATRD::packet_header_idle_mask){
               LOG4CXX_ERROR(logger_, "  IDLE packet detected");
               // Mark this buffer as a last frame buffer
               current_frame_header_->idle_frame = 1;
             }
+        LOG4CXX_ERROR(logger_, "  Initialised IDLE frame flag to: " << current_frame_header_->idle_frame);
 
       }
     	else
