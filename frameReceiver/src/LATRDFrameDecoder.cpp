@@ -227,7 +227,7 @@ FrameDecoder::FrameReceiveState LATRDFrameDecoder::process_packet(size_t bytes_r
             reinterpret_cast<uint8_t*>(current_frame_buffer_)
 			+ get_frame_header_size()
 			+ (LATRD::primary_packet_size * get_frame_packet_number());
-    memcpy(packet_header_location, current_raw_packet_header_.get(), sizeof(uint64_t)*2);
+    memcpy(packet_header_location, current_raw_packet_header_.get(), LATRD::packet_header_size);
 
     // Increment the number of packets received for this frame
 	current_frame_header_->packets_received++;
