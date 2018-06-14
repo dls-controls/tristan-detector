@@ -131,8 +131,8 @@ void LATRDFrameDecoder::process_packet_header(size_t bytes_received, int port, s
         LOG4CXX_INFO(packet_logger_, ss.str());
     }
 
-    LOG4CXX_ERROR(logger_, "Got packet header for packet number: " << packetNumber);
-    LOG4CXX_ERROR(logger_, "  Frame number: " << frameNumber << "  Frame packet number: " << framePacketNumber);
+    LOG4CXX_DEBUG_LEVEL(2, logger_, "Got packet header for packet number: " << packetNumber);
+    LOG4CXX_DEBUG_LEVEL(2, logger_, "  Frame number: " << frameNumber << "  Frame packet number: " << framePacketNumber);
     LOG4CXX_DEBUG_LEVEL(3, logger_, "" << std::hex << std::setfill('0')
                               << "Header 0x" << std::setw(8)
                               << *(((uint64_t *)raw_packet_header())+1));
@@ -180,11 +180,11 @@ void LATRDFrameDecoder::process_packet_header(size_t bytes_received, int port, s
             memset(current_frame_header_->packet_state, 0, LATRD::num_frame_packets);
             gettime(reinterpret_cast<struct timespec*>(&(current_frame_header_->frame_start_time)));
             if ((*(((uint64_t *)raw_packet_header())+1)&LATRD::packet_header_idle_mask) == LATRD::packet_header_idle_mask){
-              LOG4CXX_ERROR(logger_, "  IDLE packet detected");
+              LOG4CXX_DEBUG_LEVEL(2, logger_, "  IDLE packet detected");
               // Mark this buffer as a last frame buffer
               current_frame_header_->idle_frame = 1;
             }
-        LOG4CXX_ERROR(logger_, "  Initialised IDLE frame flag to: " << current_frame_header_->idle_frame);
+        LOG4CXX_DEBUG_LEVEL(2, logger_, "  Initialised IDLE frame flag to: " << current_frame_header_->idle_frame);
 
       }
     	else
@@ -231,8 +231,8 @@ FrameDecoder::FrameReceiveState LATRDFrameDecoder::process_packet(size_t bytes_r
 
     // Increment the number of packets received for this frame
 	current_frame_header_->packets_received++;
-  LOG4CXX_ERROR(logger_, "  Packet count: " << current_frame_header_->packets_received << " for frame: " << current_frame_header_->frame_number);
-  LOG4CXX_ERROR(logger_, "  IDLE frame flag: " << current_frame_header_->idle_frame);
+  LOG4CXX_DEBUG_LEVEL(2, logger_, "  Packet count: " << current_frame_header_->packets_received << " for frame: " << current_frame_header_->frame_number);
+  LOG4CXX_DEBUG_LEVEL(2, logger_, "  IDLE frame flag: " << current_frame_header_->idle_frame);
 	// Check to see if the number of packets we have received is equal to the total number
 	// of packets for this frame or if this is an idle frame
 	if (current_frame_header_->packets_received == LATRD::num_frame_packets || current_frame_header_->idle_frame == 1){
