@@ -281,6 +281,20 @@ FrameDecoder::FrameReceiveState LATRDFrameDecoder::process_packet(size_t bytes_r
 	return frame_state;
 }
 
+//! Get the current status of the frame decoder.
+//!
+//! This method populates the IpcMessage passed by reference as an argument with decoder-specific
+//! status information, e.g. packet loss by source.
+//!
+//! \param[in] param_prefix - path to be prefixed to each status parameter name
+//! \param[in] status_msg - reference to IpcMesssage to be populated with parameters
+//!
+void LATRDFrameDecoder::get_status(const std::string param_prefix,
+                                   OdinData::IpcMessage& status_msg)
+{
+  status_msg.set_param(param_prefix + "name", std::string("LATRDFrameDecoder"));
+}
+
 void LATRDFrameDecoder::monitor_buffers(void)
 {
 
