@@ -89,7 +89,7 @@ def main():
             "dataset": {
                 "raw_data": {
                     "datatype": 3,
-                    "chunks": [10240]
+                    "chunks": [131072]
                 }
             }
         }
@@ -98,7 +98,7 @@ def main():
             "dataset": {
                 "event_id": {
                     "datatype": 2,
-                    "chunks": [10240]
+                    "chunks": [131072]
                 }
             }
         }
@@ -107,7 +107,7 @@ def main():
             "dataset": {
                 "event_time_offset": {
                     "datatype": 3,
-                    "chunks": [10240]
+                    "chunks": [131072]
                 }
             }
         }
@@ -116,7 +116,7 @@ def main():
             "dataset": {
                 "event_energy": {
                     "datatype": 2,
-                    "chunks": [10240]
+                    "chunks": [131072]
                 }
             }
         }
@@ -159,6 +159,10 @@ def main():
             "write": False
         }
         client.send_configuration(config, "hdf")
+
+    msg = IpcMessage("cmd", "status")
+    success, reply = client._send_message(msg, 1.0)
+    print(reply)
 
 if __name__ == '__main__':
     main()
