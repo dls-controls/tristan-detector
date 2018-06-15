@@ -29,7 +29,7 @@ LATRDProcessPlugin::LATRDProcessPlugin() :
 {
     // Setup logging for the class
     logger_ = Logger::getLogger("FW.LATRDProcessPlugin");
-    logger_->setLevel(Level::getAll());
+    //logger_->setLevel(Level::getAll());
     LOG4CXX_TRACE(logger_, "LATRDProcessPlugin constructor.");
 
     // Create the work queue for processing jobs
