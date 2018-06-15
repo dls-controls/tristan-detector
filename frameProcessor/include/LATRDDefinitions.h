@@ -25,7 +25,7 @@ namespace LATRD
 
     static const size_t number_of_processing_threads = 8;
 
-    static const size_t frame_size = 131072;  // 1MB / 8 byte values
+    static const size_t frame_size = 524288;  // 4MB / 8 byte values
 
     typedef struct
     {

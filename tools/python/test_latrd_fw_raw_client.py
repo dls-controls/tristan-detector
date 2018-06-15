@@ -89,7 +89,7 @@ def main():
             "dataset": {
                 "raw_data": {
                     "datatype": 3,
-                    "chunks": [131072]
+                    "chunks": [524288]
                 }
             }
         }
@@ -98,7 +98,7 @@ def main():
             "dataset": {
                 "event_id": {
                     "datatype": 2,
-                    "chunks": [131072]
+                    "chunks": [524288]
                 }
             }
         }
@@ -107,7 +107,7 @@ def main():
             "dataset": {
                 "event_time_offset": {
                     "datatype": 3,
-                    "chunks": [131072]
+                    "chunks": [524288]
                 }
             }
         }
@@ -116,7 +116,7 @@ def main():
             "dataset": {
                 "event_energy": {
                     "datatype": 2,
-                    "chunks": [131072]
+                    "chunks": [524288]
                 }
             }
         }
