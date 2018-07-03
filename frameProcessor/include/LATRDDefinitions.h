@@ -54,6 +54,7 @@ namespace LATRD
     static const uint8_t  control_course_timestamp_mask = 0x20;
     static const uint8_t  control_word_id_mask          = 0x0F;
     static const uint64_t control_word_idle_mask        = 0xFC00000000000000;
+    static const uint64_t control_word_time_slice_mask  = 0x0003FFFFFFFC0000;
     static const uint64_t course_timestamp_mask         = 0x000FFFFFFFFFFFF8;
     static const uint64_t fine_timestamp_mask           = 0x0000000000FFFFFF;
     static const uint64_t energy_mask                   = 0x0000000000003FFF;

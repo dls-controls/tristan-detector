@@ -46,6 +46,13 @@ namespace LATRD
     static const size_t   total_frame_size         = data_type_size + sizeof(FrameHeader);
     static const size_t   num_frame_packets        = num_primary_packets;
     static const uint64_t packet_header_idle_mask  = 0x000000000003F800;
+    static const uint64_t control_word_idle_mask        = 0xFC00000000000000;
+    static const uint64_t control_word_time_slice_mask  = 0x0003FFFFFFFC0000;
+    static const uint64_t course_timestamp_mask         = 0x000FFFFFFFFFFFF8;
+    static const uint64_t fine_timestamp_mask           = 0x0000000000FFFFFF;
+    static const uint64_t energy_mask                   = 0x0000000000003FFF;
+    static const uint64_t position_mask                 = 0x0000000000FFFFFF;
+    static const uint64_t timestamp_match_mask          = 0x0FFFFFFF000000;
 
 }
 
