@@ -263,7 +263,7 @@ void LATRDProcessPlugin::process_frame(boost::shared_ptr<Frame> frame)
           job->data_ptr = data_ptr;
           job->time_slice = time_slice;
           job->words_to_process = words_to_process;
-          jobQueue_->add(job);
+          jobQueue_->add(job, true);
         }
         payload_ptr += LATRD::primary_packet_size;
       }
@@ -477,7 +477,7 @@ void LATRDProcessPlugin::processTask()
 	    		<< "] on task [" << boost::this_thread::get_id()
 		<< "] : Number of valid results [" << job->valid_results
 		<< "] : Number of mismatches [" << job->timestamp_mismatches << "]");
-	    resultsQueue_->add(job);
+	    resultsQueue_->add(job, true);
 	}
 }
 
