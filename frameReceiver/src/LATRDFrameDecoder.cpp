@@ -318,6 +318,9 @@ void LATRDFrameDecoder::monitor_buffers(void)
                     << " addr 0x" << std::hex << buffer_addr << std::dec
                     << " timed out with " << frame_header->packets_received << " packets received");
 
+            if (current_frame_seen_ == frame_num){
+              current_frame_seen_ = -1;
+            }
             frame_header->frame_state = FrameReceiveStateTimedout;
             ready_callback_(buffer_id, frame_num);
             frames_timedout++;
