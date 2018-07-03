@@ -26,7 +26,7 @@ using namespace log4cxx::helpers;
 
 namespace FrameProcessor
 {
-enum LATRDDataControlType {Unknown, HeaderWord0, HeaderWord1, ExtendedTimestamp};
+enum LATRDDataControlType {Unknown, HeaderWord0, HeaderWord1, ExtendedTimestamp, IdleControlWord};
 
 class LATRDProcessPlugin : public FrameProcessorPlugin
 {
@@ -41,6 +41,12 @@ private:
 
 	/** Constant for this decoders name when publishing meta data */
 	static const std::string META_NAME;
+
+	/** Configuration constant for setting raw mode */
+	static const std::string CONFIG_RAW_MODE;
+
+	/** Configuration constant for resetting the frame counter */
+	static const std::string CONFIG_RESET_FRAME;
 
 	/** Configuration constant for process related items */
 	static const std::string CONFIG_PROCESS;
@@ -65,7 +71,8 @@ private:
 	std::stack<boost::shared_ptr<LATRDProcessJob> > jobStack_;
 
 	/** Pointer to LATRD buffer and frame manager */
-	boost::shared_ptr<LATRDBuffer> timeStampBuffer_;
+  boost::shared_ptr<LATRDBuffer> rawBuffer_;
+  boost::shared_ptr<LATRDBuffer> timeStampBuffer_;
 	boost::shared_ptr<LATRDBuffer> idBuffer_;
 	boost::shared_ptr<LATRDBuffer> energyBuffer_;
 
@@ -78,10 +85,14 @@ private:
 	uint64_t current_point_index_;
 	uint32_t current_time_slice_;
 
+	/** Process raw mode **/
+	uint32_t raw_mode_;
+
 	boost::shared_ptr<LATRDProcessJob> getJob();
 	void releaseJob(boost::shared_ptr<LATRDProcessJob> job);
 
-	void process_frame(boost::shared_ptr<Frame> frame);
+  void process_frame(boost::shared_ptr<Frame> frame);
+  void process_raw(boost::shared_ptr<Frame> frame);
 	void processTask();
 	void publishControlMetaData(boost::shared_ptr<LATRDProcessJob> job);
 	bool processDataWord(uint64_t data_word,
@@ -91,6 +102,7 @@ private:
 			uint32_t *event_id,
 			uint32_t *event_energy);
 	bool isControlWord(uint64_t data_word);
+	bool isIdleWord(uint64_t data_word);
 	LATRDDataControlType getControlType(uint64_t data_word);
 	uint64_t getCourseTimestamp(uint64_t data_word);
 	uint64_t getFineTimestamp(uint64_t data_word);

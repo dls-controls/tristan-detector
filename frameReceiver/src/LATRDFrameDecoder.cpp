@@ -5,6 +5,7 @@
  *      Author: gnx91527
  */
 
+#include <LATRDDefinitions.h>
 #include "LATRDFrameDecoder.h"
 
 namespace FrameReceiver
@@ -74,9 +75,14 @@ void LATRDFrameDecoder::process_packet_header(size_t bytes_received, int port, s
 {
     //TODO validate header size and content, handle incoming new packet buffer allocation etc
 
-    // Convert both header 64bit values to host endian
-	current_packet_header_.headerWord1 = be64toh(*(uint64_t *)raw_packet_header());
-	current_packet_header_.headerWord2 = be64toh(*(((uint64_t *)raw_packet_header())+1));
+  // Convert both header 64bit values to host endian
+//  current_packet_header_.headerWord1 = be64toh(*(uint64_t *)raw_packet_header());
+//  current_packet_header_.headerWord2 = be64toh(*(((uint64_t *)raw_packet_header())+1));
+
+  // TODO: This is a fudge because currently packets are arriving with the first
+  // 64 bits all set to 1.  Ignore this word.
+  current_packet_header_.headerWord1 = be64toh(*(((uint64_t *)raw_packet_header())+1));
+  current_packet_header_.headerWord2 = be64toh(*(((uint64_t *)raw_packet_header())+2));
 
 	// Read the decoded header information into local variables for use
 	uint16_t packetNumber = get_packet_number();
@@ -125,9 +131,11 @@ void LATRDFrameDecoder::process_packet_header(size_t bytes_received, int port, s
         LOG4CXX_INFO(packet_logger_, ss.str());
     }
 
-    LOG4CXX_DEBUG_LEVEL(3, logger_, "Got packet header:" << " packet: " << packetNumber);
-    LOG4CXX_DEBUG_LEVEL(3, logger_, "Frame packet number: " << framePacketNumber << " frame: " << frameNumber);
-
+    LOG4CXX_DEBUG_LEVEL(2, logger_, "Got packet header for packet number: " << packetNumber);
+    LOG4CXX_DEBUG_LEVEL(2, logger_, "  Frame number: " << frameNumber << "  Frame packet number: " << framePacketNumber);
+    LOG4CXX_DEBUG_LEVEL(3, logger_, "" << std::hex << std::setfill('0')
+                              << "Header 0x" << std::setw(8)
+                              << *(((uint64_t *)raw_packet_header())+1));
     if (frameNumber != current_frame_seen_)
     {
         current_frame_seen_ = frameNumber;
@@ -168,10 +176,17 @@ void LATRDFrameDecoder::process_packet_header(size_t bytes_received, int port, s
             current_frame_header_->frame_number = current_frame_seen_;
             current_frame_header_->frame_state = FrameDecoder::FrameReceiveStateIncomplete;
             current_frame_header_->packets_received = 0;
+            current_frame_header_->idle_frame = 0;
             memset(current_frame_header_->packet_state, 0, LATRD::num_frame_packets);
             gettime(reinterpret_cast<struct timespec*>(&(current_frame_header_->frame_start_time)));
+            if ((*(((uint64_t *)raw_packet_header())+1)&LATRD::packet_header_idle_mask) == LATRD::packet_header_idle_mask){
+              LOG4CXX_DEBUG_LEVEL(2, logger_, "  IDLE packet detected");
+              // Mark this buffer as a last frame buffer
+              current_frame_header_->idle_frame = 1;
+            }
+        LOG4CXX_DEBUG_LEVEL(2, logger_, "  Initialised IDLE frame flag to: " << current_frame_header_->idle_frame);
 
-    	}
+      }
     	else
     	{
     		current_frame_buffer_id_ = frame_buffer_map_[current_frame_seen_];
@@ -212,15 +227,36 @@ FrameDecoder::FrameReceiveState LATRDFrameDecoder::process_packet(size_t bytes_r
             reinterpret_cast<uint8_t*>(current_frame_buffer_)
 			+ get_frame_header_size()
 			+ (LATRD::primary_packet_size * get_frame_packet_number());
-    memcpy(packet_header_location, current_raw_packet_header_.get(), sizeof(uint64_t)*2);
+    memcpy(packet_header_location, current_raw_packet_header_.get(), LATRD::packet_header_size);
 
     // Increment the number of packets received for this frame
 	current_frame_header_->packets_received++;
-
+  LOG4CXX_DEBUG_LEVEL(2, logger_, "  Packet count: " << current_frame_header_->packets_received << " for frame: " << current_frame_header_->frame_number);
+  LOG4CXX_DEBUG_LEVEL(2, logger_, "  IDLE frame flag: " << current_frame_header_->idle_frame);
 	// Check to see if the number of packets we have received is equal to the total number
-	// of packets for this frame
-	if (current_frame_header_->packets_received == LATRD::num_frame_packets){
-		// We have received the correct number of packets, the frame is complete
+	// of packets for this frame or if this is an idle frame
+	if (current_frame_header_->packets_received == LATRD::num_frame_packets || current_frame_header_->idle_frame == 1){
+    // If this is an idle frame then empty the current buffer map
+    if (current_frame_header_->idle_frame == 1) {
+      // Loop over frame buffers currently in map and flush them, not including this idle buffer as
+      // that will be flushed last
+      std::map<int, int>::iterator buffer_map_iter = frame_buffer_map_.begin();
+      while (buffer_map_iter != frame_buffer_map_.end()) {
+        int frame_num = buffer_map_iter->first;
+        int buffer_id = buffer_map_iter->second;
+        void *buffer_addr = buffer_manager_->get_buffer_address(buffer_id);
+        LATRD::FrameHeader *frame_header = reinterpret_cast<LATRD::FrameHeader *>(buffer_addr);
+        if (current_frame_header_->frame_number != frame_num){
+          frame_header->frame_state = FrameReceiveStateComplete;
+          ready_callback_(buffer_id, frame_num);
+          frame_buffer_map_.erase(buffer_map_iter++);
+        } else {
+          buffer_map_iter++;
+        }
+      }
+    }
+
+    // We have received the correct number of packets, the frame is complete
 
 	    // Set frame state accordingly
 		frame_state = FrameDecoder::FrameReceiveStateComplete;
@@ -243,6 +279,20 @@ FrameDecoder::FrameReceiveState LATRDFrameDecoder::process_packet(size_t bytes_r
 	}
 
 	return frame_state;
+}
+
+//! Get the current status of the frame decoder.
+//!
+//! This method populates the IpcMessage passed by reference as an argument with decoder-specific
+//! status information, e.g. packet loss by source.
+//!
+//! \param[in] param_prefix - path to be prefixed to each status parameter name
+//! \param[in] status_msg - reference to IpcMesssage to be populated with parameters
+//!
+void LATRDFrameDecoder::get_status(const std::string param_prefix,
+                                   OdinData::IpcMessage& status_msg)
+{
+  status_msg.set_param(param_prefix + "name", std::string("LATRDFrameDecoder"));
 }
 
 void LATRDFrameDecoder::monitor_buffers(void)
@@ -268,6 +318,9 @@ void LATRDFrameDecoder::monitor_buffers(void)
                     << " addr 0x" << std::hex << buffer_addr << std::dec
                     << " timed out with " << frame_header->packets_received << " packets received");
 
+            if (current_frame_seen_ == frame_num){
+              current_frame_seen_ = -1;
+            }
             frame_header->frame_state = FrameReceiveStateTimedout;
             ready_callback_(buffer_id, frame_num);
             frames_timedout++;
@@ -295,8 +348,11 @@ uint32_t LATRDFrameDecoder::get_frame_number(void) const
 {
 	// Frame number is derived from the packet number and the number of packets in a frame
 	// Frame number starts at 1
-    uint32_t frame_number = get_packet_number() / LATRD::num_primary_packets;
-    return frame_number;
+  uint32_t frame_number = (get_packet_number() / LATRD::num_primary_packets) + 1;
+  if ((*(((uint64_t *)raw_packet_header())+1)&LATRD::packet_header_idle_mask) == LATRD::packet_header_idle_mask){
+    frame_number = 0;
+  }
+  return frame_number;
 }
 
 uint32_t LATRDFrameDecoder::get_packet_number(void) const
