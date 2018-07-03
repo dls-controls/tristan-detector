@@ -232,7 +232,7 @@ void LATRDProcessPlugin::process_frame(boost::shared_ptr<Frame> frame)
       int dropped_packets = 0;
       for (int index = 0; index < LATRD::num_primary_packets; index++) {
         if (hdrPtr->packet_state[index] == 0) {
-          LOG4CXX_DEBUG(logger_, "   Packet number: [Missing Packet]");
+          LOG4CXX_DEBUG(logger_, "   Packet number: [Missing Packet] at index " << index);
           dropped_packets += 1;
         } else {
           // TODO: Fix this fudge when packets are correctly received.
@@ -282,8 +282,8 @@ void LATRDProcessPlugin::process_frame(boost::shared_ptr<Frame> frame)
       // Loop over the jobs in order, appending the results to the buffer.  If a buffer is filled
       // then a frame is created and can be pushed onto the next plugin.
       for (uint32_t index = 0; index < LATRD::num_primary_packets; index++) {
+        LOG4CXX_DEBUG(logger_, "** Processing packet [" << index << "] packet state " << (int)hdrPtr->packet_state[index]);
         if (hdrPtr->packet_state[index] != 0) {
-          LOG4CXX_DEBUG(logger_, "** Processed packet [" << index << "] packet state " << hdrPtr->packet_state[index]);
           LOG4CXX_DEBUG(logger_, "Total number of valid data points [" << qty_data_points << "]");
 
           boost::shared_ptr<LATRDProcessJob> job = results[index];
