@@ -227,7 +227,7 @@ void LATRDProcessPlugin::process_frame(boost::shared_ptr<Frame> frame)
       uint8_t *payload_ptr = (uint8_t *) (frame->get_data()) + sizeof(LATRD::FrameHeader);
 
       // Number of packet header 64bit words
-      uint16_t packet_header_count = LATRD::packet_header_size / sizeof(uint64_t);
+      uint16_t packet_header_count = (LATRD::packet_header_size / sizeof(uint64_t)) - 1;
 
       int dropped_packets = 0;
       for (int index = 0; index < LATRD::num_primary_packets; index++) {
@@ -378,7 +378,7 @@ void LATRDProcessPlugin::process_raw(boost::shared_ptr<Frame> frame)
     uint8_t *payload_ptr = (uint8_t *) (frame->get_data()) + sizeof(LATRD::FrameHeader);
 
     // Number of packet header 64bit words
-    uint16_t packet_header_count = LATRD::packet_header_size / sizeof(uint64_t);
+    uint16_t packet_header_count = (LATRD::packet_header_size / sizeof(uint64_t)) - 1;
 
     for (int index = 0; index < LATRD::num_primary_packets; index++) {
       if (hdrPtr->packet_state[index] == 0) {
@@ -623,19 +623,19 @@ uint8_t LATRDProcessPlugin::findTimestampMatch(uint64_t time_stamp)
 uint32_t LATRDProcessPlugin::get_packet_number(uint64_t headerWord2) const
 {
     // Extract relevant bits to obtain the packet count
-	return headerWord2 & 0xFFFFFFFF;
+	return (uint32_t )(headerWord2 & LATRD::header_packet_count_mask);
 }
 
 uint16_t LATRDProcessPlugin::get_word_count(uint64_t headerWord1) const
 {
     // Extract relevant bits to obtain the word count
-    return headerWord1 & 0x7FF;
+    return (uint16_t )(headerWord1 & LATRD::control_word_count_mask);
 }
 
 uint32_t LATRDProcessPlugin::get_time_slice(uint64_t headerWord1) const
 {
     // Extract relevant bits to obtain the time slice ID
-    return (headerWord1 & 0x3FFFFFFFC0000) >> 18;
+    return (uint32_t )((headerWord1 & LATRD::control_word_time_slice_mask) >> 18);
 }
 
 
