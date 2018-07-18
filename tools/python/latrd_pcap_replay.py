@@ -217,16 +217,19 @@ class LATRDFrameProducer(object):
             udp_layer = ip_layer.data
 
             # Unpack the packet header
-            (zero_pkt, hdr_pkt_1, hdr_pkt_2) = struct.unpack('<QQQ', udp_layer.data[:24])
+            if len(udp_layer.data) >= 24:
+                (zero_pkt, hdr_pkt_1, hdr_pkt_2) = struct.unpack('<QQQ', udp_layer.data[:24])
 
-            # Check for an idle packet
-            if (hdr_pkt_1 & LATRDPacket.IDLE_PACKET_MASK) == LATRDPacket.IDLE_PACKET_MASK:
-                if self._idle_packet is None:
-                    logging.debug("IDLE Packet processed...")
-                    self._idle_packet = udp_layer.data
+                # Check for an idle packet
+                if (hdr_pkt_1 & LATRDPacket.IDLE_PACKET_MASK) == LATRDPacket.IDLE_PACKET_MASK:
+                    if self._idle_packet is None:
+                        logging.debug("IDLE Packet processed...")
+                        self._idle_packet = udp_layer.data
+                else:
+                    # Store the packets exactly as recorded
+                    self._packets.append(udp_layer.data)
             else:
-                # Store the packets exactly as recorded
-                self._packets.append(udp_layer.data)
+                logging.debug("Ignoring data packet with length [%s]...", len(udp_layer.data))
 
         logging.debug("Number of data packets processed: %d", len(self._packets))
 
