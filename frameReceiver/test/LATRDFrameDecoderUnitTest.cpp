@@ -35,18 +35,18 @@ BOOST_AUTO_TEST_CASE( LATRDDecoderLibraryTest )
     OdinData::IpcMessage config_msg;
     BOOST_CHECK_NO_THROW(decoder->init(logger, config_msg));
 
-    // Verify the size of a LATRD buffer is 10*1024+40.
-    // That is 10 packets of 1024 bytes plus a header of 40 bytes
+    // Verify the size of a LATRD buffer is (100*1024*8)+136.
+    // That is 100 packets of 1024x8 bytes plus a header of 136 bytes
     size_t buffer_size = decoder->get_frame_buffer_size();
-    BOOST_CHECK_EQUAL(buffer_size, 81960);
+    BOOST_CHECK_EQUAL(buffer_size, 819336);
 
-    // Verify the header size of a LATRD buffer is 40 bytes
+    // Verify the header size of a LATRD buffer is 136 bytes
     size_t header_size = decoder->get_frame_header_size();
-    BOOST_CHECK_EQUAL(header_size, 40);
+    BOOST_CHECK_EQUAL(header_size, 136);
 
-    // Verify the packet header buffer is 16 bytes (2*64bit values)
+    // Verify the packet header buffer is 24 bytes (3*64bit values)
     size_t pkt_header_size = decoder->get_packet_header_size();
-    BOOST_CHECK_EQUAL(pkt_header_size, 16);
+    BOOST_CHECK_EQUAL(pkt_header_size, 24);
 
     // Verify that the decoding of LATRD packets requires a header peek
     bool require_header_peek = decoder->requires_header_peek();
@@ -67,23 +67,6 @@ BOOST_AUTO_TEST_CASE( LATRDDecoderLibraryTest )
 	struct sockaddr_in from_addr;
     decoder->process_packet_header(16, 9999, &from_addr);
 
-    // Verify the packet number is 1
-    uint32_t packet_number = decoder->get_packet_number();
-    BOOST_CHECK_EQUAL(packet_number, 1);
-
-    // Verify the producer ID is 1
-    uint32_t producer_ID = decoder->get_producer_ID();
-    BOOST_CHECK_EQUAL(producer_ID, 1);
-
-    // Verify the word count is 1024
-    uint32_t word_count = decoder->get_word_count();
-    BOOST_CHECK_EQUAL(word_count, 1024);
-
-    // Verify the time slice is 1
-    uint32_t time_slice = decoder->get_time_slice();
-    BOOST_CHECK_EQUAL(time_slice, 1);
-
-
     // Write a sensible header value
     // Producer ID - 8
     // Time Slice  - 10241024
@@ -94,22 +77,6 @@ BOOST_AUTO_TEST_CASE( LATRDDecoderLibraryTest )
 
     // Call decode header on the decoder
     decoder->process_packet_header(16, 9999, &from_addr);
-
-    // Verify the packet number is 1
-    packet_number = decoder->get_packet_number();
-    BOOST_CHECK_EQUAL(packet_number, 512256);
-
-    // Verify the producer ID is 8
-    producer_ID = decoder->get_producer_ID();
-    BOOST_CHECK_EQUAL(producer_ID, 8);
-
-    // Verify the word count is 1022
-    word_count = decoder->get_word_count();
-    BOOST_CHECK_EQUAL(word_count, 1022);
-
-    // Verify the time slice is 1
-    time_slice = decoder->get_time_slice();
-    BOOST_CHECK_EQUAL(time_slice, 10241024);
 
 }
 

@@ -51,157 +51,137 @@ LATRDFrameDecoder::~LATRDFrameDecoder()
 {
 }
 
-const size_t LATRDFrameDecoder::get_frame_buffer_size(void) const
+const size_t LATRDFrameDecoder::get_frame_buffer_size() const
 {
     return LATRD::total_frame_size;
 }
 
-const size_t LATRDFrameDecoder::get_frame_header_size(void) const
+const size_t LATRDFrameDecoder::get_frame_header_size() const
 {
     return sizeof(LATRD::FrameHeader);
 }
 
-const size_t LATRDFrameDecoder::get_packet_header_size(void) const
+const size_t LATRDFrameDecoder::get_packet_header_size() const
 {
     return LATRD::packet_header_size;
 }
 
-void* LATRDFrameDecoder::get_packet_header_buffer(void)
+void* LATRDFrameDecoder::get_packet_header_buffer()
 {
     return current_raw_packet_header_.get();
 }
 
 void LATRDFrameDecoder::process_packet_header(size_t bytes_received, int port, struct sockaddr_in* from_addr)
 {
-    //TODO validate header size and content, handle incoming new packet buffer allocation etc
-
-  // Convert both header 64bit values to host endian
-//  current_packet_header_.headerWord1 = be64toh(*(uint64_t *)raw_packet_header());
-//  current_packet_header_.headerWord2 = be64toh(*(((uint64_t *)raw_packet_header())+1));
+  //TODO validate header size and content, handle incoming new packet buffer allocation etc
 
   // TODO: This is a fudge because currently packets are arriving with the first
   // 64 bits all set to 1.  Ignore this word.
-  current_packet_header_.headerWord1 = be64toh(*(((uint64_t *)raw_packet_header())+1));
-  current_packet_header_.headerWord2 = be64toh(*(((uint64_t *)raw_packet_header())+2));
+  current_packet_header_.headerWord1 = *(((uint64_t *)raw_packet_header())+1);
+  current_packet_header_.headerWord2 = *(((uint64_t *)raw_packet_header())+2);
 
 	// Read the decoded header information into local variables for use
-	uint16_t packetNumber = get_packet_number();
-	uint8_t producerID = get_producer_ID();
-	uint32_t timeSlice = get_time_slice();
-	uint16_t wordCount = get_word_count();
+	uint32_t packetNumber = LATRD::get_packet_number(current_packet_header_.headerWord2);
+	uint8_t producerID = LATRD::get_producer_ID(current_packet_header_.headerWord1);
+    uint32_t timeSliceModulo = LATRD::get_time_slice_modulo(current_packet_header_.headerWord1);
+    uint8_t timeSliceNumber = LATRD::get_time_slice_number(current_packet_header_.headerWord2);
+	uint16_t wordCount = LATRD::get_word_count(current_packet_header_.headerWord1);
 	uint32_t frameNumber = get_frame_number();
 	uint32_t framePacketNumber = get_frame_packet_number();
 
-    // Dump raw header if packet logging enabled
-    if (enable_packet_logging_)
-    {
-        std::stringstream ss;
-        ss << "PktHdr: " << std::setw(15) << std::left << inet_ntoa(from_addr->sin_addr) << std::right << " "
-           << std::setw(5) << ntohs(from_addr->sin_port) << " "
-           << std::setw(5) << port << std::hex << std::setfill('0');
+  // Dump raw header if packet logging enabled
+  if (enable_packet_logging_){
+    std::stringstream ss;
+    ss << "PktHdr: " << std::setw(15) << std::left << inet_ntoa(from_addr->sin_addr) << std::right << " "
+       << std::setw(5) << ntohs(from_addr->sin_port) << " "
+       << std::setw(5) << port << std::hex << std::setfill('0');
 
-        // Obtain a pointer to the first 64 bit header word
-        uint8_t *hdr_ptr = (uint8_t *)&current_packet_header_.headerWord1;
+    // Obtain a pointer to the first 64 bit header word
+    uint8_t *hdr_ptr = (uint8_t *)&current_packet_header_.headerWord1;
 
-        // Extract relevant bits into the next available size data type
-        uint8_t ctrlValue = (hdr_ptr[0] & 0xC0) >> 6;
-        uint8_t typeValue = (hdr_ptr[0] & 0x3C) >> 2;
-        uint8_t spareValue = ((hdr_ptr[5] & 0x03) << 6) + ((hdr_ptr[6] & 0xF0) >> 2);
+    // Extract relevant bits into the next available size data type
+    uint8_t ctrlValue = (uint8_t)((hdr_ptr[0] & 0xC0) >> 6);
+    uint8_t typeValue = (uint8_t)((hdr_ptr[0] & 0x3C) >> 2);
+    uint8_t spareValue = (uint8_t)(((hdr_ptr[5] & 0x03) << 6) + ((hdr_ptr[6] & 0xF0) >> 2));
 
-        // Format the data values into the stream
-        ss << " 0x" << std::setw(2) << unsigned(ctrlValue) << " 0x" << std::setw(2) << unsigned(typeValue)
-		   << " 0x" << std::setw(2) << unsigned(producerID) << " 0x" << std::setw(8) << timeSlice << " 0x"
+    // Format the data values into the stream
+    ss << " 0x" << std::setw(2) << unsigned(ctrlValue) << " 0x" << std::setw(2) << unsigned(typeValue)
+		   << " 0x" << std::setw(2) << unsigned(producerID) << " 0x" << std::setw(8) << timeSliceModulo << " 0x"
 		   << std::setw(2) << unsigned(spareValue) << " 0x" << std::setw(4) << wordCount;
 
-        // Obtain a pointer to the second 64 bit header word
-        hdr_ptr = (uint8_t *)&current_packet_header_.headerWord2;
+    // Obtain a pointer to the second 64 bit header word
+    hdr_ptr = (uint8_t *)&current_packet_header_.headerWord2;
 
-        ctrlValue = (hdr_ptr[0] & 0xC0) >> 6;
-        typeValue = (hdr_ptr[0] & 0x3C) >> 2;
-        spareValue = ((hdr_ptr[0] & 0x03) << 24)
-                	+ (hdr_ptr[1] << 16)
-                	+ (hdr_ptr[2] << 8)
-                	+ (hdr_ptr[3]);
+    ctrlValue = (uint8_t)((hdr_ptr[0] & 0xC0) >> 6);
+    typeValue = (uint8_t)((hdr_ptr[0] & 0x3C) >> 2);
+    spareValue = (uint8_t)(((hdr_ptr[0] & 0x03) << 24)
+                 + (hdr_ptr[1] << 16)
+                 + (hdr_ptr[2] << 8)
+                 + (hdr_ptr[3]));
 
-        // Format the data values into the stream
-        ss << " 0x" << std::setw(2) << unsigned(ctrlValue) << " 0x" << std::setw(2) << unsigned(typeValue)
-		<< " 0x" << std::setw(8) << unsigned(spareValue) << " 0x" << std::setw(8) << unsigned(packetNumber);
+    // Format the data values into the stream
+    ss << " 0x" << std::setw(2) << unsigned(ctrlValue) << " 0x" << std::setw(2) << unsigned(typeValue)
+       << " 0x" << std::setw(8) << unsigned(spareValue) << " 0x" << std::setw(8) << unsigned(packetNumber);
 
-        ss << std::dec;
-        LOG4CXX_INFO(packet_logger_, ss.str());
-    }
+    ss << std::dec;
+    LOG4CXX_INFO(packet_logger_, ss.str());
+  }
 
-    LOG4CXX_DEBUG_LEVEL(2, logger_, "Got packet header for packet number: " << packetNumber);
-    LOG4CXX_DEBUG_LEVEL(2, logger_, "  Frame number: " << frameNumber << "  Frame packet number: " << framePacketNumber);
-    LOG4CXX_DEBUG_LEVEL(3, logger_, "" << std::hex << std::setfill('0')
-                              << "Header 0x" << std::setw(8)
-                              << *(((uint64_t *)raw_packet_header())+1));
-    if (frameNumber != current_frame_seen_)
-    {
-        current_frame_seen_ = frameNumber;
+  LOG4CXX_DEBUG_LEVEL(2, logger_, "Got packet header for packet number: " << packetNumber);
+  LOG4CXX_DEBUG_LEVEL(2, logger_, "Time slice modulo [" << timeSliceModulo << "] number [" << (uint32_t)timeSliceNumber << "]");
+  LOG4CXX_DEBUG_LEVEL(2, logger_, "  Frame number: " << frameNumber << "  Frame packet number: " << framePacketNumber);
+  LOG4CXX_DEBUG_LEVEL(3, logger_, "" << std::hex << std::setfill('0')
+                                     << "Header 0x" << std::setw(8)
+                                     << *(((uint64_t *)raw_packet_header())+1));
+  if (frameNumber != current_frame_seen_){
+    current_frame_seen_ = frameNumber;
+    if (frame_buffer_map_.count(current_frame_seen_) == 0){
+      if (empty_buffer_queue_.empty()){
+        current_frame_buffer_ = dropped_frame_buffer_.get();
+        if (!dropping_frame_data_){
+          LOG4CXX_ERROR(logger_, "First packet from frame " << current_frame_seen_ << " detected but no free buffers available. Dropping packet data for this frame");
+          dropping_frame_data_ = true;
+        }
+      } else {
+        current_frame_buffer_id_ = empty_buffer_queue_.front();
+        empty_buffer_queue_.pop();
+        frame_buffer_map_[current_frame_seen_] = current_frame_buffer_id_;
+        current_frame_buffer_ = buffer_manager_->get_buffer_address(current_frame_buffer_id_);
 
-    	if (frame_buffer_map_.count(current_frame_seen_) == 0)
-    	{
-    	    if (empty_buffer_queue_.empty())
-            {
-                current_frame_buffer_ = dropped_frame_buffer_.get();
-
-    	        if (!dropping_frame_data_)
-                {
-                    LOG4CXX_ERROR(logger_, "First packet from frame " << current_frame_seen_ << " detected but no free buffers available. Dropping packet data for this frame");
-                    dropping_frame_data_ = true;
-                }
-            }
-    	    else
-    	    {
-
-                current_frame_buffer_id_ = empty_buffer_queue_.front();
-                empty_buffer_queue_.pop();
-                frame_buffer_map_[current_frame_seen_] = current_frame_buffer_id_;
-                current_frame_buffer_ = buffer_manager_->get_buffer_address(current_frame_buffer_id_);
-
-                if (!dropping_frame_data_)
-                {
-                    LOG4CXX_DEBUG_LEVEL(2, logger_, "First packet from frame " << current_frame_seen_ << " detected, allocating frame buffer ID " << current_frame_buffer_id_);
-                }
-                else
-                {
-                    dropping_frame_data_ = false;
-                    LOG4CXX_DEBUG_LEVEL(2, logger_, "Free buffer now available for frame " << current_frame_seen_ << ", allocating frame buffer ID " << current_frame_buffer_id_);
-                }
-    	    }
-
-    	    // Initialise frame header
-            current_frame_header_ = reinterpret_cast<LATRD::FrameHeader*>(current_frame_buffer_);
-            current_frame_header_->frame_number = current_frame_seen_;
-            current_frame_header_->frame_state = FrameDecoder::FrameReceiveStateIncomplete;
-            current_frame_header_->packets_received = 0;
-            current_frame_header_->idle_frame = 0;
-            memset(current_frame_header_->packet_state, 0, LATRD::num_frame_packets);
-            gettime(reinterpret_cast<struct timespec*>(&(current_frame_header_->frame_start_time)));
-            if ((*(((uint64_t *)raw_packet_header())+1)&LATRD::packet_header_idle_mask) == LATRD::packet_header_idle_mask){
-              LOG4CXX_DEBUG_LEVEL(2, logger_, "  IDLE packet detected");
-              // Mark this buffer as a last frame buffer
-              current_frame_header_->idle_frame = 1;
-            }
-        LOG4CXX_DEBUG_LEVEL(2, logger_, "  Initialised IDLE frame flag to: " << current_frame_header_->idle_frame);
-
+        if (!dropping_frame_data_){
+          LOG4CXX_DEBUG_LEVEL(2, logger_, "First packet from frame " << current_frame_seen_ << " detected, allocating frame buffer ID " << current_frame_buffer_id_);
+        } else {
+          dropping_frame_data_ = false;
+          LOG4CXX_DEBUG_LEVEL(2, logger_, "Free buffer now available for frame " << current_frame_seen_ << ", allocating frame buffer ID " << current_frame_buffer_id_);
+        }
       }
-    	else
-    	{
-    		current_frame_buffer_id_ = frame_buffer_map_[current_frame_seen_];
-        	current_frame_buffer_ = buffer_manager_->get_buffer_address(current_frame_buffer_id_);
-        	current_frame_header_ = reinterpret_cast<LATRD::FrameHeader*>(current_frame_buffer_);
-    	}
 
+      // Initialise frame header
+      current_frame_header_ = reinterpret_cast<LATRD::FrameHeader*>(current_frame_buffer_);
+      current_frame_header_->frame_number = current_frame_seen_;
+      current_frame_header_->frame_state = FrameDecoder::FrameReceiveStateIncomplete;
+      current_frame_header_->packets_received = 0;
+      current_frame_header_->idle_frame = 0;
+      memset(current_frame_header_->packet_state, 0, LATRD::num_frame_packets);
+      gettime(reinterpret_cast<struct timespec*>(&(current_frame_header_->frame_start_time)));
+      if ((*(((uint64_t *)raw_packet_header())+1)&LATRD::packet_header_idle_mask) == LATRD::packet_header_idle_mask){
+        LOG4CXX_DEBUG_LEVEL(2, logger_, "  IDLE packet detected");
+        // Mark this buffer as a last frame buffer
+        current_frame_header_->idle_frame = 1;
+      }
+      LOG4CXX_DEBUG_LEVEL(2, logger_, "  Initialised IDLE frame flag to: " << current_frame_header_->idle_frame);
+    } else {
+      current_frame_buffer_id_ = frame_buffer_map_[current_frame_seen_];
+      current_frame_buffer_ = buffer_manager_->get_buffer_address(current_frame_buffer_id_);
+      current_frame_header_ = reinterpret_cast<LATRD::FrameHeader*>(current_frame_buffer_);
     }
-
-    // Update packet_number state map in frame header
-    current_frame_header_->packet_state[framePacketNumber] = 1;
-
+  }
+  // Update packet_number state map in frame header
+  LOG4CXX_DEBUG_LEVEL(1, logger_, "  Setting frame " << current_frame_seen_<< " buffer ID: " << current_frame_buffer_id_ << " packet header index: " << framePacketNumber);
+  current_frame_header_->packet_state[framePacketNumber] = 1;
 }
 
-void* LATRDFrameDecoder::get_next_payload_buffer(void) const
+void* LATRDFrameDecoder::get_next_payload_buffer() const
 {
     uint8_t* next_receive_location =
             reinterpret_cast<uint8_t*>(current_frame_buffer_)
@@ -212,7 +192,7 @@ void* LATRDFrameDecoder::get_next_payload_buffer(void) const
     return reinterpret_cast<void*>(next_receive_location);
 }
 
-size_t LATRDFrameDecoder::get_next_payload_size(void) const
+size_t LATRDFrameDecoder::get_next_payload_size() const
 {
     return LATRD::primary_packet_size;
 }
@@ -295,7 +275,7 @@ void LATRDFrameDecoder::get_status(const std::string param_prefix,
   status_msg.set_param(param_prefix + "name", std::string("LATRDFrameDecoder"));
 }
 
-void LATRDFrameDecoder::monitor_buffers(void)
+void LATRDFrameDecoder::monitor_buffers()
 {
 
     int frames_timedout = 0;
@@ -344,69 +324,26 @@ void LATRDFrameDecoder::monitor_buffers(void)
 
 }
 
-uint32_t LATRDFrameDecoder::get_frame_number(void) const
+uint32_t LATRDFrameDecoder::get_frame_number() const
 {
 	// Frame number is derived from the packet number and the number of packets in a frame
 	// Frame number starts at 1
-  uint32_t frame_number = (get_packet_number() / LATRD::num_primary_packets) + 1;
+  uint32_t frame_number = (uint32_t)((LATRD::get_packet_number(current_packet_header_.headerWord2) / LATRD::num_primary_packets) + 1);
   if ((*(((uint64_t *)raw_packet_header())+1)&LATRD::packet_header_idle_mask) == LATRD::packet_header_idle_mask){
     frame_number = 0;
   }
   return frame_number;
 }
 
-uint32_t LATRDFrameDecoder::get_packet_number(void) const
+uint32_t LATRDFrameDecoder::get_frame_packet_number() const
 {
-	// Read the header word as bytes
-    uint8_t *hdr_ptr = (uint8_t *)&current_packet_header_.headerWord2;
-
-	return (hdr_ptr[4] << 24)
-			+ (hdr_ptr[5] << 16)
-			+ (hdr_ptr[6] << 8)
-			+ hdr_ptr[7];
+	return (uint32_t)(LATRD::get_packet_number(current_packet_header_.headerWord2) % LATRD::num_primary_packets);
 }
 
-uint32_t LATRDFrameDecoder::get_frame_packet_number(void) const
-{
-	return get_packet_number() % LATRD::num_primary_packets;
-}
-
-uint8_t LATRDFrameDecoder::get_producer_ID(void) const
-{
-	// Read the header word as bytes
-    uint8_t *hdr_ptr = (uint8_t *)&current_packet_header_.headerWord1;
-
-    // Extract relevant bits to obtain the producer ID
-    return ((hdr_ptr[0] & 0x03) << 6) + ((hdr_ptr[1] & 0xFC) >> 2);
-}
-
-uint32_t LATRDFrameDecoder::get_time_slice(void) const
-{
-	// Read the header word as bytes
-    uint8_t *hdr_ptr = (uint8_t *)&current_packet_header_.headerWord1;
-
-    // Extract relevant bits to obtain the time slice
-    return ((hdr_ptr[1] & 0x03) << 30)
-    		+ (hdr_ptr[2] << 22)
-			+ (hdr_ptr[3] << 14)
-			+ (hdr_ptr[4] << 6)
-			+ ((hdr_ptr[5] & 0xFC) >> 2);
-}
-
-uint16_t LATRDFrameDecoder::get_word_count(void) const
-{
-	// Read the header word as bytes
-    uint8_t *hdr_ptr = (uint8_t *)&current_packet_header_.headerWord1;
-
-    // Extract relevant bits to obtain the word count
-    return ((hdr_ptr[6] & 0x07) << 8) + hdr_ptr[7];
-}
-
-uint8_t* LATRDFrameDecoder::raw_packet_header(void) const
+uint8_t* LATRDFrameDecoder::raw_packet_header() const
 {
     return reinterpret_cast<uint8_t*>(current_raw_packet_header_.get());
 }
-
 
 unsigned int LATRDFrameDecoder::elapsed_ms(struct timespec& start, struct timespec& end)
 {
