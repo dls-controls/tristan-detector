@@ -1,7 +1,7 @@
 set(CMAKE_INCLUDE_CURRENT_DIR on)
 set(CMAKE_BUILD_TYPE Debug)
 
-include_directories(${FRAMEPROCESSOR_DIR}/include ${ODINDATA_INCLUDE_DIRS} ${HDF5_INCLUDE_DIRS} ${Boost_INCLUDE_DIRS} ${LOG4CXX_INCLUDE_DIRS}/.. ${ZEROMQ_INCLUDE_DIRS})
+include_directories(${COMMON_DIR}/include ${FRAMEPROCESSOR_DIR}/include ${ODINDATA_INCLUDE_DIRS} ${HDF5_INCLUDE_DIRS} ${Boost_INCLUDE_DIRS} ${LOG4CXX_INCLUDE_DIRS}/.. ${ZEROMQ_INCLUDE_DIRS})
 
 # Add library for LATRD processing plugin
 add_library(LATRDProcessPlugin SHARED LATRDProcessPlugin.cpp LATRDProcessPluginLib.cpp LATRDBuffer.cpp LATRDProcessJob.cpp)

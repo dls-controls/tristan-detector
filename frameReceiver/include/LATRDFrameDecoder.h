@@ -46,11 +46,11 @@ public:
     void* get_packet_header_buffer(void);
 
     uint32_t get_frame_number(void) const;
-    uint32_t get_packet_number(void) const;
+//    uint32_t get_packet_number(void) const;
     uint32_t get_frame_packet_number(void) const;
-    uint8_t get_producer_ID(void) const;
-    uint32_t get_time_slice(void) const;
-    uint16_t get_word_count(void) const;
+//    uint8_t get_producer_ID(void) const;
+//    uint32_t get_time_slice(void) const;
+//    uint16_t get_word_count(void) const;
 
 private:
 
