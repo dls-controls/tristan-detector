@@ -15,6 +15,9 @@ set(FRAMERECEIVER_DIR ${LATRD_SOURCE_DIR}/frameReceiver)
 # Set the frameProcessor directory
 set(FRAMEPROCESSOR_DIR ${LATRD_SOURCE_DIR}/frameProcessor)
 
+# Set the common directory
+set(COMMON_DIR ${LATRD_SOURCE_DIR}/common)
+
 # Appends the cmake/modules path inside the MAKE_MODULE_PATH variable which stores the
 # directories of additional CMake modules (ie. MacroOutOfSourceBuild.cmake):
 set(CMAKE_MODULE_PATH ${LATRD_SOURCE_DIR}/cmake ${CMAKE_MODULE_PATH})
