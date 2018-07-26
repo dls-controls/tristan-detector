@@ -1,0 +1,2 @@
+export PYTHONPATH=/dls_sw/prod/tools/RHEL6-x86_64/odin-data/0-4-0dls2/prefix/lib/python2.7/site-packages/odin_data-0_4_0dls2-py2.7.egg
+odin_server --config=./latrd.cfg

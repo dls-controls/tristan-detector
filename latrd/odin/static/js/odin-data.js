@@ -113,11 +113,19 @@ $( document ).ready(function()
     fp_stop_command();
   });
 
+  $('#fp-config-raw-mode-on').click(function(){
+    fp_raw_mode_command();
+  });
+
+  $('#fp-config-raw-mode-off').click(function(){
+    fp_process_mode_command();
+  });
+
   $(window).on('hashchange', function(){
-		// On every hash change the render function is called with the new hash.
-		// This is how the navigation of the app is executed.
-		render(decodeURI(window.location.hash));
-	});
+    // On every hash change the render function is called with the new hash.
+	// This is how the navigation of the app is executed.
+	render(decodeURI(window.location.hash));
+  });
 });
 
 function process_cmd_response(response)
@@ -204,7 +212,7 @@ function detector_json_get_command()
 function send_fp_command(command, params)
 {
     $.ajax({
-        url: '/api/' + odin_data.api_version + '/fp/' + command,
+        url: '/api/' + odin_data.api_version + '/fp/config/' + command,
         type: 'PUT',
         dataType: 'json',
         data: params,
@@ -220,19 +228,18 @@ function fp_configure_command() {
     send_fp_command('meta_endpoint','tcp://*:5558');
     send_fp_command('fr_setup', JSON.stringify({
         "fr_release_cnxn": "tcp://127.0.0.1:5002",
-        "fr_ready_cnxn": "tcp://127.0.0.1:5001",
-        "fr_shared_mem": "FrameReceiverBuffer"
+        "fr_ready_cnxn": "tcp://127.0.0.1:5001"
     }));
     send_fp_command('plugin', JSON.stringify({
         "load": {
-            "library": "/home/gnx91527/work/LATRD/prefix/lib/libLATRDProcessPlugin.so",
+            "library": "/home/gnx91527/work/tristan/LATRD/prefix/lib/libLATRDProcessPlugin.so",
             "index": "latrd",
             "name": "LATRDProcessPlugin"
         }
     }));
     send_fp_command('plugin', JSON.stringify({
         "load": {
-            "library": "/home/gnx91527/work/odin-data/prefix/lib/libHdf5Plugin.so",
+            "library": "/dls_sw/prod/tools/RHEL6-x86_64/odin-data/0-4-0dls2/prefix/lib/libHdf5Plugin.so",
             "index": "hdf",
             "name": "FileWriterPlugin"
         }
@@ -257,26 +264,34 @@ function fp_configure_command() {
     }));
     send_fp_command('hdf', JSON.stringify({
         "dataset": {
-            "cmd": "create",
-            "name": "event_id",
-            "datatype": 2,
-            "chunks": [1638400]
+            "raw_data": {
+                "datatype": 3,
+                "chunks": [524288]
+            }
         }
     }));
     send_fp_command('hdf', JSON.stringify({
         "dataset": {
-            "cmd": "create",
-            "name": "event_time_offset",
-            "datatype": 3,
-            "chunks": [1638400]
+            "event_id": {
+                "datatype": 2,
+                "chunks": [524288]
+            }
         }
     }));
     send_fp_command('hdf', JSON.stringify({
         "dataset": {
-            "cmd": "create",
-            "name": "event_energy",
-            "datatype": 2,
-            "chunks": [1638400]
+            "event_time_offset": {
+                "datatype": 3,
+                "chunks": [524288]
+            }
+        }
+    }));
+    send_fp_command('hdf', JSON.stringify({
+        "dataset": {
+            "event_energy": {
+                "datatype": 2,
+                "chunks": [524288]
+            }
         }
     }));
 }
@@ -290,6 +305,18 @@ function fp_start_command() {
     }));
     send_fp_command('hdf', JSON.stringify({
         "write": true
+    }));
+}
+
+function fp_raw_mode_command() {
+    send_fp_command('latrd', JSON.stringify({
+        "raw_mode": 1
+    }));
+}
+
+function fp_process_mode_command() {
+    send_fp_command('latrd', JSON.stringify({
+        "raw_mode": 0
     }));
 }
 
@@ -405,10 +432,10 @@ function update_fp_status() {
 //        alert(response.endpoint);
         $('#fp-endpoint').html(response.endpoint);
     });
-    $.getJSON('/api/' + odin_data.api_version + '/fp/connected', function(response) {
-        //alert(response['connected']);
-        $('#fp-connected').html(led_html(response['connected'], 'green', 26));
-        if (response['connected'] == 'false'){
+    $.getJSON('/api/' + odin_data.api_version + '/fp/status/connected', function(response) {
+        //alert(response['value']);
+        $('#fp-connected').html(led_html(response['value'], 'green', 26));
+        if (response['value'] === 'false'){
             odin_data.fp_connected = false;
             $('#fp-hdf-writing').html('');
             $('#fp-hdf-file-path').html('');
@@ -420,19 +447,36 @@ function update_fp_status() {
             odin_data.fp_connected = true;
         }
     });
-    $.getJSON('/api/' + odin_data.api_version + '/fp/hdf', function(response) {
-//        alert(response.endpoint);
+    $.getJSON('/api/' + odin_data.api_version + '/fp/status/hdf', function(response) {
+        //alert(response['value']);
         if (odin_data.fp_connected){
-            if (response.hdf != ''){
-                $('#fp-hdf-writing').html(led_html(response.hdf[0].writing, 'green', 26));
-                $('#fp-hdf-file-path').html('' + response.hdf[0].file_path + response.hdf[0].file_name);
-                $('#fp-hdf-processes').html('' + response.hdf[0].processes);
-                $('#fp-hdf-rank').html('' + response.hdf[0].rank);
-            } else {
+            if (response['value'] == ""){
                 $('#fp-hdf-writing').html('Not Loaded');
                 $('#fp-hdf-file-path').html('Not Loaded');
                 $('#fp-hdf-processes').html('Not Loaded');
                 $('#fp-hdf-rank').html('Not Loaded');
+            } else {
+                //alert(response['value'][0]);
+                $('#fp-hdf-writing').html(led_html(response['value'][0].writing, 'green', 26));
+                $('#fp-hdf-file-path').html('' + response['value'][0].file_path + response['value'][0].file_name);
+                $('#fp-hdf-processes').html('' + response['value'][0].processes);
+                $('#fp-hdf-rank').html('' + response['value'][0].rank);
+                $('#fp-hdf-written').html('' + response['value'][0].frames_written);
+            }
+        }
+    });
+    $.getJSON('/api/' + odin_data.api_version + '/fp/config/latrd', function(response) {
+        //alert(response['value']);
+        if (odin_data.fp_connected){
+            if (response['value'] == ""){
+                $('#fp-raw-mode').html('Not Loaded');
+            } else {
+//                alert(response['value'][0].raw_mode);
+                if (response['value'][0].raw_mode == "0") {
+                    $('#fp-raw-mode').html('Process');
+                } else {
+                    $('#fp-raw-mode').html('Raw');
+                }
             }
         }
     });
