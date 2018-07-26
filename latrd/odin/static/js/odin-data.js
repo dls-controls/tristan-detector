@@ -56,6 +56,7 @@ $( document ).ready(function()
   setInterval(update_api_version, 5000);
   setInterval(update_detector_status, 1000);
   setInterval(update_fp_status, 1000);
+  setInterval(update_fr_status, 1000);
 
   $('#set-hw-exposure').change(function(){
     update_exposure();
@@ -479,6 +480,13 @@ function update_fp_status() {
                 }
             }
         }
+    });
+}
+
+function update_fr_status() {
+    $.getJSON('/api/' + odin_data.api_version + '/fr/status/buffers', function (response) {
+        //alert(response['value'][0].empty);
+        $('#fr-empty-buffers').html(response['value'][0].empty);
     });
 }
 
