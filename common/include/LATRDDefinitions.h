@@ -28,6 +28,8 @@ namespace LATRD
 
   static const size_t number_of_processing_threads = 8;
 
+  static const size_t number_of_time_slice_buffers = 8;
+
   static const size_t frame_size = 524288;  // 4MB / 8 byte values
 
   typedef struct
@@ -41,6 +43,8 @@ namespace LATRD
     uint32_t frame_number;
     uint32_t frame_state;
     uint32_t idle_frame;
+    uint32_t ts_wrap;
+    uint32_t ts_buffer;
     struct timespec frame_start_time;
     uint32_t packets_received;
     uint8_t  packet_state[num_primary_packets];
@@ -92,6 +96,13 @@ namespace LATRD
   {
     // Extract relevant bits to obtain the time slice number
     return (uint8_t )((headerWord2 & header_packet_ts_number_mask) >> 32);
+  }
+
+  static uint32_t get_time_slice_id(uint64_t headerWord1, uint64_t headerWord2)
+  {
+    // The time slice ID is calculated by multiplying the modulo by the number of buffers
+    // and then adding the current buffer number
+    return (get_time_slice_modulo(headerWord1) * number_of_time_slice_buffers) + get_time_slice_number(headerWord2);
   }
 
   static uint32_t get_packet_number(uint64_t headerWord2)
