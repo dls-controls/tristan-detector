@@ -159,6 +159,8 @@ void LATRDFrameDecoder::process_packet_header(size_t bytes_received, int port, s
       // Initialise frame header
       current_frame_header_ = reinterpret_cast<LATRD::FrameHeader*>(current_frame_buffer_);
       current_frame_header_->frame_number = current_frame_seen_;
+      current_frame_header_->ts_wrap = timeSliceModulo;
+      current_frame_header_->ts_buffer = timeSliceNumber;
       current_frame_header_->frame_state = FrameDecoder::FrameReceiveStateIncomplete;
       current_frame_header_->packets_received = 0;
       current_frame_header_->idle_frame = 0;
