@@ -233,7 +233,7 @@ function fp_configure_command() {
     }));
     send_fp_command('plugin', JSON.stringify({
         "load": {
-            "library": "/home/gnx91527/work/tristan/LATRD/prefix/lib/libLATRDProcessPlugin.so",
+            "library": "/dls_sw/work/tools/RHEL6-x86_64/LATRD/prefix/lib/libLATRDProcessPlugin.so",
             "index": "latrd",
             "name": "LATRDProcessPlugin"
         }
