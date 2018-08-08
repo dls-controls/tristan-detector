@@ -151,6 +151,7 @@ function update_frames_per_trigger() {
 function update_mode() {
     set_value = $('#set-hw-mode').find(":selected").text();
     $.put('/api/' + odin_data.api_version + '/ctrl/config/Mode/' + set_value, process_cmd_response);
+    fp_mode_command(set_value);
 }
 
 function update_profile() {
@@ -261,6 +262,10 @@ function fp_configure_command() {
         "process": {
             "number": 1,
             "rank": 0
+        },
+        "sensor": {
+            "width": 2048,
+            "height": 512
         }
     }));
     send_fp_command('hdf', JSON.stringify({
@@ -294,6 +299,21 @@ function fp_configure_command() {
                 "chunks": [524288]
             }
         }
+    }));
+    send_fp_command('hdf', JSON.stringify({
+        "dataset": {
+            "image": {
+                "datatype": 1,
+                "dims": [512, 2048],
+                "chunks": [1, 512, 2048]
+            }
+        }
+    }));
+}
+
+function fp_mode_command(mode) {
+    send_fp_command('latrd', JSON.stringify({
+        "mode": mode.toLowerCase()
     }));
 }
 
@@ -473,6 +493,12 @@ function update_fp_status() {
                 $('#fp-raw-mode').html('Not Loaded');
             } else {
 //                alert(response['value'][0].raw_mode);
+                $('#fp-op-mode').html(response['value'][0].mode);
+                if (response['value'][0].mode == "count"){
+                    $('#fp-raw-row').hide();
+                } else {
+                    $('#fp-raw-row').show();
+                }
                 if (response['value'][0].raw_mode == "0") {
                     $('#fp-raw-mode').html('Process');
                 } else {

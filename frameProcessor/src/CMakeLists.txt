@@ -5,7 +5,13 @@ ADD_DEFINITIONS(-DBOOST_TEST_DYN_LINK)
 include_directories(${COMMON_DIR}/include ${FRAMEPROCESSOR_DIR}/include ${ODINDATA_INCLUDE_DIRS} ${HDF5_INCLUDE_DIRS} ${Boost_INCLUDE_DIRS} ${LOG4CXX_INCLUDE_DIRS}/.. ${ZEROMQ_INCLUDE_DIRS})
 
 # Add library for LATRD processing plugin
-add_library(LATRDProcessPlugin SHARED LATRDProcessPlugin.cpp LATRDProcessPluginLib.cpp LATRDBuffer.cpp LATRDProcessJob.cpp LATRDProcessCoordinator.cpp)
+add_library(LATRDProcessPlugin SHARED
+		LATRDProcessPlugin.cpp
+		LATRDProcessPluginLib.cpp
+		LATRDBuffer.cpp
+		LATRDProcessJob.cpp
+		LATRDProcessCoordinator.cpp
+		LATRDProcessIntegral.cpp)
 target_link_libraries(LATRDProcessPlugin ${ODINDATA_LIBRARIES} ${Boost_LIBRARIES} ${LOG4CXX_LIBRARIES} ${ZEROMQ_LIBRARIES})
 
 string(TIMESTAMP EXEC_TIME)
@@ -19,7 +25,7 @@ file(APPEND ${LATRD_EXEC_SCRIPT} "# Executes the LATRD ODIN-DATA FrameProcessor\
 file(APPEND ${LATRD_EXEC_SCRIPT} "\n")
 file(APPEND ${LATRD_EXEC_SCRIPT} "cwd=$(pwd)\n")
 file(APPEND ${LATRD_EXEC_SCRIPT} "cd ${ODINDATA_ROOT_DIR}\n")
-file(APPEND ${LATRD_EXEC_SCRIPT} "./bin/frameProcessor --path ${CMAKE_BINARY_DIR}/lib -d LATRD \"$@\"\n")
+file(APPEND ${LATRD_EXEC_SCRIPT} "./bin/frameProcessor --path ${CMAKE_INSTALL_PREFIX}/lib -d LATRD \"$@\"\n")
 file(APPEND ${LATRD_EXEC_SCRIPT} "cd $cwd\n")
 
 install(

@@ -32,6 +32,7 @@ namespace FrameProcessor {
         std::vector<boost::shared_ptr<Frame> > add_frame(uint32_t ts_wrap, uint32_t ts_buffer, boost::shared_ptr<Frame> frame);
         boost::shared_ptr<Frame> get_frame(uint32_t ts_wrap, uint32_t ts_buffer, uint32_t frame_number);
         std::vector<boost::shared_ptr<Frame> > clear_buffer(uint32_t ts_wrap, uint32_t ts_buffer);
+        std::vector<boost::shared_ptr<Frame> > clear_all_buffers();
 
 
     private:

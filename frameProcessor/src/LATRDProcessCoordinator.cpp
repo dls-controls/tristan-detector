@@ -101,4 +101,39 @@ namespace FrameProcessor {
         return return_frames;
     }
 
+    std::vector<boost::shared_ptr<Frame> > LATRDProcessCoordinator::clear_all_buffers()
+    {
+        // Vector to store any returned frames
+        std::vector<boost::shared_ptr<Frame> > return_frames;
+
+        // Find the first buffer to work on
+        int buff_num = -1;
+        int buff_index = 0;
+        for (size_t index = 0; index < number_of_ts_buffers_; index++){
+            if (buff_num == -1){
+                buff_num = ts_buffer_wrap_[index];
+                buff_index = index;
+            } else if (ts_buffer_wrap_[index] < buff_num){
+                buff_num = ts_buffer_wrap_[index];
+                buff_index = index;
+            }
+        }
+        // Now empty each in order
+        for (size_t index = 0; index < number_of_ts_buffers_; index++){
+            if (frame_store_[buff_index].size() > 0) {
+                // Iterate over the map and store the pointers in the return vector
+                for (std::map < uint32_t, boost::shared_ptr < Frame > > ::iterator it = frame_store_[buff_index].begin(); it != frame_store_[buff_index].end(); ++it){
+                    return_frames.push_back(it->second);
+                }
+                // Now clear out those vectors
+                frame_store_[buff_index].clear();
+            }
+            buff_index++;
+            if (buff_index >= number_of_ts_buffers_){
+                buff_index = 0;
+            }
+        }
+        return return_frames;
+    }
+
 }
