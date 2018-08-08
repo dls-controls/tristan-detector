@@ -27,6 +27,8 @@ def options():
     parser.add_argument("-w", "--write", action="store_true", help="Start writing data")
     parser.add_argument("-s", "--stop", action="store_true", help="Stop writing data")
     parser.add_argument("-r", "--raw", action="store_true", help="Write data in raw mode")
+    parser.add_argument("-c", "--count", action="store_true", help="Place the processor into count mode")
+    parser.add_argument("-t", "--time", action="store_true", help="Place the processor into time_energy mode")
     args = parser.parse_args()
     return args
 
@@ -121,6 +123,16 @@ def main():
             }
         }
         client.send_configuration(config, "hdf")
+        config = {
+            "dataset": {
+                "image": {
+                    "datatype": 1,
+                    "dims": [512, 2048],
+                    "chunks": [1, 512, 2048]
+                }
+            }
+        }
+        client.send_configuration(config, "hdf")
 
         msg = IpcMessage("cmd", "request_configuration")
         success, reply = client._send_message(msg, 1.0)
@@ -136,6 +148,22 @@ def main():
             "raw_mode": 0
         }
     client.send_configuration(config, "latrd")
+
+    if args.count:
+        config = {
+            "mode": "count",
+            "sensor": {
+                "width": 2048,
+                "height": 512
+            }
+        }
+        client.send_configuration(config, "latrd")
+
+    if args.time:
+        config = {
+            "mode": "time_energy"
+        }
+        client.send_configuration(config, "latrd")
 
     if args.write:
         config = {
