@@ -15,7 +15,7 @@ file(APPEND ${LATRD_EXEC_SCRIPT} "# Generated on ${EXEC_TIME}\n")
 file(APPEND ${LATRD_EXEC_SCRIPT} "\n")
 file(APPEND ${LATRD_EXEC_SCRIPT} "# Executes the LATRD ODIN-DATA FrameReceiver\n")
 file(APPEND ${LATRD_EXEC_SCRIPT} "\n")
-file(APPEND ${LATRD_EXEC_SCRIPT} "${ODINDATA_ROOT_DIR}/bin/frameReceiver --path ${CMAKE_BINARY_DIR}/lib -t LATRD \"$@\"")
+file(APPEND ${LATRD_EXEC_SCRIPT} "${ODINDATA_ROOT_DIR}/bin/frameReceiver --path ${CMAKE_INSTALL_PREFIX}/lib -t LATRD \"$@\"")
 
 install(
 	FILES ${LATRD_EXEC_SCRIPT}

@@ -25,7 +25,7 @@ file(APPEND ${LATRD_EXEC_SCRIPT} "# Executes the LATRD ODIN-DATA FrameProcessor\
 file(APPEND ${LATRD_EXEC_SCRIPT} "\n")
 file(APPEND ${LATRD_EXEC_SCRIPT} "cwd=$(pwd)\n")
 file(APPEND ${LATRD_EXEC_SCRIPT} "cd ${ODINDATA_ROOT_DIR}\n")
-file(APPEND ${LATRD_EXEC_SCRIPT} "./bin/frameProcessor --path ${CMAKE_BINARY_DIR}/lib -d LATRD \"$@\"\n")
+file(APPEND ${LATRD_EXEC_SCRIPT} "./bin/frameProcessor --path ${CMAKE_INSTALL_PREFIX}/lib -d LATRD \"$@\"\n")
 file(APPEND ${LATRD_EXEC_SCRIPT} "cd $cwd\n")
 
 install(
