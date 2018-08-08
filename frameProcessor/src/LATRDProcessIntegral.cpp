@@ -10,6 +10,7 @@ namespace FrameProcessor {
       width_(0),
       height_(0),
       image_counter_(0),
+      total_count_(0),
       next_frame_id_(1)
   {
     // Setup logging for the class

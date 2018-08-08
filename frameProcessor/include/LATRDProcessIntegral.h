@@ -60,6 +60,7 @@ namespace FrameProcessor {
     uint32_t width_;
     uint32_t height_;
     uint32_t image_counter_;
+    uint32_t total_count_;
     uint32_t next_frame_id_;
     uint16_t *image_ptr_;
     std::map<uint32_t, boost::shared_ptr<Frame> > frame_store_;
