@@ -12,6 +12,11 @@ namespace FrameProcessor
 {
 const std::string LATRDProcessPlugin::META_NAME                  = "TristanProcessor";
 
+const std::string LATRDProcessPlugin::CONFIG_MODE                = "mode";
+const std::string LATRDProcessPlugin::CONFIG_MODE_TIME_ENERGY    = "time_energy";
+const std::string LATRDProcessPlugin::CONFIG_MODE_TIME_ONLY      = "time_only";
+const std::string LATRDProcessPlugin::CONFIG_MODE_COUNT          = "count";
+
 const std::string LATRDProcessPlugin::CONFIG_RAW_MODE            = "raw_mode";
 
 const std::string LATRDProcessPlugin::CONFIG_RESET_FRAME         = "reset_frame";
@@ -20,22 +25,32 @@ const std::string LATRDProcessPlugin::CONFIG_PROCESS             = "process";
 const std::string LATRDProcessPlugin::CONFIG_PROCESS_NUMBER      = "number";
 const std::string LATRDProcessPlugin::CONFIG_PROCESS_RANK        = "rank";
 
-LATRDProcessPlugin::LATRDProcessPlugin() :
+const std::string LATRDProcessPlugin::CONFIG_SENSOR              = "sensor";
+const std::string LATRDProcessPlugin::CONFIG_SENSOR_WIDTH        = "width";
+const std::string LATRDProcessPlugin::CONFIG_SENSOR_HEIGHT       = "height";
+
+  LATRDProcessPlugin::LATRDProcessPlugin() :
+    sensor_width_(256),
+    sensor_height_(256),
+    mode_(CONFIG_MODE_TIME_ENERGY),
 		concurrent_processes_(1),
 		concurrent_rank_(0),
 		current_point_index_(0),
 		current_time_slice_(0),
-        last_processed_ts_wrap_(0),
-        last_processed_ts_buffer_(0),
-        last_processed_frame_number_(0),
-        last_processed_was_idle_(0),
+    last_processed_ts_wrap_(0),
+    last_processed_ts_buffer_(0),
+    last_processed_frame_number_(0),
+    last_processed_was_idle_(0),
 		raw_mode_(0),
-        coordinator_(LATRD::number_of_time_slice_buffers)
+    coordinator_(LATRD::number_of_time_slice_buffers)
 {
     // Setup logging for the class
     logger_ = Logger::getLogger("FP.LATRDProcessPlugin");
     logger_->setLevel(Level::getAll());
     LOG4CXX_TRACE(logger_, "LATRDProcessPlugin constructor.");
+
+    integral_.init(sensor_width_, sensor_height_);
+    integral_.reset_image();
 
     // Create the work queue for processing jobs
     jobQueue_ = boost::shared_ptr<WorkQueue<boost::shared_ptr<LATRDProcessJob> > >(new WorkQueue<boost::shared_ptr<LATRDProcessJob> >);
@@ -83,11 +98,20 @@ void LATRDProcessPlugin::configure(OdinData::IpcMessage& config, OdinData::IpcMe
 {
   // Protect this method
   boost::lock_guard<boost::recursive_mutex> lock(mutex_);
-    LOG4CXX_TRACE(logger_, "!!!! TRACE !!!!");
-    LOG4CXX_DEBUG(logger_, "!!!! DEBUG !!!!");
-    LOG4CXX_ERROR(logger_, "!!!! ERROR !!!!");
-
   LOG4CXX_DEBUG(logger_, config.encode());
+
+  // Check for operational mode
+  if (config.has_param(LATRDProcessPlugin::CONFIG_MODE)) {
+    std::string mode = config.get_param<std::string>(LATRDProcessPlugin::CONFIG_MODE);
+    if (mode == LATRDProcessPlugin::CONFIG_MODE_TIME_ENERGY ||
+        mode == LATRDProcessPlugin::CONFIG_MODE_TIME_ONLY ||
+        mode == LATRDProcessPlugin::CONFIG_MODE_COUNT){
+      this->mode_ = mode;
+      LOG4CXX_DEBUG(logger_, "Operational mode set to " << this->mode_);
+    } else {
+      LOG4CXX_ERROR(logger_, "Invalid operational mode requested: " << mode);
+    }
+  }
 
   // Check for raw mode
   if (config.has_param(LATRDProcessPlugin::CONFIG_RAW_MODE)) {
@@ -108,12 +132,20 @@ void LATRDProcessPlugin::configure(OdinData::IpcMessage& config, OdinData::IpcMe
     OdinData::IpcMessage processConfig(config.get_param<const rapidjson::Value&>(LATRDProcessPlugin::CONFIG_PROCESS));
     this->configureProcess(processConfig, reply);
   }
+
+  // Check to see if we are configuring the sensor width and height
+  if (config.has_param(LATRDProcessPlugin::CONFIG_SENSOR)) {
+    OdinData::IpcMessage sensorConfig(config.get_param<const rapidjson::Value&>(LATRDProcessPlugin::CONFIG_SENSOR));
+    this->configureSensor(sensorConfig, reply);
+  }
+
 }
 
 void LATRDProcessPlugin::requestConfiguration(OdinData::IpcMessage& reply)
 {
-    // Return the configuration of the LATRD process plugin
-    reply.set_param(get_name() + "/" + LATRDProcessPlugin::CONFIG_RAW_MODE, this->raw_mode_);
+  // Return the configuration of the LATRD process plugin
+  reply.set_param(get_name() + "/" + LATRDProcessPlugin::CONFIG_MODE, this->mode_);
+  reply.set_param(get_name() + "/" + LATRDProcessPlugin::CONFIG_RAW_MODE, this->raw_mode_);
 }
 
 /**
@@ -145,6 +177,23 @@ void LATRDProcessPlugin::configureProcess(OdinData::IpcMessage& config, OdinData
   this->energyBuffer_->configureProcess(this->concurrent_processes_, this->concurrent_rank_);
 
   this->createMetaHeader();
+}
+
+void LATRDProcessPlugin::configureSensor(OdinData::IpcMessage &config, OdinData::IpcMessage &reply)
+{
+  // Check for sensor width and height
+  if (config.has_param(LATRDProcessPlugin::CONFIG_SENSOR_WIDTH)) {
+    this->sensor_width_ = config.get_param<size_t>(LATRDProcessPlugin::CONFIG_SENSOR_WIDTH);
+    LOG4CXX_DEBUG(logger_, "Sensor width changed to " << this->sensor_width_);
+  }
+
+  if (config.has_param(LATRDProcessPlugin::CONFIG_SENSOR_HEIGHT)) {
+    this->sensor_height_ = config.get_param<size_t>(LATRDProcessPlugin::CONFIG_SENSOR_HEIGHT);
+    LOG4CXX_DEBUG(logger_, "Sensor height changed to " << this->sensor_height_);
+  }
+
+  integral_.init(this->sensor_width_, this->sensor_height_);
+  integral_.reset_image();
 }
 
 void LATRDProcessPlugin::createMetaHeader()
@@ -188,11 +237,20 @@ void LATRDProcessPlugin::releaseJob(boost::shared_ptr<LATRDProcessJob> job)
 
 void LATRDProcessPlugin::process_frame(boost::shared_ptr<Frame> frame)
 {
-    if (this->raw_mode_ == 1) {
-        this->process_raw(frame);
-    } else {
-        this->process_coordinated(frame);
+  LOG4CXX_DEBUG(logger_, "Process frame called with mode " << this->mode_);
+  if (this->mode_ == LATRDProcessPlugin::CONFIG_MODE_COUNT) {
+    std::vector <boost::shared_ptr<Frame> > frames = integral_.process_frame(frame);
+    std::vector <boost::shared_ptr<Frame> >::iterator iter;
+    for (iter = frames.begin(); iter != frames.end(); ++iter) {
+      this->push(*iter);
     }
+  } else {
+    if (this->raw_mode_ == 1) {
+      this->process_raw(frame);
+    } else {
+      this->process_coordinated(frame);
+    }
+  }
 }
 
 void LATRDProcessPlugin::process_coordinated(boost::shared_ptr<Frame> frame)
@@ -206,6 +264,13 @@ void LATRDProcessPlugin::process_coordinated(boost::shared_ptr<Frame> frame)
 
     if (hdrPtr->idle_frame == 1){
         // TODO: If this is an idle buffer then first clear out all stored buffers
+        std::vector<boost::shared_ptr<Frame> > frames;
+        frames = coordinator_.clear_all_buffers();
+        LOG4CXX_DEBUG(logger_, "Looping over " << frames.size() << " frames, processing each in order");
+        std::vector<boost::shared_ptr<Frame> >::iterator iter;
+        for (iter = frames.begin(); iter != frames.end(); ++iter){
+          this->process_now(*iter);
+        }
         // TODO: Finally apply this idle buffer
         this->process_now(frame);
         // Set the last processed idle flag
@@ -214,42 +279,42 @@ void LATRDProcessPlugin::process_coordinated(boost::shared_ptr<Frame> frame)
         // Decide if we can process this frame right now
         if (last_processed_was_idle_ == 1){
             LOG4CXX_TRACE(logger_, "First frame after an IDLE frame detected");
-            // We can process this as long as it has a frame number of 1
-            if (frame->get_frame_number() == 1){
-                // We can process this frame immediately
-                this->process_now(frame);
-                // Increment the last processed frame number
-                last_processed_frame_number_ = 1;
-                // Set the last processed was idle back to 0 as we just processed a non-idle frame
-                last_processed_was_idle_ = 0;
-            } else {
-                // TODO: Store this frame ready for processing
-            }
-            // Whether we process or not, as this is the first frame after an IDLE set the wrap and buffer
-            LOG4CXX_TRACE(logger_, "Updating processed ts wrap to " << hdrPtr->ts_wrap);
-            last_processed_ts_wrap_ = hdrPtr->ts_wrap;
-            LOG4CXX_TRACE(logger_, "Updating processed ts buffer to " << hdrPtr->ts_buffer);
-            last_processed_ts_buffer_ = hdrPtr->ts_buffer;
+            // Set the last processed was idle back to 0 as we just processed a non-idle frame
+            last_processed_was_idle_ = 0;
+            coordinator_.add_frame(hdrPtr->ts_wrap, hdrPtr->ts_buffer, frame);
+            LOG4CXX_TRACE(logger_, "Resetting processed ts wrap to " << 0);
+            last_processed_ts_wrap_ = 0;
+            LOG4CXX_TRACE(logger_, "Resetting processed ts buffer to " << 0);
+            last_processed_ts_buffer_ = 0;
         } else {
-            if (hdrPtr->ts_wrap == last_processed_ts_wrap_ &&
-                hdrPtr->ts_buffer == last_processed_ts_buffer_ &&
-                frame->get_frame_number() == last_processed_frame_number_ + 1) {
-                // We can process this frame immediately
-                this->process_now(frame);
-                // Increment the last processed frame number
-                last_processed_frame_number_++;
-            } else {
-                // Check to see if we have wrapped the time slice buffers
-                if (hdrPtr->ts_wrap == last_processed_ts_wrap_ + 1 &&
-                    hdrPtr->ts_buffer == last_processed_ts_buffer_) {
-                    LOG4CXX_DEBUG(logger_, "Detected time slice wrap");
-                    LOG4CXX_DEBUG(logger_, "  > Old wrap [" << last_processed_ts_wrap_
-                                                            << "] new wrap [" << hdrPtr->ts_wrap << "]");
-                    // TODO: First clear out any frames in the old buffer and process them
-                    std::vector<boost::shared_ptr<Frame> > frames;
-                    frames = coordinator_.clear_buffer(hdrPtr->ts_wrap, hdrPtr->ts_buffer);
-                    // TODO: Now check if this is the first frame, if it is process it or else store it
+            // Check to see if we have wrapped the time slice buffers
+            if (hdrPtr->ts_wrap == last_processed_ts_wrap_ + 1 &&
+                hdrPtr->ts_buffer == last_processed_ts_buffer_) {
+                LOG4CXX_DEBUG(logger_, "Detected time slice wrap");
+                LOG4CXX_DEBUG(logger_, "  > Old wrap [" << last_processed_ts_wrap_
+                                                        << "] new wrap [" << hdrPtr->ts_wrap << "]");
+                // TODO: First clear out any frames in the old buffer and process them
+                std::vector<boost::shared_ptr<Frame> > frames;
+                frames = coordinator_.clear_buffer(last_processed_ts_wrap_, last_processed_ts_buffer_);
+                LOG4CXX_DEBUG(logger_, "Looping over " << frames.size() << " frames, processing each in order");
+                std::vector<boost::shared_ptr<Frame> >::iterator iter;
+                for (iter = frames.begin(); iter != frames.end(); ++iter){
+                    LOG4CXX_DEBUG(logger_, "IN HERE !!");
+                    this->process_now(*iter);
                 }
+                // Now store this frame
+                coordinator_.add_frame(hdrPtr->ts_wrap, hdrPtr->ts_buffer, frame);
+                // Update the wrap and buffer
+                last_processed_ts_buffer_++;
+                if (last_processed_ts_buffer_ >= LATRD::number_of_time_slice_buffers){
+                  last_processed_ts_buffer_ = 0;
+                  last_processed_ts_wrap_++;
+                }
+                LOG4CXX_TRACE(logger_, "Updating processed ts wrap to " << last_processed_ts_wrap_);
+                LOG4CXX_TRACE(logger_, "Updating processed ts buffer to " << last_processed_ts_buffer_);
+            } else {
+                // Store the frame
+                coordinator_.add_frame(hdrPtr->ts_wrap, hdrPtr->ts_buffer, frame);
             }
         }
     }
@@ -305,7 +370,7 @@ void LATRDProcessPlugin::process_now(boost::shared_ptr<Frame> frame)
 
 
         // Extract the header words from each packet
-        uint8_t *payload_ptr = (uint8_t *) (frame->get_data()) + sizeof(LATRD::FrameHeader);
+        uint8_t *payload_ptr = (uint8_t *)(frame->get_data()) + sizeof(LATRD::FrameHeader);
 
         // Number of packet header 64bit words
         uint16_t packet_header_count = (LATRD::packet_header_size / sizeof(uint64_t)) - 1;
@@ -313,7 +378,7 @@ void LATRDProcessPlugin::process_now(boost::shared_ptr<Frame> frame)
         int dropped_packets = 0;
         for (int index = 0; index < LATRD::num_primary_packets; index++) {
             if (hdrPtr->packet_state[index] == 0) {
-                LOG4CXX_DEBUG(logger_, "   Packet number: [Missing Packet] at index " << index);
+//                LOG4CXX_DEBUG(logger_, "   Packet number: [Missing Packet] at index " << index);
                 dropped_packets += 1;
             } else {
                 // TODO: Fix this fudge when packets are correctly received.
@@ -327,11 +392,11 @@ void LATRDProcessPlugin::process_now(boost::shared_ptr<Frame> frame)
                 uint16_t word_count = get_word_count(packet_header.headerWord1);
                 uint32_t time_slice = LATRD::get_time_slice_id(packet_header.headerWord1, packet_header.headerWord2);
 
-                LOG4CXX_ERROR(logger_, "   Packet number: [" << packet_number << "]");
-                LOG4CXX_DEBUG(logger_, "      Header Word 1: 0x" << std::hex << packet_header.headerWord1);
-                LOG4CXX_DEBUG(logger_, "      Header Word 2: 0x" << std::hex << packet_header.headerWord2);
-                LOG4CXX_DEBUG(logger_, "      Word count: " << word_count);
-                LOG4CXX_ERROR(logger_, "      Time Slice ID: " << time_slice);
+//                LOG4CXX_ERROR(logger_, "   Packet number: [" << packet_number << "]");
+//                LOG4CXX_DEBUG(logger_, "      Header Word 1: 0x" << std::hex << packet_header.headerWord1);
+//                LOG4CXX_DEBUG(logger_, "      Header Word 2: 0x" << std::hex << packet_header.headerWord2);
+//                LOG4CXX_DEBUG(logger_, "      Word count: " << word_count);
+//                LOG4CXX_ERROR(logger_, "      Time Slice ID: " << time_slice);
 
                 uint16_t words_to_process = word_count - packet_header_count;
                 // Loop over words to process
@@ -354,11 +419,11 @@ void LATRDProcessPlugin::process_now(boost::shared_ptr<Frame> frame)
         while (results.size() + dropped_packets < LATRD::num_primary_packets) {
             boost::shared_ptr<LATRDProcessJob> job = resultsQueue_->remove();
             qty_data_points += job->valid_results;
-            LOG4CXX_DEBUG(logger_, "Processing job [" << job->job_id << "] completed with " << job->timestamp_mismatches
-                                                      << " timestamp mismatches");
+//            LOG4CXX_DEBUG(logger_, "Processing job [" << job->job_id << "] completed with " << job->timestamp_mismatches
+//                                                      << " timestamp mismatches");
             results[job->job_id] = job;
         }
-        LOG4CXX_DEBUG(logger_, "Total number of valid data points [" << qty_data_points << "]");
+//        LOG4CXX_DEBUG(logger_, "Total number of valid data points [" << qty_data_points << "]");
 
         // Loop over the jobs in order, appending the results to the buffer.  If a buffer is filled
         // then a frame is created and can be pushed onto the next plugin.
@@ -372,9 +437,9 @@ void LATRDProcessPlugin::process_now(boost::shared_ptr<Frame> frame)
                 // Check if the time slice has changed
                 if (job->time_slice != current_time_slice_) {
                     // Record the time slice index and time
-                    LOG4CXX_DEBUG(logger_,
-                                  "New Time Slice ID: " << job->time_slice << " at index " << current_point_index_
-                                                        << " at time " << job->event_ts_ptr[0]);
+//                    LOG4CXX_DEBUG(logger_,
+//                                  "New Time Slice ID: " << job->time_slice << " at index " << current_point_index_
+//                                                        << " at time " << job->event_ts_ptr[0]);
                     // The new time slice needs to be published as meta data
                     rapidjson::StringBuffer buffer;
                     rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
@@ -465,7 +530,7 @@ void LATRDProcessPlugin::process_raw(boost::shared_ptr<Frame> frame)
 
     for (int index = 0; index < LATRD::num_primary_packets; index++) {
       if (hdrPtr->packet_state[index] == 0) {
-        LOG4CXX_DEBUG(logger_, "   Packet number: [Missing Packet]");
+//        LOG4CXX_DEBUG(logger_, "   Packet number: [Missing Packet]");
       } else {
         packet_header.headerWord1 = *(((uint64_t *) payload_ptr) + 1);
         packet_header.headerWord2 = *(((uint64_t *) payload_ptr) + 2);
@@ -507,9 +572,9 @@ void LATRDProcessPlugin::processTask()
 	    job->timestamp_mismatches = 0;
 	    uint64_t previous_course_timestamp = 0;
 	    uint64_t current_course_timestamp = 0;
-	    LOG4CXX_DEBUG(logger_, "Processing job [" << job->job_id
-	    		<< "] on task [" << boost::this_thread::get_id()
-	    		<< "] : Data pointer [" << job->data_ptr << "]");
+//	    LOG4CXX_DEBUG(logger_, "Processing job [" << job->job_id
+//	    		<< "] on task [" << boost::this_thread::get_id()
+//	    		<< "] : Data pointer [" << job->data_ptr << "]");
 		uint64_t *data_word_ptr = job->data_ptr;
 		uint64_t *event_ts_ptr = job->event_ts_ptr;
 		uint32_t *event_id_ptr = job->event_id_ptr;
@@ -556,10 +621,10 @@ void LATRDProcessPlugin::processTask()
 			}
 			data_word_ptr++;
 		}
-	    LOG4CXX_DEBUG(logger_, "Processing complete for job [" << job->job_id
-	    		<< "] on task [" << boost::this_thread::get_id()
-		<< "] : Number of valid results [" << job->valid_results
-		<< "] : Number of mismatches [" << job->timestamp_mismatches << "]");
+//	    LOG4CXX_DEBUG(logger_, "Processing complete for job [" << job->job_id
+//	    		<< "] on task [" << boost::this_thread::get_id()
+//		<< "] : Number of valid results [" << job->valid_results
+//		<< "] : Number of mismatches [" << job->timestamp_mismatches << "]");
 	    resultsQueue_->add(job, true);
 	}
 }
@@ -593,10 +658,10 @@ bool LATRDProcessPlugin::processDataWord(uint64_t data_word,
 	//LOG4CXX_DEBUG(logger_, "Data Word: 0x" << std::hex << data_word);
 	if (isControlWord(data_word)){
 		if (getControlType(data_word) == ExtendedTimestamp){
-			LOG4CXX_DEBUG(logger_, "Parsing extended timestamp control word [" << std::hex << data_word << "]");
+//			LOG4CXX_DEBUG(logger_, "Parsing extended timestamp control word [" << std::hex << data_word << "]");
 			*previous_course_timestamp = *current_course_timestamp;
 			*current_course_timestamp = getCourseTimestamp(data_word);
-			LOG4CXX_DEBUG(logger_, "New extended timestamp [" << std::dec << *current_course_timestamp << "]");
+//			LOG4CXX_DEBUG(logger_, "New extended timestamp [" << std::dec << *current_course_timestamp << "]");
 		}
 	} else {
 		*event_ts = getFullTimestmap(data_word, *previous_course_timestamp, *current_course_timestamp);
@@ -693,7 +758,7 @@ uint64_t LATRDProcessPlugin::getFullTimestmap(uint64_t data_word, uint64_t prev_
     	throw LATRDTimestampMismatchException("Timestamp mismatch");
     	//LOG4CXX_DEBUG(logger_, "Timestamp mismatch");
     }
-    if (full_ts == 5877939652317L){
+/*    if (full_ts == 5877939652317L){
         LOG4CXX_ERROR(logger_, "Correct TS calculation:");
         LOG4CXX_ERROR(logger_, "    Course: " << course);
         LOG4CXX_ERROR(logger_, "    Prev:   " << prev_course);
@@ -712,7 +777,7 @@ uint64_t LATRDProcessPlugin::getFullTimestmap(uint64_t data_word, uint64_t prev_
         LOG4CXX_ERROR(logger_, "    Match f: " << (uint32_t)findTimestampMatch(fine_ts));
         LOG4CXX_ERROR(logger_, "    Match p: " << (uint32_t)findTimestampMatch(prev_course));
         LOG4CXX_ERROR(logger_, "----------------------------");
-    }
+    }*/
     return full_ts;
 }
 

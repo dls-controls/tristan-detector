@@ -24,6 +24,7 @@ using namespace log4cxx::helpers;
 #include "LATRDBuffer.h"
 #include "LATRDProcessJob.h"
 #include "LATRDProcessCoordinator.h"
+#include "LATRDProcessIntegral.h"
 #include "ClassLoader.h"
 
 namespace FrameProcessor {
@@ -41,16 +42,29 @@ namespace FrameProcessor {
 
         void requestConfiguration(OdinData::IpcMessage &reply);
 
-        void configureProcess(OdinData::IpcMessage &config, OdinData::IpcMessage &reply);
+      void configureProcess(OdinData::IpcMessage &config, OdinData::IpcMessage &reply);
 
-        void createMetaHeader();
+      void configureSensor(OdinData::IpcMessage &config, OdinData::IpcMessage &reply);
+
+      void createMetaHeader();
 
     private:
 
         /** Constant for this decoders name when publishing meta data */
         static const std::string META_NAME;
 
-        /** Configuration constant for setting raw mode */
+        /** Configuration constant for setting operational mode */
+        static const std::string CONFIG_MODE;
+        static const std::string CONFIG_MODE_TIME_ENERGY;
+        static const std::string CONFIG_MODE_TIME_ONLY;
+        static const std::string CONFIG_MODE_COUNT;
+
+        /** Configuration constant for process related items */
+        static const std::string CONFIG_SENSOR;
+        static const std::string CONFIG_SENSOR_WIDTH;
+        static const std::string CONFIG_SENSOR_HEIGHT;
+
+      /** Configuration constant for setting raw mode */
         static const std::string CONFIG_RAW_MODE;
 
         /** Configuration constant for resetting the frame counter */
@@ -70,6 +84,9 @@ namespace FrameProcessor {
 
         /** Frame coordinator object */
         LATRDProcessCoordinator coordinator_;
+
+        /** Integral mode processing object */
+        LATRDProcessIntegral integral_;
 
         /** Pointer to worker queue thread */
         boost::thread *thread_[LATRD::number_of_processing_threads];
@@ -91,6 +108,11 @@ namespace FrameProcessor {
         boost::shared_ptr<LATRDBuffer> energyBuffer_;
 
         rapidjson::Document meta_document_;
+
+        size_t sensor_width_;
+        size_t sensor_height_;
+
+        std::string mode_;
 
         size_t concurrent_processes_;
         size_t concurrent_rank_;
