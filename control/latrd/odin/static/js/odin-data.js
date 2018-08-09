@@ -94,6 +94,10 @@ $( document ).ready(function()
     ctrl_command('Abort');
   });
 
+  $('#detector-dac-scan-cmd').click(function(){
+    ctrl_command('DAC_scan');
+  });
+
   $('#detector-config-put-cmd').click(function(){
     detector_json_put_command();
   });
