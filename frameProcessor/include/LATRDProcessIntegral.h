@@ -32,8 +32,8 @@ namespace FrameProcessor {
   static const uint64_t integral_i_tot_mask           = 0x0000000000FFFC00;
   static const uint64_t integral_evt_count_mask       = 0x00000000000003FF;
 
-  static const uint64_t integral_final_packet_mask    = 0x0000FFFF00000000;
-  static const uint64_t integral_final_packet_value   = 0x000071B000000000;
+  static const uint64_t integral_final_packet_mask    = 0xF000FFFF00000000;
+  static const uint64_t integral_final_packet_value   = 0xC00071B000000000;
 
   class LATRDProcessIntegral
   {
@@ -62,6 +62,7 @@ namespace FrameProcessor {
     uint32_t image_counter_;
     uint32_t total_count_;
     uint32_t next_frame_id_;
+    uint32_t next_packet_id_;
     uint16_t *image_ptr_;
     std::map<uint32_t, boost::shared_ptr<Frame> > frame_store_;
   };

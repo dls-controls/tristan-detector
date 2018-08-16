@@ -159,6 +159,8 @@ void LATRDFrameDecoder::process_packet_header(size_t bytes_received, int port, s
       // Initialise frame header
       current_frame_header_ = reinterpret_cast<LATRD::FrameHeader*>(current_frame_buffer_);
       current_frame_header_->frame_number = current_frame_seen_;
+      current_frame_header_->first_packet = -1;
+      current_frame_header_->last_packet = -1;
       current_frame_header_->ts_wrap = timeSliceModulo;
       current_frame_header_->ts_buffer = timeSliceNumber;
       current_frame_header_->frame_state = FrameDecoder::FrameReceiveStateIncomplete;
@@ -181,6 +183,22 @@ void LATRDFrameDecoder::process_packet_header(size_t bytes_received, int port, s
   // Update packet_number state map in frame header
   LOG4CXX_DEBUG_LEVEL(1, logger_, "  Setting frame " << current_frame_seen_<< " buffer ID: " << current_frame_buffer_id_ << " packet header index: " << framePacketNumber);
   current_frame_header_->packet_state[framePacketNumber] = 1;
+  // Check if this is the earliest packet seen by this buffer, and if it is record it
+  if (current_frame_header_->first_packet == -1){
+    current_frame_header_->first_packet = packetNumber;
+  } else {
+    if (packetNumber < current_frame_header_->first_packet) {
+      current_frame_header_->first_packet = packetNumber;
+    }
+  }
+  // Check if this is the latest packet seen by this buffer, and if it is record it
+  if (current_frame_header_->last_packet == -1){
+    current_frame_header_->last_packet = packetNumber;
+  } else {
+    if (packetNumber > current_frame_header_->last_packet) {
+      current_frame_header_->last_packet = packetNumber;
+    }
+  }
 }
 
 void* LATRDFrameDecoder::get_next_payload_buffer() const
@@ -230,6 +248,7 @@ FrameDecoder::FrameReceiveState LATRDFrameDecoder::process_packet(size_t bytes_r
         LATRD::FrameHeader *frame_header = reinterpret_cast<LATRD::FrameHeader *>(buffer_addr);
         if (current_frame_header_->frame_number != frame_num){
           frame_header->frame_state = FrameReceiveStateComplete;
+          LOG4CXX_DEBUG_LEVEL(1, logger_, "Frame: " << frame_header->frame_number << " First packet: " << frame_header->first_packet<< " Last packet: " << frame_header->last_packet);
           ready_callback_(buffer_id, frame_num);
           frame_buffer_map_.erase(buffer_map_iter++);
         } else {
@@ -250,6 +269,7 @@ FrameDecoder::FrameReceiveState LATRDFrameDecoder::process_packet(size_t bytes_r
 		if (!dropping_frame_data_){
 			// Erase frame from buffer map
 			frame_buffer_map_.erase(current_frame_seen_);
+            LOG4CXX_DEBUG_LEVEL(1, logger_, "Frame: " << current_frame_header_->frame_number << " First packet: " << current_frame_header_->first_packet<< " Last packet: " << current_frame_header_->last_packet);
 
 			// Notify main thread that frame is ready
 			ready_callback_(current_frame_buffer_id_, current_frame_seen_);
@@ -304,6 +324,7 @@ void LATRDFrameDecoder::monitor_buffers()
               current_frame_seen_ = -1;
             }
             frame_header->frame_state = FrameReceiveStateTimedout;
+            LOG4CXX_DEBUG_LEVEL(1, logger_, "Frame: " << frame_header->frame_number << " First packet: " << frame_header->first_packet<< " Last packet: " << frame_header->last_packet);
             ready_callback_(buffer_id, frame_num);
             frames_timedout++;
 

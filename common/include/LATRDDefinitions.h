@@ -41,6 +41,8 @@ namespace LATRD
   typedef struct
   {
     uint32_t frame_number;
+    uint32_t first_packet;
+    uint32_t last_packet;
     uint32_t frame_state;
     uint32_t idle_frame;
     uint32_t ts_wrap;

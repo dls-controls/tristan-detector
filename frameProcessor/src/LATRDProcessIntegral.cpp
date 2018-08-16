@@ -11,7 +11,8 @@ namespace FrameProcessor {
       height_(0),
       image_counter_(0),
       total_count_(0),
-      next_frame_id_(1)
+      next_frame_id_(1),
+      next_packet_id_(0)
   {
     // Setup logging for the class
     logger_ = Logger::getLogger("FP.LATRDProcessIntegral");
@@ -28,6 +29,7 @@ namespace FrameProcessor {
     width_ = width;
     height_ = height;
     next_frame_id_ = 1;
+    next_packet_id_ = 0;
     if (image_ptr_){
       free(image_ptr_);
     }
@@ -67,35 +69,39 @@ namespace FrameProcessor {
       image_counter_ = 0;
       // and reset the expected frame ID
       next_frame_id_ = 1;
+      // and reset the expected packet ID
+      next_packet_id_ = 0;
 
     } else {
-      // Check buffer number against latest.
-      if (frame->get_frame_number() == next_frame_id_) {
-        // If buffer number is the next one then process it immediately
+      // Check packet ID against latest.
+      if (hdrPtr->first_packet == next_packet_id_) {
+        // If first packet number is the next one then process it immediately
         // Process frame
         image_frames = frame_to_image(frame);
-        // Increment next frame counter
-        next_frame_id_++;
+        // Increment next packet counter
+        next_packet_id_ = hdrPtr->last_packet + 1;
       } else {
-        if (frame->get_frame_number() > next_frame_id_) {
+        if (hdrPtr->first_packet > next_packet_id_) {
           // If not then store it
-          frame_store_[frame->get_frame_number()] = frame;
+          frame_store_[hdrPtr->first_packet] = frame;
         } else {
           // We have received a frame with a number that we have already processed
           // This could be a late packet.
           // Log the error
-          LOG4CXX_DEBUG(logger_, "Received old buffer number : " << frame->get_frame_number());
+          LOG4CXX_DEBUG(logger_, "Received old buffer number : " << frame->get_frame_number() << " with packet ID: " << hdrPtr->first_packet);
         }
       }
       // Check if we can process further stored frames in order
-      while (frame_store_.count(next_frame_id_) > 0) {
+      while (frame_store_.count(next_packet_id_) > 0) {
         // Process frame
-        std::vector <boost::shared_ptr<Frame> > frames = frame_to_image(frame_store_[next_frame_id_]);
+        std::vector <boost::shared_ptr<Frame> > frames = frame_to_image(frame_store_[next_packet_id_]);
+        const LATRD::FrameHeader *fHdrPtr = static_cast<const LATRD::FrameHeader *>(frame_store_[next_packet_id_]->get_data());
+        uint32_t new_packet_id = fHdrPtr->last_packet + 1;
         image_frames.insert(image_frames.end(), frames.begin(), frames.end());
         // Remove frame from store
-        frame_store_.erase(next_frame_id_);
+        frame_store_.erase(next_packet_id_);
         // Increment next frame counter
-        next_frame_id_++;
+        next_packet_id_ = new_packet_id;
       }
     }
     return image_frames;
