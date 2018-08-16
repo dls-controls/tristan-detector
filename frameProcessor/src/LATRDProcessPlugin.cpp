@@ -237,16 +237,17 @@ void LATRDProcessPlugin::releaseJob(boost::shared_ptr<LATRDProcessJob> job)
 
 void LATRDProcessPlugin::process_frame(boost::shared_ptr<Frame> frame)
 {
-  LOG4CXX_DEBUG(logger_, "Process frame called with mode " << this->mode_);
-  if (this->mode_ == LATRDProcessPlugin::CONFIG_MODE_COUNT) {
-    std::vector <boost::shared_ptr<Frame> > frames = integral_.process_frame(frame);
-    std::vector <boost::shared_ptr<Frame> >::iterator iter;
-    for (iter = frames.begin(); iter != frames.end(); ++iter) {
-      this->push(*iter);
-    }
+  if (this->raw_mode_ == 1) {
+    LOG4CXX_DEBUG(logger_, "Raw mode selected for fast recording of packets");
+    this->process_raw(frame);
   } else {
-    if (this->raw_mode_ == 1) {
-      this->process_raw(frame);
+    LOG4CXX_DEBUG(logger_, "Process frame called with mode: " << this->mode_);
+    if (this->mode_ == LATRDProcessPlugin::CONFIG_MODE_COUNT) {
+      std::vector <boost::shared_ptr<Frame> > frames = integral_.process_frame(frame);
+      std::vector <boost::shared_ptr<Frame> >::iterator iter;
+      for (iter = frames.begin(); iter != frames.end(); ++iter) {
+        this->push(*iter);
+      }
     } else {
       this->process_coordinated(frame);
     }

@@ -498,15 +498,17 @@ function update_fp_status() {
             } else {
 //                alert(response['value'][0].raw_mode);
                 $('#fp-op-mode').html(response['value'][0].mode);
-                if (response['value'][0].mode == "count"){
-                    $('#fp-raw-row').hide();
-                } else {
-                    $('#fp-raw-row').show();
-                }
+//                if (response['value'][0].mode == "count"){
+//                    $('#fp-raw-row').hide();
+//                } else {
+//                    $('#fp-raw-row').show();
+//                }
                 if (response['value'][0].raw_mode == "0") {
                     $('#fp-raw-mode').html('Process');
+                    $('#fp-mode-row').show();
                 } else {
                     $('#fp-raw-mode').html('Raw');
+                    $('#fp-mode-row').hide();
                 }
             }
         }
