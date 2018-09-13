@@ -9,7 +9,7 @@ import argparse
 import logging
 import time
 from latrd_channel import LATRDChannel
-from latrd_message import LATRDMessageException, GetMessage, PutMessage, PostMessage, ResponseMessage
+from latrd_message import LATRDMessageException, LATRDMessage, GetMessage, PutMessage, PostMessage, ResponseMessage
 from latrd_reactor import LATRDReactor
 
 
@@ -20,10 +20,34 @@ class LATRDControlSimulator(object):
         self._log.setLevel(logging.DEBUG)
         self._ctrl_channel = None
         self._reactor = LATRDReactor()
-        self._store = {}
+        self._store = {
+            "Status": "Idle",
+            "Config":
+            {
+                "Description": "TRISTAN control interface",
+                "Sensor_Material": "Silicon",
+                "Sensor_Thickness": "300 um",
+                "Serial_Number": "0",
+                "Software_Version": "0.0.1",
+                "x_Pixel_Size": "55 um",
+                "x_Pixels_In_Detector": 2048,
+                "y_Pixel_Size": "55 um",
+                "y_Pixels_In_Detector": 512,
+                "Status": "Idle",
+                "Exposure": 0.0,
+                "Frames": 0,
+                "Frames_Per_Trigger": 0,
+                "Mode": "Time_Energy",
+                "Profile": "Standard",
+                "Readout_Time": 0,
+                "Repeat_Interval": 0,
+                "Threshold": 5.2,
+                "nTrigger": 0
+            }
+        }
 
     def setup_control_channel(self, endpoint):
-        self._ctrl_channel = LATRDChannel(LATRDChannel.CHANNEL_TYPE_PAIR)
+        self._ctrl_channel = LATRDChannel(LATRDChannel.CHANNEL_TYPE_ROUTER)
         self._ctrl_channel.bind(endpoint)
         self._reactor.register_channel(self._ctrl_channel, self.handle_ctrl_msg)
 
@@ -31,11 +55,14 @@ class LATRDControlSimulator(object):
         self._log.debug("Starting reactor...")
         self._reactor.run()
 
-    def handle_ctrl_msg(self, msg):
-        self._log.debug("Received message on configuration channel: %s", msg)
+    def handle_ctrl_msg(self):
+        id = self._ctrl_channel.recv()
+        msg = LATRDMessage.parse_json(self._ctrl_channel.recv())
+
+        self._log.debug("Received message ID[%s]: %s", id, msg)
         if isinstance(msg, GetMessage):
             self._log.debug("Received GetMessage, parsing...")
-            self.parse_get_msg(msg)
+            self.parse_get_msg(msg, id)
         elif isinstance(msg, PutMessage):
             self._log.debug("Received PutMessage, parsing...")
             self.parse_put_msg(msg)
@@ -45,13 +72,13 @@ class LATRDControlSimulator(object):
         else:
             raise LATRDMessageException("Unknown message type received")
 
-    def parse_get_msg(self, msg):
+    def parse_get_msg(self, msg, send_id):
         # Check the parameter keys and retrieve the values from the store
         values = {}
         self.read_parameters(self._store, msg.params, values)
         self._log.debug("Return value object: %s", values)
         reply = ResponseMessage(msg.msg_id, values, ResponseMessage.RESPONSE_OK)
-        self._ctrl_channel.send(reply)
+        self._ctrl_channel.send_multi([send_id, reply])
 
     def parse_put_msg(self, msg):
         # Retrieve the parameters and merge them with the store
@@ -79,6 +106,7 @@ class LATRDControlSimulator(object):
                 store[key] = param
 
     def read_parameters(self, store, param, values):
+        self._log.debug("Params: %s", param)
         for key in param:
             if isinstance(param[key], dict):
                 values[key] = {}

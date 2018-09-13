@@ -103,9 +103,9 @@ class LATRDReactor:
                 for sock in pollrc:
                     if pollrc[sock] == zmq.POLLIN:
                         try:
-                            reply = self._channels[sock].recv()
-                            msg = LATRDMessage.parse_json(reply)
-                            self._callbacks[sock](msg)
+#                            reply = self._channels[sock].recv()
+#                            msg = LATRDMessage.parse_json(reply)
+                            self._callbacks[sock]()
                         except Exception as e:
                             # TODO: How to handle an exception here
                             self._log.debug("Caught reactor exception")
