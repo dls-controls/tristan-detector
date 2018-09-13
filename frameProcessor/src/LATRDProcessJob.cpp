@@ -13,6 +13,7 @@ LATRDProcessJob::LATRDProcessJob(size_t size) :
 		time_slice(0),
 		data_ptr(0),
 		job_id(0),
+		packet_number(0),
 		valid_control_words(0),
 		timestamp_mismatches(0),
 		words_to_process(0),
@@ -50,7 +51,8 @@ void LATRDProcessJob::reset()
 {
 	time_slice = 0;
 	data_ptr = 0;
-	job_id = 0;
+    job_id = 0;
+    packet_number = 0;
 	valid_control_words = 0;
 	timestamp_mismatches = 0;
 	words_to_process = 0;

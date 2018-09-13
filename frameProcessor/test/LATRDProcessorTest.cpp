@@ -16,6 +16,7 @@ using namespace log4cxx::xml;
 
 #include "LATRDBuffer.h"
 #include "LATRDProcessCoordinator.h"
+#include "LATRDTimestampManager.h"
 
 class GlobalConfig {
 public:
@@ -174,3 +175,60 @@ BOOST_AUTO_TEST_CASE(CoordinatorTest)
 }
 
 BOOST_AUTO_TEST_SUITE_END(); //CoordinatorUnitTest
+
+
+// Unit tests for the LATRDTimestampManager class
+BOOST_AUTO_TEST_SUITE(TimestampUnitTest);
+
+BOOST_AUTO_TEST_CASE(TimestampTest)
+{
+  //Create a timestamp manager class instance
+  FrameProcessor::LATRDTimestampManager tm;
+
+  //Add 3 timestamps with the same delta
+  BOOST_CHECK_NO_THROW(tm.add_timestamp(1, 100));
+  BOOST_CHECK_NO_THROW(tm.add_timestamp(2, 150));
+  BOOST_CHECK_NO_THROW(tm.add_timestamp(3, 200));
+  // Verify the delta is reported as 50
+  BOOST_CHECK_EQUAL(tm.read_delta(), 50);
+
+  // Clear the timestamps and verify the delta is 0
+  BOOST_CHECK_NO_THROW(tm.clear());
+  BOOST_CHECK_EQUAL(tm.read_delta(), 0);
+
+  // Add timestamps and verify the delta in each case
+  // Try multiple timestamps within the same packet
+  BOOST_CHECK_NO_THROW(tm.add_timestamp(1, 100));
+  BOOST_CHECK_NO_THROW(tm.add_timestamp(2, 150));
+  BOOST_CHECK_NO_THROW(tm.add_timestamp(3, 200));
+  // Verify the delta is reported as 50
+  BOOST_CHECK_EQUAL(tm.read_delta(), 50);
+  BOOST_CHECK_NO_THROW(tm.add_timestamp(3, 250));
+  // Verify the delta is reported as 50
+  BOOST_CHECK_EQUAL(tm.read_delta(), 50);
+  BOOST_CHECK_NO_THROW(tm.add_timestamp(4, 300));
+  // Verify the delta is reported as 50
+  BOOST_CHECK_EQUAL(tm.read_delta(), 50);
+  BOOST_CHECK_NO_THROW(tm.add_timestamp(6, 450));
+  // Verify the delta is reported as 50
+  BOOST_CHECK_EQUAL(tm.read_delta(), 50);
+  BOOST_CHECK_NO_THROW(tm.add_timestamp(5, 350));
+  // Verify the delta is reported as 50
+  BOOST_CHECK_EQUAL(tm.read_delta(), 50);
+  BOOST_CHECK_NO_THROW(tm.add_timestamp(5, 400));
+  // Verify the delta is reported as 50
+  BOOST_CHECK_EQUAL(tm.read_delta(), 50);
+
+  // Clear the timestamps and verify the delta is 0
+  BOOST_CHECK_NO_THROW(tm.clear());
+  BOOST_CHECK_EQUAL(tm.read_delta(), 0);
+
+  // Now add timestamps with inconsistent deltas and check an error is thrown
+  BOOST_CHECK_NO_THROW(tm.add_timestamp(1, 100));
+  BOOST_CHECK_NO_THROW(tm.add_timestamp(2, 150));
+  BOOST_CHECK_THROW(tm.add_timestamp(3, 300), FrameProcessor::LATRDTimestampException);
+
+}
+
+BOOST_AUTO_TEST_SUITE_END(); //TimestampUnitTest
+

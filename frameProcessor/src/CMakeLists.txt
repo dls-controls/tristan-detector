@@ -11,7 +11,8 @@ add_library(LATRDProcessPlugin SHARED
 		LATRDBuffer.cpp
 		LATRDProcessJob.cpp
 		LATRDProcessCoordinator.cpp
-		LATRDProcessIntegral.cpp)
+		LATRDProcessIntegral.cpp
+		LATRDTimestampManager.cpp)
 target_link_libraries(LATRDProcessPlugin ${ODINDATA_LIBRARIES} ${Boost_LIBRARIES} ${LOG4CXX_LIBRARIES} ${ZEROMQ_LIBRARIES})
 
 string(TIMESTAMP EXEC_TIME)

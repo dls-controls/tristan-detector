@@ -21,6 +21,7 @@ public:
 	void reset();
 
 	uint32_t job_id;
+	uint32_t packet_number;
 	uint16_t words_to_process;
 	uint32_t time_slice;
 	uint16_t valid_results;

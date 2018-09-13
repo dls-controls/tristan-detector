@@ -407,6 +407,7 @@ void LATRDProcessPlugin::process_now(boost::shared_ptr<Frame> frame)
                 data_ptr += packet_header_count;
                 boost::shared_ptr<LATRDProcessJob> job = this->getJob();
                 job->job_id = index;
+                job->packet_number = packet_number;
                 job->data_ptr = data_ptr;
                 job->time_slice = time_slice;
                 job->words_to_process = words_to_process;
@@ -497,6 +498,8 @@ void LATRDProcessPlugin::process_now(boost::shared_ptr<Frame> frame)
             }
         }
     }
+    // Clear out any extended timestamps whilst keeping the delta valid
+    ts_manager_.clear();
 }
 
 void LATRDProcessPlugin::process_raw(boost::shared_ptr<Frame> frame)
@@ -582,6 +585,7 @@ void LATRDProcessPlugin::processTask()
 		uint32_t *event_energy_ptr = job->event_energy_ptr;
 		uint64_t *ctrl_word_ptr = job->ctrl_word_ptr;
 		uint32_t *ctrl_index_ptr = job->ctrl_index_ptr;
+        LOG4CXX_DEBUG(logger_, "*** Processing packet ID [" << job->packet_number << "] with time slice ID [" << job->time_slice << "]");
 		// Verify the first word is an extended timestamp word
 		if (getControlType(*data_word_ptr) != ExtendedTimestamp){
 		    LOG4CXX_DEBUG(logger_, "*** ERROR in job [" << job->job_id << "].  The first word is not an extended timestamp");
@@ -592,6 +596,7 @@ void LATRDProcessPlugin::processTask()
 				if (processDataWord(*data_word_ptr,
 						&previous_course_timestamp,
 						&current_course_timestamp,
+						job->packet_number,
 						event_ts_ptr,
 						event_id_ptr,
 						event_energy_ptr)){
@@ -651,6 +656,7 @@ void LATRDProcessPlugin::publishControlMetaData(boost::shared_ptr<LATRDProcessJo
 bool LATRDProcessPlugin::processDataWord(uint64_t data_word,
 		uint64_t *previous_course_timestamp,
 		uint64_t *current_course_timestamp,
+		uint32_t packet_number,
 		uint64_t *event_ts,
 		uint32_t *event_id,
 		uint32_t *event_energy)
@@ -659,9 +665,17 @@ bool LATRDProcessPlugin::processDataWord(uint64_t data_word,
 	//LOG4CXX_DEBUG(logger_, "Data Word: 0x" << std::hex << data_word);
 	if (isControlWord(data_word)){
 		if (getControlType(data_word) == ExtendedTimestamp){
-//			LOG4CXX_DEBUG(logger_, "Parsing extended timestamp control word [" << std::hex << data_word << "]");
+            uint64_t ts = getCourseTimestamp(data_word);
+			LOG4CXX_DEBUG(logger_, "Parsing extended timestamp control word [" << std::hex << data_word << "] value [" << std::dec << ts << "]");
+            // Register the timestamp with the manager
+            ts_manager_.add_timestamp(packet_number, (ts & LATRD::timestamp_match_mask));
 			*previous_course_timestamp = *current_course_timestamp;
-			*current_course_timestamp = getCourseTimestamp(data_word);
+			*current_course_timestamp = ts;
+			if (*previous_course_timestamp == 0 && ts_manager_.read_delta() > 0){
+			    // Calculate the previous course timestamp by subtracting the delta from the current
+                *previous_course_timestamp = *current_course_timestamp - ts_manager_.read_delta();
+                LOG4CXX_DEBUG(logger_, "**** Previous course timestamp calculated from TS manager [" << std::dec << *previous_course_timestamp << "]");
+			}
 //			LOG4CXX_DEBUG(logger_, "New extended timestamp [" << std::dec << *current_course_timestamp << "]");
 		}
 	} else {

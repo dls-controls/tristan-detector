@@ -25,6 +25,7 @@ using namespace log4cxx::helpers;
 #include "LATRDProcessJob.h"
 #include "LATRDProcessCoordinator.h"
 #include "LATRDProcessIntegral.h"
+#include "LATRDTimestampManager.h"
 #include "ClassLoader.h"
 
 namespace FrameProcessor {
@@ -88,6 +89,9 @@ namespace FrameProcessor {
         /** Integral mode processing object */
         LATRDProcessIntegral integral_;
 
+        /** Timestamp manager object */
+        LATRDTimestampManager ts_manager_;
+
         /** Pointer to worker queue thread */
         boost::thread *thread_[LATRD::number_of_processing_threads];
 
@@ -149,6 +153,7 @@ namespace FrameProcessor {
         bool processDataWord(uint64_t data_word,
                              uint64_t *previous_course_timestamp,
                              uint64_t *current_course_timestamp,
+                             uint32_t packet_number,
                              uint64_t *event_ts,
                              uint32_t *event_id,
                              uint32_t *event_energy);
