@@ -106,7 +106,12 @@ $( document ).ready(function()
     detector_json_get_command();
   });
 
-  $('#fp-config-cmd').click(function(){
+  $('#fp-debug-level').change(function(){
+    fp_debug_command();
+    fr_debug_command();
+  });
+
+    $('#fp-config-cmd').click(function(){
     fp_configure_command();
   });
 
@@ -223,7 +228,21 @@ function send_fp_command(command, params)
         dataType: 'json',
         data: params,
         headers: {'Content-Type': 'application/json',
-                  'Accept': 'application/json'},
+            'Accept': 'application/json'},
+        success: process_cmd_response,
+        async: false
+    });
+}
+
+function send_fr_command(command, params)
+{
+    $.ajax({
+        url: '/api/' + odin_data.api_version + '/fr/config/' + command,
+        type: 'PUT',
+        dataType: 'json',
+        data: params,
+        headers: {'Content-Type': 'application/json',
+            'Accept': 'application/json'},
         success: process_cmd_response,
         async: false
     });
@@ -238,14 +257,15 @@ function fp_configure_command() {
     }));
     send_fp_command('plugin', JSON.stringify({
         "load": {
-            "library": "/dls_sw/work/tools/RHEL6-x86_64/LATRD/prefix/lib/libLATRDProcessPlugin.so",
+            "library": "/home/gnx91527/work/tristan/LATRD/prefix/lib/libLATRDProcessPlugin.so",
+//            "library": "/dls_sw/work/tools/RHEL6-x86_64/LATRD/prefix/lib/libLATRDProcessPlugin.so",
             "index": "latrd",
             "name": "LATRDProcessPlugin"
         }
     }));
     send_fp_command('plugin', JSON.stringify({
         "load": {
-            "library": "/dls_sw/prod/tools/RHEL6-x86_64/odin-data/0-4-0dls2/prefix/lib/libHdf5Plugin.so",
+            "library": "/home/gnx91527/work/odin-data/prefix/lib/libHdf5Plugin.so",
             "index": "hdf",
             "name": "FileWriterPlugin"
         }
@@ -307,12 +327,20 @@ function fp_configure_command() {
     send_fp_command('hdf', JSON.stringify({
         "dataset": {
             "image": {
-                "datatype": 1,
+                "datatype": 2,
                 "dims": [512, 2048],
                 "chunks": [1, 512, 2048]
             }
         }
     }));
+}
+
+function fp_debug_command() {
+    send_fp_command('debug_level', $('#fp-debug-level').val());
+}
+
+function fr_debug_command() {
+    send_fr_command('debug_level', $('#fp-debug-level').val());
 }
 
 function fp_mode_command(mode) {
