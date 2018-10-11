@@ -21,6 +21,7 @@ using namespace log4cxx::helpers;
 #include <map>
 
 #include "Frame.h"
+#include "LATRDImageJob.h"
 
 namespace FrameProcessor {
 
@@ -50,6 +51,7 @@ namespace FrameProcessor {
                            uint32_t *i_tot,
                            uint32_t *event_count);
     bool process_control_word(uint64_t ctrl_word);
+    uint64_t get_course_timestamp(uint64_t data_word);
     bool check_for_final_packet_word(uint64_t data_word);
     bool check_for_integral_data_word(uint64_t data_word);
 
@@ -59,12 +61,13 @@ namespace FrameProcessor {
 
     uint32_t width_;
     uint32_t height_;
-    uint32_t image_counter_;
+    uint32_t base_image_counter_;
     uint32_t total_count_;
     uint32_t next_frame_id_;
     uint32_t next_packet_id_;
     uint16_t *image_ptr_;
     std::map<uint32_t, boost::shared_ptr<Frame> > frame_store_;
+    std::map<uint64_t, boost::shared_ptr<LATRDImageJob> > image_store_;
   };
 
 

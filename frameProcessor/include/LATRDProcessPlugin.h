@@ -25,12 +25,13 @@ using namespace log4cxx::helpers;
 #include "LATRDProcessJob.h"
 #include "LATRDProcessCoordinator.h"
 #include "LATRDProcessIntegral.h"
+#include "LATRDTimestampManager.h"
 #include "ClassLoader.h"
 
 namespace FrameProcessor {
-    enum LATRDDataControlType {
+/*    enum LATRDDataControlType {
         Unknown, HeaderWord0, HeaderWord1, ExtendedTimestamp, IdleControlWord
-    };
+    };*/
 
     class LATRDProcessPlugin : public FrameProcessorPlugin {
     public:
@@ -88,24 +89,24 @@ namespace FrameProcessor {
         /** Integral mode processing object */
         LATRDProcessIntegral integral_;
 
-        /** Pointer to worker queue thread */
-        boost::thread *thread_[LATRD::number_of_processing_threads];
+        /** Timestamp manager object */
+//        LATRDTimestampManager ts_manager_;
 
         /** Pointers to job queues for processing packets and results notification */
-        boost::shared_ptr<WorkQueue<boost::shared_ptr<LATRDProcessJob> > > jobQueue_;
-        boost::shared_ptr<WorkQueue<boost::shared_ptr<LATRDProcessJob> > > resultsQueue_;
+//        boost::shared_ptr<WorkQueue<boost::shared_ptr<LATRDProcessJob> > > jobQueue_;
+//        boost::shared_ptr<WorkQueue<boost::shared_ptr<LATRDProcessJob> > > resultsQueue_;
 
         /** Stack of processing job objects **/
-        std::stack<boost::shared_ptr<LATRDProcessJob> > jobStack_;
+//        std::stack<boost::shared_ptr<LATRDProcessJob> > jobStack_;
 
         /** Map containing extended timestamps for the current time slice **/
-        std::map<uint32_t, uint64_t> extended_timestamps_;
+//        std::map<uint32_t, uint64_t> extended_timestamps_;
 
         /** Pointer to LATRD buffer and frame manager */
         boost::shared_ptr<LATRDBuffer> rawBuffer_;
-        boost::shared_ptr<LATRDBuffer> timeStampBuffer_;
-        boost::shared_ptr<LATRDBuffer> idBuffer_;
-        boost::shared_ptr<LATRDBuffer> energyBuffer_;
+//        boost::shared_ptr<LATRDBuffer> timeStampBuffer_;
+//        boost::shared_ptr<LATRDBuffer> idBuffer_;
+//        boost::shared_ptr<LATRDBuffer> energyBuffer_;
 
         rapidjson::Document meta_document_;
 
@@ -118,10 +119,10 @@ namespace FrameProcessor {
         size_t concurrent_rank_;
 
         /** Last processed information */
-        uint32_t last_processed_ts_wrap_;
-        uint32_t last_processed_ts_buffer_;
-        uint32_t last_processed_frame_number_;
-        uint32_t last_processed_was_idle_;
+//        uint32_t last_processed_ts_wrap_;
+//        uint32_t last_processed_ts_buffer_;
+//        uint32_t last_processed_frame_number_;
+//        uint32_t last_processed_was_idle_;
 
         /** Management of time slice information **/
         uint64_t current_point_index_;
@@ -130,54 +131,20 @@ namespace FrameProcessor {
         /** Process raw mode **/
         uint32_t raw_mode_;
 
-        boost::shared_ptr<LATRDProcessJob> getJob();
+//        boost::shared_ptr<LATRDProcessJob> getJob();
 
-        void releaseJob(boost::shared_ptr<LATRDProcessJob> job);
+//        void releaseJob(boost::shared_ptr<LATRDProcessJob> job);
+
+        void dump_frame(boost::shared_ptr<Frame> frame);
 
         void process_frame(boost::shared_ptr<Frame> frame);
 
-        void process_coordinated(boost::shared_ptr<Frame> frame);
-
-        void process_now(boost::shared_ptr<Frame> frame);
-
         void process_raw(boost::shared_ptr<Frame> frame);
-
-        void processTask();
 
         void publishControlMetaData(boost::shared_ptr<LATRDProcessJob> job);
 
-        bool processDataWord(uint64_t data_word,
-                             uint64_t *previous_course_timestamp,
-                             uint64_t *current_course_timestamp,
-                             uint64_t *event_ts,
-                             uint32_t *event_id,
-                             uint32_t *event_energy);
-
-        bool isControlWord(uint64_t data_word);
-
-        bool isIdleWord(uint64_t data_word);
-
-        LATRDDataControlType getControlType(uint64_t data_word);
-
-        uint64_t getCourseTimestamp(uint64_t data_word);
-
-        uint64_t getFineTimestamp(uint64_t data_word);
-
-        uint16_t getEnergy(uint64_t data_word);
-
-        uint32_t getPositionID(uint64_t data_word);
-
-        uint64_t getFullTimestmap(uint64_t data_word, uint64_t prev_course, uint64_t course);
-
-        uint8_t findTimestampMatch(uint64_t time_stamp);
-
-        uint32_t get_packet_number(uint64_t headerWord2) const;
-
-        uint16_t get_word_count(uint64_t headerWord1) const;
-
-        uint32_t get_time_slice(uint64_t headerWord1) const;
     };
 
-} /* namespace filewriter */
+} /* namespace FrameProcessor */
 
 #endif /* FRAMEPROCESSOR_INCLUDE_LATRDPROCESSPLUGIN_H_ */

@@ -26,11 +26,15 @@ namespace LATRD
   // 64 bits all set to 1.  Ignore this word.
   static const size_t packet_header_size     = 24;   // 2x64bit words in a packet header
 
-  static const size_t number_of_processing_threads = 8;
+  static const size_t number_of_processing_threads = 1;
 
-  static const size_t number_of_time_slice_buffers = 8;
+  static const size_t number_of_time_slice_buffers = 4;
 
   static const size_t frame_size = 524288;  // 4MB / 8 byte values
+
+  enum LATRDDataControlType {
+    Unknown, HeaderWord0, HeaderWord1, ExtendedTimestamp, IdleControlWord
+  };
 
   typedef struct
   {
@@ -41,12 +45,8 @@ namespace LATRD
   typedef struct
   {
     uint32_t frame_number;
-    uint32_t first_packet;
-    uint32_t last_packet;
     uint32_t frame_state;
     uint32_t idle_frame;
-    uint32_t ts_wrap;
-    uint32_t ts_buffer;
     struct timespec frame_start_time;
     uint32_t packets_received;
     uint8_t  packet_state[num_primary_packets];
@@ -70,11 +70,12 @@ namespace LATRD
   static const uint64_t control_word_idle_mask        = 0xFC00000000000000;
   static const uint64_t control_word_time_slice_mask  = 0x0003FFFFFFFC0000;
   static const uint64_t course_timestamp_mask         = 0x000FFFFFFFFFFFF8;
-  static const uint64_t fine_timestamp_mask           = 0x0000000000FFFFFF;
+  static const uint64_t fine_timestamp_mask           = 0x00000000007FFFFF;
   static const uint64_t energy_mask                   = 0x0000000000003FFF;
   static const uint64_t position_mask                 = 0x0000000000FFFFFF;
-  static const uint64_t timestamp_match_mask          = 0x0FFFFFFF000000;
+  static const uint64_t timestamp_match_mask          = 0x000FFFFFFF800000;
 
+  static const uint64_t course_timestamp_rollover     = 0x00000000001FFFFF;
 
   static uint8_t get_producer_ID(uint64_t  headerWord1)
   {
@@ -112,6 +113,32 @@ namespace LATRD
     // Extract relevant bits to obtain the packet count
     return (uint32_t )(headerWord2 & header_packet_count_mask);
   }
+
+  static bool is_control_word(uint64_t data_word)
+  {
+    bool ctrlWord = false;
+    if ((data_word & LATRD::control_word_mask) > 0){
+      ctrlWord = true;
+    }
+    return ctrlWord;
+  }
+
+  static LATRDDataControlType get_control_type(uint64_t data_word)
+  {
+    LATRDDataControlType ctrl_type = Unknown;
+    if (is_control_word(data_word)) {
+      uint8_t ctrl_word = (data_word >> 58) & LATRD::control_type_mask;
+      if (ctrl_word == LATRD::control_course_timestamp_mask) {
+        ctrl_type = ExtendedTimestamp;
+      } else if (ctrl_word == LATRD::control_header_0_mask) {
+        ctrl_type = HeaderWord0;
+      } else if (ctrl_word == LATRD::control_header_1_mask) {
+        ctrl_type = HeaderWord1;
+      }
+    }
+    return ctrl_type;
+  }
+
 
 }
 

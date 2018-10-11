@@ -1,5 +1,5 @@
 TOOLS_SUPPORT=/dls_sw/prod/tools/RHEL6-x86_64
-ODINDATA = $(TOOLS_SUPPORT)/odin-data/0-4-0dls2
+ODINDATA = /home/gnx91527/work/odin-data
 LOG4CXX = $(TOOLS_SUPPORT)/log4cxx/0-10-0dls1
 CMAKE = $(TOOLS_SUPPORT)/cmake/3-9-6
 ZEROMQ = $(TOOLS_SUPPORT)/zeromq/3-2-4

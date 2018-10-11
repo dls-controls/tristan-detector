@@ -59,13 +59,21 @@ class LATRDChannel(object):
     
     def close(self):
         
-        self.socket.close()    
-        
+        self.socket.close()
+
     def send(self, data):
         if isinstance(data, LATRDMessage):
             data = data.encode()
         self.socket.send_string(data)
-        
+
+    def send_multi(self, data):
+        send_list = []
+        for item in data:
+            if isinstance(item, LATRDMessage):
+                item = item.encode()
+            send_list.append(item)
+        self.socket.send_multipart(send_list)
+
     def recv(self):
         
         data = self.socket.recv()

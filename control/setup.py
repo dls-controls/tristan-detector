@@ -81,7 +81,7 @@ setup(
     entry_points={
         'console_scripts': [
             'latrd_odin=odin.server:main',
-            'latrd-simulator=latrd.control_simulator:main',
+            'latrd-simulator=latrd.detector.control_simulator:main',
             'test-control-interface=latrd.detector.test_control_interface:main',
         ],
     },
