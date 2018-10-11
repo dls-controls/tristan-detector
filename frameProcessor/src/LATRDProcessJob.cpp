@@ -6,7 +6,7 @@
  */
 
 #include "LATRDProcessJob.h"
-
+#include <stdio.h>
 namespace FrameProcessor {
 
 LATRDProcessJob::LATRDProcessJob(size_t size) :
@@ -29,6 +29,7 @@ LATRDProcessJob::LATRDProcessJob(size_t size) :
 
 LATRDProcessJob::~LATRDProcessJob()
 {
+	printf("****************************************** DESTROYING A JOB!!!!!!!\n");
 	// Free all of the previously allocated memory
 	if (event_ts_ptr){
 		free(event_ts_ptr);

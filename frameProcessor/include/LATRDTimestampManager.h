@@ -57,7 +57,10 @@ namespace FrameProcessor {
 
         void reset_delta();
 
-        void add_timestamp(uint32_t packet_number, uint64_t timestamp);
+        void add_timestamp(uint32_t time_slice_buffer,
+                           uint32_t time_slice_wrap,
+                           uint32_t packet_number,
+                           uint64_t timestamp);
 
         uint64_t read_delta();
 
@@ -70,6 +73,8 @@ namespace FrameProcessor {
 
         std::map <uint32_t, uint64_t> timestamps_;
         uint64_t delta_timestamp_;
+        uint32_t time_slice_buffer_;
+        uint32_t time_slice_wrap_;
     };
 
 

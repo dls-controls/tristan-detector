@@ -13,6 +13,7 @@ namespace FrameReceiver
 
 LATRDFrameDecoder::LATRDFrameDecoder() :
                 FrameDecoderUDP(),
+                current_frame_(1),
         		current_frame_seen_(-1),
         		current_frame_buffer_id_(-1),
         		current_frame_buffer_(0),
@@ -71,70 +72,79 @@ void* LATRDFrameDecoder::get_packet_header_buffer()
     return current_raw_packet_header_.get();
 }
 
+void LATRDFrameDecoder::log_packet(size_t bytes_received, int port, struct sockaddr_in* from_addr)
+{
+    current_packet_header_.headerWord1 = *(((uint64_t *)raw_packet_header())+1);
+    current_packet_header_.headerWord2 = *(((uint64_t *)raw_packet_header())+2);
+
+    // Read the decoded header information into local variables for use
+    uint32_t packetNumber = LATRD::get_packet_number(current_packet_header_.headerWord2);
+    uint8_t producerID = LATRD::get_producer_ID(current_packet_header_.headerWord1);
+    uint32_t timeSliceModulo = LATRD::get_time_slice_modulo(current_packet_header_.headerWord1);
+    uint8_t timeSliceNumber = LATRD::get_time_slice_number(current_packet_header_.headerWord2);
+    uint16_t wordCount = LATRD::get_word_count(current_packet_header_.headerWord1);
+
+    // Dump raw header if packet logging enabled
+    if (enable_packet_logging_){
+        std::stringstream ss;
+        ss << "PktHdr: " << std::setw(15) << std::left << inet_ntoa(from_addr->sin_addr) << std::right << " "
+           << std::setw(5) << ntohs(from_addr->sin_port) << " "
+           << std::setw(5) << port << std::hex << std::setfill('0');
+
+        // Obtain a pointer to the first 64 bit header word
+        uint8_t *hdr_ptr = (uint8_t *)&current_packet_header_.headerWord1;
+
+        // Extract relevant bits into the next available size data type
+        uint8_t ctrlValue = (uint8_t)((hdr_ptr[0] & 0xC0) >> 6);
+        uint8_t typeValue = (uint8_t)((hdr_ptr[0] & 0x3C) >> 2);
+        uint8_t spareValue = (uint8_t)(((hdr_ptr[5] & 0x03) << 6) + ((hdr_ptr[6] & 0xF0) >> 2));
+
+        // Format the data values into the stream
+        ss << " 0x" << std::setw(2) << unsigned(ctrlValue) << " 0x" << std::setw(2) << unsigned(typeValue)
+           << " 0x" << std::setw(2) << unsigned(producerID) << " 0x" << std::setw(8) << timeSliceModulo << " 0x"
+           << std::setw(2) << unsigned(spareValue) << " 0x" << std::setw(4) << wordCount;
+
+        // Obtain a pointer to the second 64 bit header word
+        hdr_ptr = (uint8_t *)&current_packet_header_.headerWord2;
+
+        ctrlValue = (uint8_t)((hdr_ptr[0] & 0xC0) >> 6);
+        typeValue = (uint8_t)((hdr_ptr[0] & 0x3C) >> 2);
+        spareValue = (uint8_t)(((hdr_ptr[0] & 0x03) << 24)
+                               + (hdr_ptr[1] << 16)
+                               + (hdr_ptr[2] << 8)
+                               + (hdr_ptr[3]));
+
+        // Format the data values into the stream
+        ss << " 0x" << std::setw(2) << unsigned(ctrlValue) << " 0x" << std::setw(2) << unsigned(typeValue)
+           << " 0x" << std::setw(8) << unsigned(spareValue) << " 0x" << std::setw(8) << unsigned(packetNumber);
+
+        ss << std::dec;
+        LOG4CXX_INFO(packet_logger_, ss.str());
+    }
+
+    LOG4CXX_DEBUG_LEVEL(2, logger_, "Got packet header for packet number: " << packetNumber);
+    LOG4CXX_DEBUG_LEVEL(2, logger_, "Time slice modulo [" << timeSliceModulo << "] number [" << (uint32_t)timeSliceNumber << "]");
+    LOG4CXX_DEBUG_LEVEL(3, logger_, "" << std::hex << std::setfill('0')
+                                       << "Header 0x" << std::setw(8)
+                                       << *(((uint64_t *)raw_packet_header())+1));
+
+}
+
 void LATRDFrameDecoder::process_packet_header(size_t bytes_received, int port, struct sockaddr_in* from_addr)
 {
   //TODO validate header size and content, handle incoming new packet buffer allocation etc
 
-  // TODO: This is a fudge because currently packets are arriving with the first
-  // 64 bits all set to 1.  Ignore this word.
-  current_packet_header_.headerWord1 = *(((uint64_t *)raw_packet_header())+1);
-  current_packet_header_.headerWord2 = *(((uint64_t *)raw_packet_header())+2);
+  log_packet(bytes_received, port, from_addr);
 
-	// Read the decoded header information into local variables for use
-	uint32_t packetNumber = LATRD::get_packet_number(current_packet_header_.headerWord2);
-	uint8_t producerID = LATRD::get_producer_ID(current_packet_header_.headerWord1);
-    uint32_t timeSliceModulo = LATRD::get_time_slice_modulo(current_packet_header_.headerWord1);
-    uint8_t timeSliceNumber = LATRD::get_time_slice_number(current_packet_header_.headerWord2);
-	uint16_t wordCount = LATRD::get_word_count(current_packet_header_.headerWord1);
-	uint32_t frameNumber = get_frame_number();
-	uint32_t framePacketNumber = get_frame_packet_number();
+  // If we receive an IDLE frame then set the frame number to 0
+    if ((*(((uint64_t *)raw_packet_header())+1)&LATRD::packet_header_idle_mask) == LATRD::packet_header_idle_mask){
+        LOG4CXX_DEBUG_LEVEL(2, logger_, "  IDLE packet detected");
+        // Mark this buffer as a last frame buffer
+        current_frame_ = 0;
+    }
 
-  // Dump raw header if packet logging enabled
-  if (enable_packet_logging_){
-    std::stringstream ss;
-    ss << "PktHdr: " << std::setw(15) << std::left << inet_ntoa(from_addr->sin_addr) << std::right << " "
-       << std::setw(5) << ntohs(from_addr->sin_port) << " "
-       << std::setw(5) << port << std::hex << std::setfill('0');
-
-    // Obtain a pointer to the first 64 bit header word
-    uint8_t *hdr_ptr = (uint8_t *)&current_packet_header_.headerWord1;
-
-    // Extract relevant bits into the next available size data type
-    uint8_t ctrlValue = (uint8_t)((hdr_ptr[0] & 0xC0) >> 6);
-    uint8_t typeValue = (uint8_t)((hdr_ptr[0] & 0x3C) >> 2);
-    uint8_t spareValue = (uint8_t)(((hdr_ptr[5] & 0x03) << 6) + ((hdr_ptr[6] & 0xF0) >> 2));
-
-    // Format the data values into the stream
-    ss << " 0x" << std::setw(2) << unsigned(ctrlValue) << " 0x" << std::setw(2) << unsigned(typeValue)
-		   << " 0x" << std::setw(2) << unsigned(producerID) << " 0x" << std::setw(8) << timeSliceModulo << " 0x"
-		   << std::setw(2) << unsigned(spareValue) << " 0x" << std::setw(4) << wordCount;
-
-    // Obtain a pointer to the second 64 bit header word
-    hdr_ptr = (uint8_t *)&current_packet_header_.headerWord2;
-
-    ctrlValue = (uint8_t)((hdr_ptr[0] & 0xC0) >> 6);
-    typeValue = (uint8_t)((hdr_ptr[0] & 0x3C) >> 2);
-    spareValue = (uint8_t)(((hdr_ptr[0] & 0x03) << 24)
-                 + (hdr_ptr[1] << 16)
-                 + (hdr_ptr[2] << 8)
-                 + (hdr_ptr[3]));
-
-    // Format the data values into the stream
-    ss << " 0x" << std::setw(2) << unsigned(ctrlValue) << " 0x" << std::setw(2) << unsigned(typeValue)
-       << " 0x" << std::setw(8) << unsigned(spareValue) << " 0x" << std::setw(8) << unsigned(packetNumber);
-
-    ss << std::dec;
-    LOG4CXX_INFO(packet_logger_, ss.str());
-  }
-
-  LOG4CXX_DEBUG_LEVEL(2, logger_, "Got packet header for packet number: " << packetNumber);
-  LOG4CXX_DEBUG_LEVEL(2, logger_, "Time slice modulo [" << timeSliceModulo << "] number [" << (uint32_t)timeSliceNumber << "]");
-  LOG4CXX_DEBUG_LEVEL(2, logger_, "  Frame number: " << frameNumber << "  Frame packet number: " << framePacketNumber);
-  LOG4CXX_DEBUG_LEVEL(3, logger_, "" << std::hex << std::setfill('0')
-                                     << "Header 0x" << std::setw(8)
-                                     << *(((uint64_t *)raw_packet_header())+1));
-  if (frameNumber != current_frame_seen_){
-    current_frame_seen_ = frameNumber;
+    if (current_frame_ != current_frame_seen_){
+    current_frame_seen_ = current_frame_;
     if (frame_buffer_map_.count(current_frame_seen_) == 0){
       if (empty_buffer_queue_.empty()){
         current_frame_buffer_ = dropped_frame_buffer_.get();
@@ -159,10 +169,6 @@ void LATRDFrameDecoder::process_packet_header(size_t bytes_received, int port, s
       // Initialise frame header
       current_frame_header_ = reinterpret_cast<LATRD::FrameHeader*>(current_frame_buffer_);
       current_frame_header_->frame_number = current_frame_seen_;
-      current_frame_header_->first_packet = -1;
-      current_frame_header_->last_packet = -1;
-      current_frame_header_->ts_wrap = timeSliceModulo;
-      current_frame_header_->ts_buffer = timeSliceNumber;
       current_frame_header_->frame_state = FrameDecoder::FrameReceiveStateIncomplete;
       current_frame_header_->packets_received = 0;
       current_frame_header_->idle_frame = 0;
@@ -181,24 +187,8 @@ void LATRDFrameDecoder::process_packet_header(size_t bytes_received, int port, s
     }
   }
   // Update packet_number state map in frame header
-  LOG4CXX_DEBUG_LEVEL(1, logger_, "  Setting frame " << current_frame_seen_<< " buffer ID: " << current_frame_buffer_id_ << " packet header index: " << framePacketNumber);
-  current_frame_header_->packet_state[framePacketNumber] = 1;
-  // Check if this is the earliest packet seen by this buffer, and if it is record it
-  if (current_frame_header_->first_packet == -1){
-    current_frame_header_->first_packet = packetNumber;
-  } else {
-    if (packetNumber < current_frame_header_->first_packet) {
-      current_frame_header_->first_packet = packetNumber;
-    }
-  }
-  // Check if this is the latest packet seen by this buffer, and if it is record it
-  if (current_frame_header_->last_packet == -1){
-    current_frame_header_->last_packet = packetNumber;
-  } else {
-    if (packetNumber > current_frame_header_->last_packet) {
-      current_frame_header_->last_packet = packetNumber;
-    }
-  }
+  LOG4CXX_DEBUG_LEVEL(1, logger_, "  Setting frame " << current_frame_seen_<< " buffer ID: " << current_frame_buffer_id_ << " packet header index: " << current_frame_header_->packets_received);
+  current_frame_header_->packet_state[current_frame_header_->packets_received] = 1;
 }
 
 void* LATRDFrameDecoder::get_next_payload_buffer() const
@@ -206,7 +196,7 @@ void* LATRDFrameDecoder::get_next_payload_buffer() const
     uint8_t* next_receive_location =
             reinterpret_cast<uint8_t*>(current_frame_buffer_)
 			+ get_frame_header_size()
-			+ (LATRD::primary_packet_size * get_frame_packet_number())
+			+ (LATRD::primary_packet_size * current_frame_header_->packets_received)
 			+ LATRD::packet_header_size;
 
     return reinterpret_cast<void*>(next_receive_location);
@@ -226,38 +216,37 @@ FrameDecoder::FrameReceiveState LATRDFrameDecoder::process_packet(size_t bytes_r
     uint8_t* packet_header_location =
             reinterpret_cast<uint8_t*>(current_frame_buffer_)
 			+ get_frame_header_size()
-			+ (LATRD::primary_packet_size * get_frame_packet_number());
+			+ (LATRD::primary_packet_size * current_frame_header_->packets_received);
     memcpy(packet_header_location, current_raw_packet_header_.get(), LATRD::packet_header_size);
 
     // Increment the number of packets received for this frame
 	current_frame_header_->packets_received++;
-  LOG4CXX_DEBUG_LEVEL(2, logger_, "  Packet count: " << current_frame_header_->packets_received << " for frame: " << current_frame_header_->frame_number);
-  LOG4CXX_DEBUG_LEVEL(2, logger_, "  IDLE frame flag: " << current_frame_header_->idle_frame);
+    LOG4CXX_DEBUG_LEVEL(2, logger_, "  Packet count: " << current_frame_header_->packets_received << " for frame: " << current_frame_header_->frame_number);
+    LOG4CXX_DEBUG_LEVEL(2, logger_, "  IDLE frame flag: " << current_frame_header_->idle_frame);
 	// Check to see if the number of packets we have received is equal to the total number
 	// of packets for this frame or if this is an idle frame
 	if (current_frame_header_->packets_received == LATRD::num_frame_packets || current_frame_header_->idle_frame == 1){
-    // If this is an idle frame then empty the current buffer map
-    if (current_frame_header_->idle_frame == 1) {
-      // Loop over frame buffers currently in map and flush them, not including this idle buffer as
-      // that will be flushed last
-      std::map<int, int>::iterator buffer_map_iter = frame_buffer_map_.begin();
-      while (buffer_map_iter != frame_buffer_map_.end()) {
-        int frame_num = buffer_map_iter->first;
-        int buffer_id = buffer_map_iter->second;
-        void *buffer_addr = buffer_manager_->get_buffer_address(buffer_id);
-        LATRD::FrameHeader *frame_header = reinterpret_cast<LATRD::FrameHeader *>(buffer_addr);
-        if (current_frame_header_->frame_number != frame_num){
-          frame_header->frame_state = FrameReceiveStateComplete;
-          LOG4CXX_DEBUG_LEVEL(1, logger_, "Frame: " << frame_header->frame_number << " First packet: " << frame_header->first_packet<< " Last packet: " << frame_header->last_packet);
-          ready_callback_(buffer_id, frame_num);
-          frame_buffer_map_.erase(buffer_map_iter++);
-        } else {
-          buffer_map_iter++;
+        // If this is an idle frame then empty the current buffer map
+        if (current_frame_header_->idle_frame == 1) {
+            // Loop over frame buffers currently in map and flush them, not including this idle buffer as
+            // that will be flushed last
+            std::map<int, int>::iterator buffer_map_iter = frame_buffer_map_.begin();
+            while (buffer_map_iter != frame_buffer_map_.end()) {
+                int frame_num = buffer_map_iter->first;
+                int buffer_id = buffer_map_iter->second;
+                void *buffer_addr = buffer_manager_->get_buffer_address(buffer_id);
+                LATRD::FrameHeader *frame_header = reinterpret_cast<LATRD::FrameHeader *>(buffer_addr);
+                if (current_frame_header_->frame_number != frame_num){
+                    frame_header->frame_state = FrameReceiveStateComplete;
+                    ready_callback_(buffer_id, frame_num);
+                    frame_buffer_map_.erase(buffer_map_iter++);
+                } else {
+                  buffer_map_iter++;
+                }
+            }
         }
-      }
-    }
 
-    // We have received the correct number of packets, the frame is complete
+        // We have received the correct number of packets, the frame is complete
 
 	    // Set frame state accordingly
 		frame_state = FrameDecoder::FrameReceiveStateComplete;
@@ -269,14 +258,18 @@ FrameDecoder::FrameReceiveState LATRDFrameDecoder::process_packet(size_t bytes_r
 		if (!dropping_frame_data_){
 			// Erase frame from buffer map
 			frame_buffer_map_.erase(current_frame_seen_);
-            LOG4CXX_DEBUG_LEVEL(1, logger_, "Frame: " << current_frame_header_->frame_number << " First packet: " << current_frame_header_->first_packet<< " Last packet: " << current_frame_header_->last_packet);
 
 			// Notify main thread that frame is ready
 			ready_callback_(current_frame_buffer_id_, current_frame_seen_);
 
 			// Reset current frame seen ID so that if next frame has same number (e.g. repeated
 			// sends of single frame 0), it is detected properly
-			current_frame_seen_ = -1;
+            current_frame_seen_ = -1;
+            if (current_frame_header_->idle_frame == 1) {
+                current_frame_ = 1;
+            } else {
+                current_frame_++;
+            }
 		}
 	}
 
@@ -324,7 +317,6 @@ void LATRDFrameDecoder::monitor_buffers()
               current_frame_seen_ = -1;
             }
             frame_header->frame_state = FrameReceiveStateTimedout;
-            LOG4CXX_DEBUG_LEVEL(1, logger_, "Frame: " << frame_header->frame_number << " First packet: " << frame_header->first_packet<< " Last packet: " << frame_header->last_packet);
             ready_callback_(buffer_id, frame_num);
             frames_timedout++;
 
@@ -345,22 +337,6 @@ void LATRDFrameDecoder::monitor_buffers()
             << get_num_empty_buffers() << " empty buffers available, "
             << frames_timedout_ << " incomplete frames timed out");
 
-}
-
-uint32_t LATRDFrameDecoder::get_frame_number() const
-{
-	// Frame number is derived from the packet number and the number of packets in a frame
-	// Frame number starts at 1
-  uint32_t frame_number = (uint32_t)((LATRD::get_packet_number(current_packet_header_.headerWord2) / LATRD::num_primary_packets) + 1);
-  if ((*(((uint64_t *)raw_packet_header())+1)&LATRD::packet_header_idle_mask) == LATRD::packet_header_idle_mask){
-    frame_number = 0;
-  }
-  return frame_number;
-}
-
-uint32_t LATRDFrameDecoder::get_frame_packet_number() const
-{
-	return (uint32_t)(LATRD::get_packet_number(current_packet_header_.headerWord2) % LATRD::num_primary_packets);
 }
 
 uint8_t* LATRDFrameDecoder::raw_packet_header() const

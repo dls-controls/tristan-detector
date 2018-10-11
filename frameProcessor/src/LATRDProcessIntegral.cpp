@@ -9,7 +9,7 @@ namespace FrameProcessor {
   LATRDProcessIntegral::LATRDProcessIntegral() :
       width_(0),
       height_(0),
-      image_counter_(0),
+      base_image_counter_(0),
       total_count_(0),
       next_frame_id_(1),
       next_packet_id_(0)
@@ -47,15 +47,37 @@ namespace FrameProcessor {
   {
     std::vector<boost::shared_ptr<Frame> > image_frames;
 
-
     // Extract the header from the buffer and print the details
     const LATRD::FrameHeader *hdrPtr = static_cast<const LATRD::FrameHeader *>(frame->get_data());
 
     // Test for idle frames.
     if (hdrPtr->idle_frame == 1){
       LOG4CXX_DEBUG(logger_, "Count mode IDLE frame detected");
+
       // This is an idle frame
       // First we need to process any outstanding image frames, and then reset the image counter
+      uint32_t image_counter = base_image_counter_ - 1;
+      std::map<uint64_t, boost::shared_ptr<LATRDImageJob> >::iterator iter;
+      for (iter = image_store_.begin(); iter != image_store_.end(); ++iter){
+        image_counter++;
+          if (!iter->second->get_sent()) {
+            LOG4CXX_DEBUG(logger_,
+                          "Creating image frame " << image_counter << " from raw buffer " << frame->get_frame_number());
+            boost::shared_ptr<Frame> out_frame = iter->second->to_frame(image_counter);
+            image_frames.push_back(out_frame);
+
+            iter->second->mark_sent();
+          }
+          iter->second->reset();
+      }
+      image_store_.clear();
+
+      // and reset the image counter
+      base_image_counter_ = 0;
+      // and reset the expected frame ID
+      next_frame_id_ = 1;
+
+/*
       std::map<uint32_t, boost::shared_ptr<Frame> >::iterator iter;
       for (iter = frame_store_.begin(); iter != frame_store_.end(); ++iter) {
         std::vector <boost::shared_ptr<Frame> > frames = frame_to_image(iter->second);
@@ -66,14 +88,16 @@ namespace FrameProcessor {
       // Reset the image
       reset_image();
       // and reset the image counter
-      image_counter_ = 0;
+      base_image_counter_ = 0;
       // and reset the expected frame ID
       next_frame_id_ = 1;
       // and reset the expected packet ID
       next_packet_id_ = 0;
-
+*/
     } else {
+      image_frames = frame_to_image(frame);
       // Check packet ID against latest.
+      /*
       if (hdrPtr->first_packet == next_packet_id_) {
         // If first packet number is the next one then process it immediately
         // Process frame
@@ -90,9 +114,10 @@ namespace FrameProcessor {
           // Log the error
           LOG4CXX_DEBUG(logger_, "Received old buffer number : " << frame->get_frame_number() << " with packet ID: " << hdrPtr->first_packet);
         }
-      }
+      }*/
       // Check if we can process further stored frames in order
-      while (frame_store_.count(next_packet_id_) > 0) {
+      //while (frame_store_.count(next_packet_id_) > 0) {
+        /*
         // Process frame
         std::vector <boost::shared_ptr<Frame> > frames = frame_to_image(frame_store_[next_packet_id_]);
         const LATRD::FrameHeader *fHdrPtr = static_cast<const LATRD::FrameHeader *>(frame_store_[next_packet_id_]->get_data());
@@ -101,8 +126,8 @@ namespace FrameProcessor {
         // Remove frame from store
         frame_store_.erase(next_packet_id_);
         // Increment next frame counter
-        next_packet_id_ = new_packet_id;
-      }
+        next_packet_id_ = new_packet_id;*/
+      //}
     }
     return image_frames;
   }
@@ -132,9 +157,24 @@ namespace FrameProcessor {
         // Walk through each data word
         uint16_t word_count = LATRD::get_word_count(packet_header.headerWord1);
         uint32_t packet_id = LATRD::get_packet_number(packet_header.headerWord2);
-        // Ignore the extended timestamp and the first 0x00000000 which is not used
-        uint64_t *data_word_ptr = (((uint64_t *) payload_ptr) + 2 + packet_header_count);
-        LOG4CXX_DEBUG(logger_, "Pkt [" << packet_id << "] word count " << word_count);
+        // Ignore the first 0x00000000 which is not used
+        uint64_t *data_word_ptr = (((uint64_t *) payload_ptr) + 1 + packet_header_count);
+
+        uint64_t packet_timestamp = get_course_timestamp(*data_word_ptr);
+        LOG4CXX_DEBUG(logger_, "Pkt [" << packet_id << "] timestamp [" << packet_timestamp << "] word count " << word_count);
+        data_word_ptr++;
+
+        // Check if we have an image job for this packet's timestamp
+        boost::shared_ptr<LATRDImageJob> image_job_ptr;
+        if (image_store_.count(packet_timestamp) > 0){
+          image_job_ptr = image_store_[packet_timestamp];
+        } else {
+          // We need to create a new image job for this packet
+          // TODO: Check this is not an old packet
+          image_job_ptr = boost::shared_ptr<LATRDImageJob>(new LATRDImageJob(width_, height_));
+          // Store the image job in the store, index by timestamp
+          image_store_[packet_timestamp] = image_job_ptr;
+        }
 
         // Start from index 3 as we can ignore the header words and extended timestamp
         for (uint16_t index = 3; index < word_count; index++) {
@@ -144,27 +184,10 @@ namespace FrameProcessor {
           uint32_t event_count = 0;
           uint32_t e_tot = 0;
           try {
-            if (check_for_final_packet_word(*data_word_ptr)) {
               // Check if the word is a final packet word
-              LOG4CXX_DEBUG(logger_, "Pkt [" << packet_id << "] Creating image frame " << image_counter_ << " from raw buffer " << frame->get_frame_number());
-              //LOG4CXX_DEBUG(logger_, "  =>  Image total count " << total_count_);
-
-              // Create the frame object to wrap the image
-              boost::shared_ptr<Frame> out_frame = boost::shared_ptr<Frame>(new Frame("image"));
-              out_frame->copy_data(image_ptr_, width_ * height_ * sizeof(uint16_t));
-              out_frame->set_frame_number(image_counter_);
-              std::vector<dimsize_t> dims(0);
-              dims.push_back(height_);
-              dims.push_back(width_);
-              out_frame->set_dataset_name("image");
-              out_frame->set_data_type(1);
-              out_frame->set_dimensions("image", dims);
-              // Reset the image
-              reset_image();
-              // Increase the image counter
-              image_counter_++;
-              // Add the frame to the return vector
-              image_frames.push_back(out_frame);
+            if (check_for_final_packet_word(*data_word_ptr)) {
+                LOG4CXX_DEBUG(logger_, "Image [" << packet_timestamp << "] End Of Image on packet [" << packet_id << "]");
+                image_job_ptr->set_eoi(packet_id);
             } else {
               if (process_data_word(*data_word_ptr,
                                     &x_pos,
@@ -172,12 +195,33 @@ namespace FrameProcessor {
                                     &i_tot,
                                     &event_count)) {
                 // Add the event count to the 2D image
-                uint32_t data_index = x_pos + (y_pos * width_);
-                image_ptr_[data_index] += event_count;
-                //LOG4CXX_DEBUG(logger_, "Pkt [" << packet_id << "] writing " << event_count << " counts [" << x_pos << "," << y_pos << "]");
+                image_job_ptr->add_pixel(packet_id, x_pos, y_pos, event_count);
                 total_count_ += event_count;
               }
             }
+            /*
+            // Check if the frame is valid
+            if (image_job_ptr->verify_image()) {
+              //LOG4CXX_DEBUG(logger_, "  =>  Image total count " << total_count_);
+                // Calculate the image number for this image.
+                // The image number is the base_image_counter_ + the index of the frame in the map
+                uint32_t image_counter = base_image_counter_ - 1;
+                std::map<uint64_t, boost::shared_ptr<LATRDImageJob> >::iterator iter;
+                for (iter = image_store_.begin(); iter != image_store_.end(); ++iter) {
+                    image_counter++;
+                    if (packet_timestamp == iter->first){
+                        break;
+                    }
+                }
+
+                LOG4CXX_DEBUG(logger_,
+                              "Pkt [" << packet_id << "] Creating image frame " << image_counter << " from raw buffer "
+                                      << frame->get_frame_number());
+                boost::shared_ptr<Frame> out_frame = image_job_ptr->to_frame(image_counter);
+              image_frames.push_back(out_frame);
+
+              image_job_ptr->reset();
+            }*/
           }
           catch (LATRDProcessingException &ex){
             // TODO: What to do here if there is an exception
@@ -188,6 +232,38 @@ namespace FrameProcessor {
       // Increment the payload pointer to the next packet
       payload_ptr += LATRD::primary_packet_size;
     }
+    // After processing all of the packets, loop through the job map and see if we can pass out any frames
+    uint32_t image_counter = base_image_counter_ - 1;
+    std::vector<uint64_t> delete_image_vector;
+    std::map<uint64_t, boost::shared_ptr<LATRDImageJob> >::iterator iter;
+    for (iter = image_store_.begin(); iter != image_store_.end(); ++iter){
+        image_counter++;
+        if (iter->second->verify_image()){
+          if (!iter->second->get_sent()) {
+            LOG4CXX_DEBUG(logger_,
+                          "Creating image frame " << image_counter << " from raw buffer " << frame->get_frame_number());
+            boost::shared_ptr<Frame> out_frame = iter->second->to_frame(image_counter);
+            image_frames.push_back(out_frame);
+
+            iter->second->mark_sent();
+          }
+          // Mark the frame for deletion
+          delete_image_vector.push_back(iter->first);
+        }
+    }
+    std::vector<uint64_t>::iterator del_iter;
+    for (del_iter = delete_image_vector.begin(); del_iter != delete_image_vector.end(); ++del_iter){
+        if (image_store_.begin()->first == *del_iter){
+            // Reset the job
+            image_store_[*del_iter]->reset();
+            // Delete the job
+            image_store_.erase(*del_iter);
+            // Increment the base
+            base_image_counter_++;
+        }
+    }
+
+
     return image_frames;
   }
 
@@ -211,6 +287,14 @@ namespace FrameProcessor {
   bool LATRDProcessIntegral::process_control_word(uint64_t ctrl_word)
   {
     return false;
+  }
+
+  uint64_t LATRDProcessIntegral::get_course_timestamp(uint64_t data_word)
+  {
+    if (!LATRD::is_control_word(data_word)){
+      throw LATRDProcessingException("Data word is not a control word");
+    }
+    return data_word & LATRD::course_timestamp_mask;
   }
 
   bool LATRDProcessIntegral::check_for_final_packet_word(uint64_t data_word)

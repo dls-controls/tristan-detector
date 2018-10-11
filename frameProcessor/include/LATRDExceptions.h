@@ -8,6 +8,7 @@
 #ifndef FRAMEPROCESSOR_INCLUDE_LATRDEXCEPTIONS_H_
 #define FRAMEPROCESSOR_INCLUDE_LATRDEXCEPTIONS_H_
 #include <exception>
+#include <stdexcept>
 
 namespace FrameProcessor
 {

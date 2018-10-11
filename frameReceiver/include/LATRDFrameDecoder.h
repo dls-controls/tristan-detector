@@ -29,6 +29,7 @@ public:
 	LATRDFrameDecoder();
 	virtual ~LATRDFrameDecoder();
 	void init(LoggerPtr& logger, OdinData::IpcMessage& config_msg);
+	void log_packet(size_t bytes_received, int port, struct sockaddr_in* from_addr);
     const size_t get_frame_buffer_size(void) const;
     const size_t get_frame_header_size(void) const;
 
@@ -45,9 +46,9 @@ public:
 
     void* get_packet_header_buffer(void);
 
-    uint32_t get_frame_number(void) const;
+//    uint32_t get_frame_number(void) const;
 //    uint32_t get_packet_number(void) const;
-    uint32_t get_frame_packet_number(void) const;
+//    uint32_t get_frame_packet_number(void) const;
 //    uint8_t get_producer_ID(void) const;
 //    uint32_t get_time_slice(void) const;
 //    uint16_t get_word_count(void) const;
@@ -59,6 +60,9 @@ private:
 
     boost::shared_ptr<void> current_raw_packet_header_;
     boost::shared_ptr<void> dropped_frame_buffer_;
+
+    uint32_t current_frame_;
+
 
     uint32_t current_frame_seen_;
     int current_frame_buffer_id_;
