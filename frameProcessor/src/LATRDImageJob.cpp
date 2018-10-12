@@ -12,6 +12,7 @@ namespace FrameProcessor {
       image_ptr_ = (uint32_t *)malloc(width * height * sizeof(uint32_t));
       eoi_packet_id_ = -1;
       sent_ = false;
+      this->reset();
     }
 
     LATRDImageJob::~LATRDImageJob()
