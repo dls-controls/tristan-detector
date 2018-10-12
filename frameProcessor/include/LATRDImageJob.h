@@ -29,7 +29,7 @@ namespace FrameProcessor {
 
       uint32_t width_;
       uint32_t height_;
-      uint32_t *image_ptr_;
+      uint16_t *image_ptr_;
       uint64_t timestamp_;
       bool sent_;
       std::map<uint32_t, uint32_t> packet_ids_;
