@@ -327,7 +327,7 @@ function fp_configure_command() {
     send_fp_command('hdf', JSON.stringify({
         "dataset": {
             "image": {
-                "datatype": 2,
+                "datatype": 1,
                 "dims": [512, 2048],
                 "chunks": [1, 512, 2048]
             }
