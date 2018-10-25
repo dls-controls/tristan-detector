@@ -110,6 +110,8 @@ namespace FrameProcessor {
     boost::shared_ptr<LATRDBuffer> timeStampBuffer_;
     boost::shared_ptr<LATRDBuffer> idBuffer_;
     boost::shared_ptr<LATRDBuffer> energyBuffer_;
+    boost::shared_ptr<LATRDBuffer> ctrlWordBuffer_;
+    boost::shared_ptr<LATRDBuffer> ctrlTimeStampBuffer_;
     uint64_t headerWord1;
     uint64_t headerWord2;
 

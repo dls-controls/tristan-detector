@@ -25,7 +25,7 @@ using namespace log4cxx::helpers;
 
 namespace FrameProcessor
 {
-enum LATRDBufferType {UINT64_TYPE, UINT32_TYPE};
+enum LATRDBufferType {UINT64_TYPE, UINT32_TYPE, UINT16_TYPE};
 
 class LATRDBuffer {
 

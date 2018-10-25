@@ -257,15 +257,16 @@ function fp_configure_command() {
     }));
     send_fp_command('plugin', JSON.stringify({
         "load": {
-            "library": "/home/gnx91527/work/tristan/LATRD/prefix/lib/libLATRDProcessPlugin.so",
-//            "library": "/dls_sw/work/tools/RHEL6-x86_64/LATRD/prefix/lib/libLATRDProcessPlugin.so",
+//            "library": "/home/gnx91527/work/tristan/LATRD/prefix/lib/libLATRDProcessPlugin.so",
+            "library": "/dls_sw/work/tools/RHEL6-x86_64/LATRD/prefix/lib/libLATRDProcessPlugin.so",
             "index": "latrd",
             "name": "LATRDProcessPlugin"
         }
     }));
     send_fp_command('plugin', JSON.stringify({
         "load": {
-            "library": "/home/gnx91527/work/odin-data/prefix/lib/libHdf5Plugin.so",
+            "library": "/dls_sw/work/tools/RHEL6-x86_64/odin-data/prefix/lib/libHdf5Plugin.so",
+//            "library": "/home/gnx91527/work/tristan/odin-data/prefix/lib/libHdf5Plugin.so",
             "index": "hdf",
             "name": "FileWriterPlugin"
         }
@@ -330,6 +331,22 @@ function fp_configure_command() {
                 "datatype": 1,
                 "dims": [512, 2048],
                 "chunks": [1, 512, 2048]
+            }
+        }
+    }));
+    send_fp_command('hdf', JSON.stringify({
+        "dataset": {
+            "cue_timestamp_zero": {
+                "datatype": 3,
+                "chunks": [524288]
+            }
+        }
+    }));
+    send_fp_command('hdf', JSON.stringify({
+        "dataset": {
+            "cue_id": {
+                "datatype": 1,
+                "chunks": [524288]
             }
         }
     }));

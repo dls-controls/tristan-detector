@@ -49,6 +49,12 @@ namespace FrameProcessor {
 
       void createMetaHeader();
 
+    int get_version_major();
+    int get_version_minor();
+    int get_version_patch();
+    std::string get_version_short();
+    std::string get_version_long();
+
     private:
 
         /** Constant for this decoders name when publishing meta data */

@@ -26,7 +26,7 @@ namespace LATRD
   // 64 bits all set to 1.  Ignore this word.
   static const size_t packet_header_size     = 24;   // 2x64bit words in a packet header
 
-  static const size_t number_of_processing_threads = 1;
+  static const size_t number_of_processing_threads = 8;
 
   static const size_t number_of_time_slice_buffers = 4;
 
@@ -63,6 +63,7 @@ namespace LATRD
   static const uint8_t  control_header_1_mask         = 0x39;
   static const uint8_t  control_course_timestamp_mask = 0x20;
   static const uint8_t  control_word_id_mask          = 0x0F;
+  static const uint64_t control_word_full_mask        = 0xFFF0000000000000;
   static const uint64_t header_packet_producer_mask   = 0x03FC000000000000;
   static const uint64_t header_packet_count_mask      = 0x00000000FFFFFFFF;
   static const uint64_t header_packet_ts_number_mask  = 0x000000FF00000000;
@@ -72,7 +73,7 @@ namespace LATRD
   static const uint64_t course_timestamp_mask         = 0x000FFFFFFFFFFFF8;
   static const uint64_t fine_timestamp_mask           = 0x00000000007FFFFF;
   static const uint64_t energy_mask                   = 0x0000000000003FFF;
-  static const uint64_t position_mask                 = 0x0000000000FFFFFF;
+  static const uint64_t position_mask                 = 0x0000000003FFFFFF;
   static const uint64_t timestamp_match_mask          = 0x000FFFFFFF800000;
 
   static const uint64_t course_timestamp_rollover     = 0x00000000001FFFFF;
