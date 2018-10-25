@@ -26,8 +26,15 @@ namespace FrameProcessor {
     }
 
     void LATRDTimeSliceWrap::add_job(uint32_t buffer_no, boost::shared_ptr<LATRDProcessJob> job) {
-        // Add the job into the specified buffer
-        buffer_store_[buffer_no]->add_job(job);
+        // Check the buffer number supplied is valid
+        if (buffer_no < number_of_buffers_) {
+            // Add the job into the specified buffer
+            buffer_store_[buffer_no]->add_job(job);
+        } else {
+            // We cannot store this job, which is a serious error
+            // TODO: Throw the error
+            LOG4CXX_ERROR(logger_, "Job with invalid buffer number: " << buffer_no);
+        }
     }
 
     std::vector<boost::shared_ptr<LATRDProcessJob> > LATRDTimeSliceWrap::empty_all_buffers() {
