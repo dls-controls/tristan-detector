@@ -36,6 +36,10 @@ LATRDBuffer::LATRDBuffer(size_t numberOfDataPoints, const std::string& frame, LA
     	bytes_to_allocate = bytes_to_allocate * sizeof(uint32_t);
     	dataSize_ = sizeof(uint32_t);
     	break;
+	case UINT16_TYPE:
+		bytes_to_allocate = bytes_to_allocate * sizeof(uint16_t);
+		dataSize_ = sizeof(uint16_t);
+		break;
     default:
     	throw LATRDProcessingException("Unknown datatype specified");
     }

@@ -4,6 +4,7 @@
 
 #include <LATRDDefinitions.h>
 #include "LATRDProcessCoordinator.h"
+#include "DebugLevelLogger.h"
 
 namespace FrameProcessor {
 static int no_of_job = 0;
@@ -30,6 +31,8 @@ static int no_of_job = 0;
         timeStampBuffer_ = boost::shared_ptr<LATRDBuffer>(new LATRDBuffer(LATRD::frame_size, "event_time_offset", UINT64_TYPE));
         idBuffer_ = boost::shared_ptr<LATRDBuffer>(new LATRDBuffer(LATRD::frame_size, "event_id", UINT32_TYPE));
         energyBuffer_ = boost::shared_ptr<LATRDBuffer>(new LATRDBuffer(LATRD::frame_size, "event_energy", UINT32_TYPE));
+        ctrlWordBuffer_ = boost::shared_ptr<LATRDBuffer>(new LATRDBuffer(LATRD::frame_size, "cue_id", UINT16_TYPE));
+        ctrlTimeStampBuffer_ = boost::shared_ptr<LATRDBuffer>(new LATRDBuffer(LATRD::frame_size, "cue_timestamp_zero", UINT64_TYPE));
 
 
         // Configure threads for processing
@@ -50,11 +53,13 @@ static int no_of_job = 0;
         timeStampBuffer_->configureProcess(processes, rank);
         idBuffer_->configureProcess(processes, rank);
         energyBuffer_->configureProcess(processes, rank);
+        ctrlWordBuffer_->configureProcess(processes, rank);
+        ctrlTimeStampBuffer_->configureProcess(processes, rank);
     }
 
     std::vector<boost::shared_ptr<Frame> > LATRDProcessCoordinator::process_frame(boost::shared_ptr<Frame> frame)
     {
-        LOG4CXX_DEBUG(logger_, "Adding frame " << frame->get_frame_number() << " to coordinator");
+        LOG4CXX_DEBUG_LEVEL(2, logger_, "Adding frame " << frame->get_frame_number() << " to coordinator");
         std::vector<boost::shared_ptr<Frame> > frames;
         const LATRD::FrameHeader* hdrPtr = static_cast<const LATRD::FrameHeader*>(frame->get_data());
         if (hdrPtr->idle_frame == 0) {
@@ -77,6 +82,8 @@ static int no_of_job = 0;
             timeStampBuffer_->resetFrameNumber();
             idBuffer_->resetFrameNumber();
             energyBuffer_->resetFrameNumber();
+            ctrlWordBuffer_->resetFrameNumber();
+            ctrlTimeStampBuffer_->resetFrameNumber();
         }
         LOG4CXX_ERROR(logger_, "Job stack size: " << jobStack_.size());
         return frames;
@@ -121,6 +128,26 @@ static int no_of_job = 0;
                 frames.push_back(processedFrame);
             }
 
+            processedFrame = ctrlTimeStampBuffer_->appendData(job->ctrl_word_ts_ptr, job->valid_control_words);
+            if (processedFrame) {
+                LOG4CXX_TRACE(logger_, "Pushing control word timestamps.");
+                std::vector<dimsize_t> dims(0);
+                processedFrame->set_dataset_name("cue_timestamp_zero");
+                processedFrame->set_data_type(3);
+                processedFrame->set_dimensions(dims);
+                frames.push_back(processedFrame);
+            }
+
+            processedFrame = ctrlWordBuffer_->appendData(job->ctrl_word_id_ptr, job->valid_control_words);
+            if (processedFrame) {
+                LOG4CXX_TRACE(logger_, "Pushing control word IDs.");
+                std::vector<dimsize_t> dims(0);
+                processedFrame->set_dataset_name("cue_id");
+                processedFrame->set_data_type(1);
+                processedFrame->set_dimensions(dims);
+                frames.push_back(processedFrame);
+            }
+
             // Job is now finished, release it back to the stack
             this->releaseJob(job);
         }
@@ -161,6 +188,27 @@ static int no_of_job = 0;
             processedFrame->set_dimensions(dims);
             frames.push_back(processedFrame);
         }
+
+        processedFrame = ctrlTimeStampBuffer_->retrieveCurrentFrame();
+        if (processedFrame) {
+            LOG4CXX_TRACE(logger_, "Pushing control word timestamps.");
+            std::vector<dimsize_t> dims(0);
+            processedFrame->set_dataset_name("cue_timestamp_zero");
+            processedFrame->set_data_type(3);
+            processedFrame->set_dimensions(dims);
+            frames.push_back(processedFrame);
+        }
+
+        processedFrame = ctrlWordBuffer_->retrieveCurrentFrame();
+        if (processedFrame) {
+            LOG4CXX_TRACE(logger_, "Pushing control word IDs.");
+            std::vector<dimsize_t> dims(0);
+            processedFrame->set_dataset_name("cue_id");
+            processedFrame->set_data_type(1);
+            processedFrame->set_dimensions(dims);
+            frames.push_back(processedFrame);
+        }
+
         return frames;
     }
 
@@ -297,12 +345,13 @@ static int no_of_job = 0;
           uint64_t *event_ts_ptr = job->event_ts_ptr;
           uint32_t *event_id_ptr = job->event_id_ptr;
           uint32_t *event_energy_ptr = job->event_energy_ptr;
-          uint64_t *ctrl_word_ptr = job->ctrl_word_ptr;
+          uint64_t *ctrl_word_ts_ptr = job->ctrl_word_ts_ptr;
+          uint16_t *ctrl_word_id_ptr = job->ctrl_word_id_ptr;
           uint32_t *ctrl_index_ptr = job->ctrl_index_ptr;
 //          LOG4CXX_DEBUG(logger_, "*** Processing packet ID [" << job->packet_number << "] with time slice wrap [" << job->time_slice_wrap << "] and buffer [" << job->time_slice_buffer << "]");
           // Verify the first word is an extended timestamp word
           if (LATRD::get_control_type(*data_word_ptr) != LATRD::ExtendedTimestamp){
-              LOG4CXX_DEBUG(logger_, "*** ERROR in job [" << job->job_id << "].  The first word is not an extended timestamp");
+              LOG4CXX_ERROR(logger_, "*** ERROR in job [" << job->job_id << "].  The first word is not an extended timestamp");
           }
           for (uint16_t index = 0; index < job->words_to_process; index++){
               try
@@ -322,19 +371,22 @@ static int no_of_job = 0;
                       event_energy_ptr++;
                       job->valid_results++;
                   } else if (LATRD::is_control_word(*data_word_ptr)){
-                      // Set the control word value
-                      *ctrl_word_ptr = *data_word_ptr;
+                      // Set the control word timestamp value
+                      *ctrl_word_ts_ptr = *data_word_ptr & LATRD::course_timestamp_mask;
+                      // Set the control word id value
+                      *ctrl_word_id_ptr = (uint16_t)((*data_word_ptr & LATRD::control_word_full_mask) >> 52);
                       // Set the index value for the control word
                       *ctrl_index_ptr = job->valid_results;
 //				    LOG4CXX_DEBUG(logger_, "Control word processed: [" << *ctrl_word_ptr
 //				    		<< "] index [" << *ctrl_index_ptr << "]");
                       // Increment the control pointers and the valid result count
-                      ctrl_word_ptr++;
+                      ctrl_word_ts_ptr++;
+                      ctrl_word_id_ptr++;
                       ctrl_index_ptr++;
                       job->valid_control_words++;
 //				    LOG4CXX_DEBUG(logger_, "Valid control words [" << job->valid_control_words << "]");
                   } else {
-                      LOG4CXX_DEBUG(logger_, "Unknown word type [" << *data_word_ptr << "]");
+                      LOG4CXX_ERROR(logger_, "Unknown word type [" << *data_word_ptr << "]");
                   }
               }
               catch (LATRDTimestampMismatchException& ex)
@@ -343,7 +395,7 @@ static int no_of_job = 0;
               }
               data_word_ptr++;
           }
-	    LOG4CXX_DEBUG(logger_, "Processing complete for job [" << job->job_id
+	    LOG4CXX_DEBUG_LEVEL(2, logger_, "Processing complete for job [" << job->job_id
 	    		<< "] on task [" << boost::this_thread::get_id()
 		<< "] : Number of valid results [" << job->valid_results
 		<< "] : Number of mismatches [" << job->timestamp_mismatches << "]");
@@ -439,7 +491,7 @@ static int no_of_job = 0;
       if (LATRD::is_control_word(data_word)){
           throw LATRDProcessingException("Data word is a control word, not an event");
       }
-      return (data_word >> 39) & LATRD::position_mask;
+      return (data_word >> 37) & LATRD::position_mask;
   }
 
   uint64_t LATRDProcessCoordinator::getFullTimestmap(uint64_t data_word, uint64_t prev_course, uint64_t course)

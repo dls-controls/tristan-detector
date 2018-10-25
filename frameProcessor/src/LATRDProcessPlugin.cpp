@@ -341,10 +341,40 @@ void LATRDProcessPlugin::publishControlMetaData(boost::shared_ptr<LATRDProcessJo
 		// Loop over the number of control words
 		for (uint16_t index = 0; index < job->valid_control_words; index++){
 			// For each control word publish the appropriate meta data
-			publish_meta(META_NAME, "control_word", job->ctrl_word_ptr[index], buffer.GetString());
-			publish_meta(META_NAME, "control_word_index", job->ctrl_index_ptr[index]+current_point_index_, buffer.GetString());
+			//publish_meta(META_NAME, "control_word", job->ctrl_word_ptr[index], buffer.GetString());
+			//publish_meta(META_NAME, "control_word_index", job->ctrl_index_ptr[index]+current_point_index_, buffer.GetString());
 		}
 	}
+}
+
+int LATRDProcessPlugin::get_version_major()
+{
+  // TOOD: This is a placeholder for when version information is added
+  return 0;
+}
+
+int LATRDProcessPlugin::get_version_minor()
+{
+  // TOOD: This is a placeholder for when version information is added
+  return 0;
+}
+
+int LATRDProcessPlugin::get_version_patch()
+{
+  // TOOD: This is a placeholder for when version information is added
+  return 0;
+}
+
+std::string LATRDProcessPlugin::get_version_short()
+{
+  // TOOD: This is a placeholder for when version information is added
+  return "0.0.0";
+}
+
+std::string LATRDProcessPlugin::get_version_long()
+{
+  // TOOD: This is a placeholder for when version information is added
+  return "0.0.0";
 }
 
 } /* namespace FrameProcesser */
