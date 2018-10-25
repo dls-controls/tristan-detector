@@ -7,6 +7,7 @@
 
 #include <LATRDDefinitions.h>
 #include "LATRDProcessPlugin.h"
+#include "DebugLevelLogger.h"
 
 namespace FrameProcessor
 {
@@ -70,7 +71,7 @@ const std::string LATRDProcessPlugin::CONFIG_SENSOR_HEIGHT       = "height";
     // Create the meta header document
 //    this->createMetaHeader();
 
-  LOG4CXX_DEBUG(logger_, "Completed LATRDProcessPlugin constructor.");
+  LOG4CXX_DEBUG_LEVEL(1, logger_, "Completed LATRDProcessPlugin constructor.");
 }
 
 LATRDProcessPlugin::~LATRDProcessPlugin()
@@ -92,7 +93,7 @@ void LATRDProcessPlugin::configure(OdinData::IpcMessage& config, OdinData::IpcMe
 {
   // Protect this method
   boost::lock_guard<boost::recursive_mutex> lock(mutex_);
-  LOG4CXX_DEBUG(logger_, config.encode());
+  LOG4CXX_DEBUG_LEVEL(1, logger_, config.encode());
 
   // Check for operational mode
   if (config.has_param(LATRDProcessPlugin::CONFIG_MODE)) {
@@ -101,7 +102,7 @@ void LATRDProcessPlugin::configure(OdinData::IpcMessage& config, OdinData::IpcMe
         mode == LATRDProcessPlugin::CONFIG_MODE_TIME_ONLY ||
         mode == LATRDProcessPlugin::CONFIG_MODE_COUNT){
       this->mode_ = mode;
-      LOG4CXX_DEBUG(logger_, "Operational mode set to " << this->mode_);
+      LOG4CXX_DEBUG_LEVEL(1, logger_, "Operational mode set to " << this->mode_);
     } else {
       LOG4CXX_ERROR(logger_, "Invalid operational mode requested: " << mode);
     }
@@ -110,7 +111,7 @@ void LATRDProcessPlugin::configure(OdinData::IpcMessage& config, OdinData::IpcMe
   // Check for raw mode
   if (config.has_param(LATRDProcessPlugin::CONFIG_RAW_MODE)) {
     this->raw_mode_ = config.get_param<uint32_t>(LATRDProcessPlugin::CONFIG_RAW_MODE);
-    LOG4CXX_DEBUG(logger_, "Raw mode set to " << this->raw_mode_);
+    LOG4CXX_DEBUG_LEVEL(1, logger_, "Raw mode set to " << this->raw_mode_);
   }
 
   // Check for a frame reset
@@ -157,11 +158,11 @@ void LATRDProcessPlugin::configureProcess(OdinData::IpcMessage& config, OdinData
   // Check for process number and rank number
   if (config.has_param(LATRDProcessPlugin::CONFIG_PROCESS_NUMBER)) {
     this->concurrent_processes_ = config.get_param<size_t>(LATRDProcessPlugin::CONFIG_PROCESS_NUMBER);
-    LOG4CXX_DEBUG(logger_, "Concurrent processes changed to " << this->concurrent_processes_);
+    LOG4CXX_DEBUG_LEVEL(1, logger_, "Concurrent processes changed to " << this->concurrent_processes_);
   }
   if (config.has_param(LATRDProcessPlugin::CONFIG_PROCESS_RANK)) {
     this->concurrent_rank_ = config.get_param<size_t>(LATRDProcessPlugin::CONFIG_PROCESS_RANK);
-    LOG4CXX_DEBUG(logger_, "Process rank changed to " << this->concurrent_rank_);
+    LOG4CXX_DEBUG_LEVEL(1, logger_, "Process rank changed to " << this->concurrent_rank_);
   }
   this->coordinator_.configure_process(this->concurrent_processes_, this->concurrent_rank_);
 
@@ -175,12 +176,12 @@ void LATRDProcessPlugin::configureSensor(OdinData::IpcMessage &config, OdinData:
   // Check for sensor width and height
   if (config.has_param(LATRDProcessPlugin::CONFIG_SENSOR_WIDTH)) {
     this->sensor_width_ = config.get_param<size_t>(LATRDProcessPlugin::CONFIG_SENSOR_WIDTH);
-    LOG4CXX_DEBUG(logger_, "Sensor width changed to " << this->sensor_width_);
+    LOG4CXX_DEBUG_LEVEL(1, logger_, "Sensor width changed to " << this->sensor_width_);
   }
 
   if (config.has_param(LATRDProcessPlugin::CONFIG_SENSOR_HEIGHT)) {
     this->sensor_height_ = config.get_param<size_t>(LATRDProcessPlugin::CONFIG_SENSOR_HEIGHT);
-    LOG4CXX_DEBUG(logger_, "Sensor height changed to " << this->sensor_height_);
+    LOG4CXX_DEBUG_LEVEL(1, logger_, "Sensor height changed to " << this->sensor_height_);
   }
 
   integral_.init(this->sensor_width_, this->sensor_height_);
@@ -231,7 +232,7 @@ void LATRDProcessPlugin::dump_frame(boost::shared_ptr<Frame> frame)
     const LATRD::FrameHeader* hdrPtr = static_cast<const LATRD::FrameHeader*>(frame->get_data());
 
     // Print a full report of the incoming frame to log
-    LOG4CXX_DEBUG(logger_, "\n==============================================\n"
+    LOG4CXX_DEBUG_LEVEL(2, logger_, "\n==============================================\n"
                            << "***              Frame Report              ***\n"
                            << "*** Frame number: " << frame->get_frame_number() << "\n"
                            << "*** Internal number: " << hdrPtr->frame_number << "\n"
@@ -245,10 +246,10 @@ void LATRDProcessPlugin::dump_frame(boost::shared_ptr<Frame> frame)
 void LATRDProcessPlugin::process_frame(boost::shared_ptr<Frame> frame)
 {
   if (this->raw_mode_ == 1) {
-    LOG4CXX_DEBUG(logger_, "Raw mode selected for fast recording of packets");
+    LOG4CXX_DEBUG_LEVEL(2, logger_, "Raw mode selected for fast recording of packets");
     this->process_raw(frame);
   } else {
-    LOG4CXX_DEBUG(logger_, "Process frame called with mode: " << this->mode_);
+    LOG4CXX_DEBUG_LEVEL(2, logger_, "Process frame called with mode: " << this->mode_);
     if (this->mode_ == LATRDProcessPlugin::CONFIG_MODE_COUNT) {
       std::vector <boost::shared_ptr<Frame> > frames = integral_.process_frame(frame);
       std::vector <boost::shared_ptr<Frame> >::iterator iter;
@@ -302,8 +303,8 @@ void LATRDProcessPlugin::process_raw(boost::shared_ptr<Frame> frame)
       } else {
         packet_header.headerWord1 = *(((uint64_t *) payload_ptr) + 1);
         packet_header.headerWord2 = *(((uint64_t *) payload_ptr) + 2);
-        LOG4CXX_DEBUG(logger_, "   Header Word 1: 0x" << std::hex << packet_header.headerWord1);
-        LOG4CXX_DEBUG(logger_, "   Header Word 2: 0x" << std::hex << packet_header.headerWord2);
+        LOG4CXX_DEBUG_LEVEL(3, logger_, "   Header Word 1: 0x" << std::hex << packet_header.headerWord1);
+        LOG4CXX_DEBUG_LEVEL(3, logger_, "   Header Word 2: 0x" << std::hex << packet_header.headerWord2);
 
         // We need to decode how many values are in the packet
         uint32_t packet_number = LATRD::get_packet_number(packet_header.headerWord2);
@@ -331,7 +332,7 @@ void LATRDProcessPlugin::process_raw(boost::shared_ptr<Frame> frame)
 
 void LATRDProcessPlugin::publishControlMetaData(boost::shared_ptr<LATRDProcessJob> job)
 {
-    LOG4CXX_DEBUG(logger_, "Number of control words [" << job->valid_control_words << "]");
+    LOG4CXX_DEBUG_LEVEL(2, logger_, "Number of control words [" << job->valid_control_words << "]");
 	if (job->valid_control_words > 0){
 		// Prepare the meta data header information
 		rapidjson::StringBuffer buffer;

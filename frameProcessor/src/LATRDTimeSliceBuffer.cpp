@@ -2,6 +2,7 @@
 // Created by gnx91527 on 17/09/18.
 //
 #include "LATRDTimeSliceBuffer.h"
+#include "DebugLevelLogger.h"
 #include <stdio.h>
 namespace FrameProcessor {
 
@@ -10,7 +11,7 @@ LATRDTimeSliceBuffer::LATRDTimeSliceBuffer()
   // Setup logging for the class
   logger_ = Logger::getLogger("FP.LATRDTimeSliceBuffer");
   logger_->setLevel(Level::getAll());
-  LOG4CXX_DEBUG(logger_, "LATRDTimeSliceBuffer constructor.");
+  LOG4CXX_DEBUG_LEVEL(2, logger_, "LATRDTimeSliceBuffer constructor.");
 }
 
 LATRDTimeSliceBuffer::~LATRDTimeSliceBuffer()

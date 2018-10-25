@@ -85,7 +85,7 @@ static int no_of_job = 0;
             ctrlWordBuffer_->resetFrameNumber();
             ctrlTimeStampBuffer_->resetFrameNumber();
         }
-        LOG4CXX_ERROR(logger_, "Job stack size: " << jobStack_.size());
+        LOG4CXX_DEBUG_LEVEL(2, logger_, "Job stack size: " << jobStack_.size());
         return frames;
     }
 
@@ -93,14 +93,14 @@ static int no_of_job = 0;
     {
         std::vector<boost::shared_ptr<Frame> > frames;
         boost::shared_ptr<Frame> processedFrame;
-        LOG4CXX_ERROR(logger_, "Processed packets ready to write out: " << jobs.size());
+        LOG4CXX_DEBUG_LEVEL(2, logger_, "Processed packets ready to write out: " << jobs.size());
         // Copy each processed job into the relevant buffer
         std::vector<boost::shared_ptr<LATRDProcessJob> >::iterator iter;
         for (iter = jobs.begin(); iter != jobs.end(); ++iter) {
             boost::shared_ptr<LATRDProcessJob> job = *iter;
             processedFrame = timeStampBuffer_->appendData(job->event_ts_ptr, job->valid_results);
             if (processedFrame) {
-                LOG4CXX_TRACE(logger_, "Pushing timestamp data frame.");
+                LOG4CXX_DEBUG_LEVEL(2, logger_, "Pushing timestamp data frame.");
                 std::vector<dimsize_t> dims(0);
                 processedFrame->set_dataset_name("event_time_offset");
                 processedFrame->set_data_type(3);
@@ -110,7 +110,7 @@ static int no_of_job = 0;
 
             processedFrame = idBuffer_->appendData(job->event_id_ptr, job->valid_results);
             if (processedFrame) {
-                LOG4CXX_TRACE(logger_, "Pushing ID data frame.");
+                LOG4CXX_DEBUG_LEVEL(2, logger_, "Pushing ID data frame.");
                 std::vector<dimsize_t> dims(0);
                 processedFrame->set_dataset_name("event_id");
                 processedFrame->set_data_type(2);
@@ -120,7 +120,7 @@ static int no_of_job = 0;
 
             processedFrame = energyBuffer_->appendData(job->event_energy_ptr, job->valid_results);
             if (processedFrame) {
-                LOG4CXX_TRACE(logger_, "Pushing energy data frame.");
+                LOG4CXX_DEBUG_LEVEL(2, logger_, "Pushing energy data frame.");
                 std::vector<dimsize_t> dims(0);
                 processedFrame->set_dataset_name("event_energy");
                 processedFrame->set_data_type(2);
@@ -130,7 +130,7 @@ static int no_of_job = 0;
 
             processedFrame = ctrlTimeStampBuffer_->appendData(job->ctrl_word_ts_ptr, job->valid_control_words);
             if (processedFrame) {
-                LOG4CXX_TRACE(logger_, "Pushing control word timestamps.");
+                LOG4CXX_DEBUG_LEVEL(2, logger_, "Pushing control word timestamps.");
                 std::vector<dimsize_t> dims(0);
                 processedFrame->set_dataset_name("cue_timestamp_zero");
                 processedFrame->set_data_type(3);
@@ -140,7 +140,7 @@ static int no_of_job = 0;
 
             processedFrame = ctrlWordBuffer_->appendData(job->ctrl_word_id_ptr, job->valid_control_words);
             if (processedFrame) {
-                LOG4CXX_TRACE(logger_, "Pushing control word IDs.");
+                LOG4CXX_DEBUG_LEVEL(2, logger_, "Pushing control word IDs.");
                 std::vector<dimsize_t> dims(0);
                 processedFrame->set_dataset_name("cue_id");
                 processedFrame->set_data_type(1);
@@ -158,10 +158,10 @@ static int no_of_job = 0;
     {
         std::vector<boost::shared_ptr<Frame> > frames;
         boost::shared_ptr<Frame> processedFrame;
-        LOG4CXX_ERROR(logger_, "Purging any remaining data from buffers");
+        LOG4CXX_DEBUG_LEVEL(2, logger_, "Purging any remaining data from buffers");
         processedFrame = timeStampBuffer_->retrieveCurrentFrame();
         if (processedFrame) {
-            LOG4CXX_TRACE(logger_, "Pushing timestamp data frame.");
+            LOG4CXX_DEBUG_LEVEL(2, logger_, "Pushing timestamp data frame.");
             std::vector<dimsize_t> dims(0);
             processedFrame->set_dataset_name("event_time_offset");
             processedFrame->set_data_type(3);
@@ -171,7 +171,7 @@ static int no_of_job = 0;
 
         processedFrame = idBuffer_->retrieveCurrentFrame();
         if (processedFrame) {
-            LOG4CXX_TRACE(logger_, "Pushing ID data frame.");
+            LOG4CXX_DEBUG_LEVEL(2, logger_, "Pushing ID data frame.");
             std::vector<dimsize_t> dims(0);
             processedFrame->set_dataset_name("event_id");
             processedFrame->set_data_type(2);
@@ -181,7 +181,7 @@ static int no_of_job = 0;
 
         processedFrame = energyBuffer_->retrieveCurrentFrame();
         if (processedFrame) {
-            LOG4CXX_TRACE(logger_, "Pushing energy data frame.");
+            LOG4CXX_DEBUG_LEVEL(2, logger_, "Pushing energy data frame.");
             std::vector<dimsize_t> dims(0);
             processedFrame->set_dataset_name("event_energy");
             processedFrame->set_data_type(2);
@@ -191,7 +191,7 @@ static int no_of_job = 0;
 
         processedFrame = ctrlTimeStampBuffer_->retrieveCurrentFrame();
         if (processedFrame) {
-            LOG4CXX_TRACE(logger_, "Pushing control word timestamps.");
+            LOG4CXX_DEBUG_LEVEL(2, logger_, "Pushing control word timestamps.");
             std::vector<dimsize_t> dims(0);
             processedFrame->set_dataset_name("cue_timestamp_zero");
             processedFrame->set_data_type(3);
@@ -201,7 +201,7 @@ static int no_of_job = 0;
 
         processedFrame = ctrlWordBuffer_->retrieveCurrentFrame();
         if (processedFrame) {
-            LOG4CXX_TRACE(logger_, "Pushing control word IDs.");
+            LOG4CXX_DEBUG_LEVEL(2, logger_, "Pushing control word IDs.");
             std::vector<dimsize_t> dims(0);
             processedFrame->set_dataset_name("cue_id");
             processedFrame->set_data_type(1);
