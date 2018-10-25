@@ -207,7 +207,7 @@ size_t LATRDFrameDecoder::get_next_payload_size() const
     return LATRD::primary_packet_size;
 }
 
-FrameDecoder::FrameReceiveState LATRDFrameDecoder::process_packet(size_t bytes_received)
+FrameDecoder::FrameReceiveState LATRDFrameDecoder::process_packet(size_t bytes_received, int port, struct sockaddr_in* from_addr)
 {
 	// Set the frame state to incomplete for this frame
     FrameDecoder::FrameReceiveState frame_state = FrameDecoder::FrameReceiveStateIncomplete;
