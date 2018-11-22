@@ -23,7 +23,7 @@ void LATRDTimeSliceBuffer::add_job(boost::shared_ptr<LATRDProcessJob> job)
 {
   // Verify that the packet ID does not already exist within this buffer
   if (job_store_.count(job->packet_number) > 0){
-    LOG4CXX_ERROR(logger_, "Duplicate packet detected for packet ID [" << job->packet_number << "]");
+    LOG4CXX_ERROR(logger_, "Duplicate packet detected for packet ID [" << job->packet_number << "] TS Wrap ["	<< job->time_slice_wrap << "] TS Buffer [" << job->time_slice_buffer << "]");
     throw LATRDProcessingException("Duplicate packet ID for the same time slice");
   } else {
     job_store_[job->packet_number] = job;
