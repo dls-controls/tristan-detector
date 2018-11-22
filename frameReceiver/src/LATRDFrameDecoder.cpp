@@ -14,6 +14,7 @@ namespace FrameReceiver
 LATRDFrameDecoder::LATRDFrameDecoder() :
                 FrameDecoderUDP(),
                 current_frame_(1),
+                packet_counter_(0),
         		current_frame_seen_(-1),
         		current_frame_buffer_id_(-1),
         		current_frame_buffer_(0),
@@ -134,13 +135,16 @@ void LATRDFrameDecoder::process_packet_header(size_t bytes_received, int port, s
 {
   //TODO validate header size and content, handle incoming new packet buffer allocation etc
 
-  log_packet(bytes_received, port, from_addr);
+  //log_packet(bytes_received, port, from_addr);
 
   // If we receive an IDLE frame then set the frame number to 0
     if ((*(((uint64_t *)raw_packet_header())+1)&LATRD::packet_header_idle_mask) == LATRD::packet_header_idle_mask){
         LOG4CXX_DEBUG_LEVEL(2, logger_, "  IDLE packet detected");
         // Mark this buffer as a last frame buffer
         current_frame_ = 0;
+    } else {
+      // Only increment the packet counter if we have a non idle packet
+      packet_counter_++;
     }
 
     if (current_frame_ != current_frame_seen_){
@@ -191,6 +195,12 @@ void LATRDFrameDecoder::process_packet_header(size_t bytes_received, int port, s
   current_frame_header_->packet_state[current_frame_header_->packets_received] = 1;
 }
 
+void LATRDFrameDecoder::reset_statistics(void)
+{
+LOG4CXX_ERROR(logger_, "Reset statistics");
+  packet_counter_ = 0;
+}
+
 void* LATRDFrameDecoder::get_next_payload_buffer() const
 {
     uint8_t* next_receive_location =
@@ -220,9 +230,11 @@ FrameDecoder::FrameReceiveState LATRDFrameDecoder::process_packet(size_t bytes_r
     memcpy(packet_header_location, current_raw_packet_header_.get(), LATRD::packet_header_size);
 
     // Increment the number of packets received for this frame
-	current_frame_header_->packets_received++;
-    LOG4CXX_DEBUG_LEVEL(2, logger_, "  Packet count: " << current_frame_header_->packets_received << " for frame: " << current_frame_header_->frame_number);
-    LOG4CXX_DEBUG_LEVEL(2, logger_, "  IDLE frame flag: " << current_frame_header_->idle_frame);
+    if (!dropping_frame_data_) {
+        current_frame_header_->packets_received++;
+        LOG4CXX_DEBUG_LEVEL(2, logger_, "  Packet count: " << current_frame_header_->packets_received << " for frame: " << current_frame_header_->frame_number);
+        LOG4CXX_DEBUG_LEVEL(2, logger_, "  IDLE frame flag: " << current_frame_header_->idle_frame);
+    }
 	// Check to see if the number of packets we have received is equal to the total number
 	// of packets for this frame or if this is an idle frame
 	if (current_frame_header_->packets_received == LATRD::num_frame_packets || current_frame_header_->idle_frame == 1){
@@ -288,6 +300,7 @@ void LATRDFrameDecoder::get_status(const std::string param_prefix,
                                    OdinData::IpcMessage& status_msg)
 {
   status_msg.set_param(param_prefix + "name", std::string("LATRDFrameDecoder"));
+  status_msg.set_param(param_prefix + "packets", packet_counter_);
 }
 
 void LATRDFrameDecoder::monitor_buffers()
@@ -351,6 +364,36 @@ unsigned int LATRDFrameDecoder::elapsed_ms(struct timespec& start, struct timesp
     double end_ns   = ((double)  end.tv_sec * 1000000000) +   end.tv_nsec;
 
     return (unsigned int)((end_ns - start_ns)/1000000);
+}
+
+int LATRDFrameDecoder::get_version_major()
+{
+    // TOOD: This is a placeholder for when version information is added
+    return 0;
+}
+
+int LATRDFrameDecoder::get_version_minor()
+{
+    // TOOD: This is a placeholder for when version information is added
+    return 0;
+}
+
+int LATRDFrameDecoder::get_version_patch()
+{
+    // TOOD: This is a placeholder for when version information is added
+    return 0;
+}
+
+std::string LATRDFrameDecoder::get_version_short()
+{
+    // TOOD: This is a placeholder for when version information is added
+    return "0.0.0";
+}
+
+std::string LATRDFrameDecoder::get_version_long()
+{
+    // TOOD: This is a placeholder for when version information is added
+    return "0.0.0";
 }
 
 } /* namespace FrameReceiver */

@@ -46,7 +46,15 @@ public:
 
     void* get_packet_header_buffer(void);
 
-//    uint32_t get_frame_number(void) const;
+    virtual void reset_statistics(void);
+
+    int get_version_major();
+    int get_version_minor();
+    int get_version_patch();
+    std::string get_version_short();
+    std::string get_version_long();
+
+///    uint32_t get_frame_number(void) const;
 //    uint32_t get_packet_number(void) const;
 //    uint32_t get_frame_packet_number(void) const;
 //    uint8_t get_producer_ID(void) const;
@@ -62,6 +70,7 @@ private:
     boost::shared_ptr<void> dropped_frame_buffer_;
 
     uint32_t current_frame_;
+    uint32_t packet_counter_;
 
 
     uint32_t current_frame_seen_;
