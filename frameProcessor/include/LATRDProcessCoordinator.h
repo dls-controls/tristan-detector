@@ -37,6 +37,14 @@ namespace FrameProcessor {
 
     virtual ~LATRDProcessCoordinator();
 
+    void get_statistics(uint32_t *processed_jobs,
+                        uint32_t *job_q_size,
+                        uint32_t *result_q_size,
+                        uint32_t *processed_frames,
+                        uint32_t *output_frames);
+
+    void reset_statistics();
+
     void configure_process(size_t processes, size_t rank);
 
     std::vector<boost::shared_ptr<Frame> > process_frame(boost::shared_ptr<Frame> frame);
@@ -114,6 +122,11 @@ namespace FrameProcessor {
     boost::shared_ptr<LATRDBuffer> ctrlTimeStampBuffer_;
     uint64_t headerWord1;
     uint64_t headerWord2;
+
+    /** Status information */
+    uint32_t processed_jobs_;
+    uint32_t processed_frames_;
+    uint32_t output_frames_;
 
   };
 

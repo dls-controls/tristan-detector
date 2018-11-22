@@ -43,11 +43,15 @@ namespace FrameProcessor {
 
         void requestConfiguration(OdinData::IpcMessage &reply);
 
-      void configureProcess(OdinData::IpcMessage &config, OdinData::IpcMessage &reply);
+        void status(OdinData::IpcMessage& status);
 
-      void configureSensor(OdinData::IpcMessage &config, OdinData::IpcMessage &reply);
+        void configureProcess(OdinData::IpcMessage &config, OdinData::IpcMessage &reply);
 
-      void createMetaHeader();
+        void configureSensor(OdinData::IpcMessage &config, OdinData::IpcMessage &reply);
+
+        void createMetaHeader();
+
+        bool reset_statistics(void);
 
     int get_version_major();
     int get_version_minor();

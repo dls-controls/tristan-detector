@@ -10,7 +10,10 @@ namespace FrameProcessor {
 static int no_of_job = 0;
     LATRDProcessCoordinator::LATRDProcessCoordinator() :
     current_ts_wrap_(0),
-    current_ts_buffer_(0)
+    current_ts_buffer_(0),
+    processed_jobs_(0),
+    processed_frames_(0),
+    output_frames_(0)
     {
         // Setup logging for the class
         logger_ = Logger::getLogger("FP.LATRDProcessCoordinator");
@@ -42,6 +45,26 @@ static int no_of_job = 0;
         }
     }
 
+    void LATRDProcessCoordinator::get_statistics(uint32_t *processed_jobs,
+                                                 uint32_t *job_q_size,
+                                                 uint32_t *result_q_size,
+                                                 uint32_t *processed_frames,
+                                                 uint32_t *output_frames)
+    {
+        *processed_jobs = processed_jobs_;
+        *job_q_size = jobQueue_->size();
+        *result_q_size = resultsQueue_->size();
+        *processed_frames = processed_frames_;
+        *output_frames = output_frames_;
+    }
+
+    void LATRDProcessCoordinator::reset_statistics()
+    {
+        processed_jobs_ = 0;
+        processed_frames_ = 0;
+        output_frames_ = 0;
+    }
+
     LATRDProcessCoordinator::~LATRDProcessCoordinator()
     {
 
@@ -69,6 +92,8 @@ static int no_of_job = 0;
             //LOG4CXX_ERROR(logger_, "ts_store count: " << ts_store_.count(current_ts_wrap_));
             //LOG4CXX_ERROR(logger_, "Wrap report: " << ts_store_[current_ts_wrap_]->report());
             frames = this->add_jobs_to_buffer(check_for_data_to_write());
+            processed_frames_++;
+            output_frames_ += frames.size();
         } else {
             // This is an IDLE frame, so we need to completely flush all remaining jobs
             frames = this->add_jobs_to_buffer(purge_remaining_jobs());
@@ -284,6 +309,7 @@ static int no_of_job = 0;
                     // TODO: Log the fault into the plugin stats
                 }
             }
+            processed_jobs_++;
         }
     }
 
