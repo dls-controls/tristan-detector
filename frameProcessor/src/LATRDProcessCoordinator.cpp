@@ -319,13 +319,15 @@ static int no_of_job = 0;
         if (current_ts_wrap_ > 0) {
             // Loop over ts_store_ and return any data from old wraps (more than 1 wrap in the past)
             std::map<uint32_t, boost::shared_ptr<LATRDTimeSliceWrap> >::iterator iter;
-            for (iter = ts_store_.begin(); iter != ts_store_.end(); ++iter) {
+            for (iter = ts_store_.begin(); iter != ts_store_.end();) {
                 // Check for old wraps, return the jobs and delete them
                 if (iter->first < current_ts_wrap_ - 1) {
                     // This is two or more wraps in the past, so we can clear it out and then delete it
                     std::vector<boost::shared_ptr<LATRDProcessJob> > wrap_jobs = iter->second->empty_all_buffers();
                     jobs.insert(jobs.end(), wrap_jobs.begin(), wrap_jobs.end());
-                    ts_store_.erase(iter);
+                    ts_store_.erase(iter++);
+                } else {
+                    ++iter;
                 }
             }
             // Return the jobs for the same buffer from the previous wrap
