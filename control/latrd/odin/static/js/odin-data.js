@@ -4,7 +4,8 @@ odin_data = {
   current_page: '.home-view',
   adapter_list: [],
   adapter_objects: {},
-  ctrl_connected: false
+  ctrl_connected: false,
+  fp_connected: [false,false,false,false]
   };
 
 
@@ -131,6 +132,11 @@ $( document ).ready(function()
     fp_process_mode_command();
   });
 
+  $('#fr-reset-cmd').click(function(){
+      fr_reset_statistics();
+      fp_reset_statistics();
+  });
+
   $(window).on('hashchange', function(){
     // On every hash change the render function is called with the new hash.
 	// This is how the navigation of the app is executed.
@@ -248,13 +254,43 @@ function send_fr_command(command, params)
     });
 }
 
+function fr_reset_statistics()
+{
+    $.ajax({
+        url: '/api/' + odin_data.api_version + '/fr/command/reset_statistics',
+        type: 'PUT',
+        dataType: 'json',
+        headers: {'Content-Type': 'application/json',
+            'Accept': 'application/json'},
+        success: process_cmd_response,
+        async: false
+    });
+}
+
+function fp_reset_statistics()
+{
+    $.ajax({
+        url: '/api/' + odin_data.api_version + '/fp/command/reset_statistics',
+        type: 'PUT',
+        dataType: 'json',
+        headers: {'Content-Type': 'application/json',
+            'Accept': 'application/json'},
+        success: process_cmd_response,
+        async: false
+    });
+}
+
 function fp_configure_command() {
 //    alert("HERE!");
     send_fp_command('meta_endpoint','tcp://*:5558');
-    send_fp_command('fr_setup', JSON.stringify({
+    send_fp_command('fr_setup/0', JSON.stringify({
         "fr_release_cnxn": "tcp://127.0.0.1:5002",
         "fr_ready_cnxn": "tcp://127.0.0.1:5001"
     }));
+    send_fp_command('fr_setup/1', JSON.stringify({
+                "fr_release_cnxn": "tcp://127.0.0.1:5012",
+                "fr_ready_cnxn": "tcp://127.0.0.1:5011"
+                        }));
     send_fp_command('plugin', JSON.stringify({
         "load": {
 //            "library": "/home/gnx91527/work/tristan/LATRD/prefix/lib/libLATRDProcessPlugin.so",
@@ -504,9 +540,16 @@ function update_fp_status() {
     });
     $.getJSON('/api/' + odin_data.api_version + '/fp/status/connected', function(response) {
         //alert(response['value']);
-        $('#fp-connected').html(led_html(response['value'], 'green', 26));
-        if (response['value'] === 'false'){
-            odin_data.fp_connected = false;
+        $('#fp-connected-1').html(led_html(response['value'][0], 'green', 26));
+        $('#fp-connected-2').html(led_html(response['value'][1], 'green', 26));
+        $('#fp-connected-3').html(led_html(response['value'][2], 'green', 26));
+        $('#fp-connected-4').html(led_html(response['value'][3], 'green', 26));
+        $('#fp-connected-5').html(led_html(response['value'][4], 'green', 26));
+        $('#fp-connected-6').html(led_html(response['value'][5], 'green', 26));
+        $('#fp-connected-7').html(led_html(response['value'][6], 'green', 26));
+        $('#fp-connected-8').html(led_html(response['value'][7], 'green', 26));
+        if (response['value'][0] === false){
+            odin_data.fp_connected[0] = false;
             $('#fp-hdf-writing').html('');
             $('#fp-hdf-file-path').html('');
             $('#fp-hdf-processes').html('');
@@ -514,56 +557,275 @@ function update_fp_status() {
             $('#set-fp-filename').val('');
             $('#set-fp-path').val('');
         } else {
-            odin_data.fp_connected = true;
+            odin_data.fp_connected[0] = true;
+        }
+        if (response['value'][1] === false){
+            odin_data.fp_connected[1] = false;
+        } else {
+            odin_data.fp_connected[1] = true;
+        }
+        if (response['value'][2] === false){
+            odin_data.fp_connected[2] = false;
+        } else {
+            odin_data.fp_connected[2] = true;
+        }
+        if (response['value'][3] === false){
+            odin_data.fp_connected[3] = false;
+        } else {
+            odin_data.fp_connected[3] = true;
+        }
+        if (response['value'][4] === false){
+            odin_data.fp_connected[4] = false;
+        } else {
+            odin_data.fp_connected[4] = true;
+        }
+        if (response['value'][5] === false){
+            odin_data.fp_connected[5] = false;
+        } else {
+            odin_data.fp_connected[5] = true;
+        }
+        if (response['value'][6] === false){
+            odin_data.fp_connected[6] = false;
+        } else {
+            odin_data.fp_connected[6] = true;
+        }
+        if (response['value'][7] === false){
+            odin_data.fp_connected[7] = false;
+        } else {
+            odin_data.fp_connected[7] = true;
         }
     });
     $.getJSON('/api/' + odin_data.api_version + '/fp/status/hdf', function(response) {
-        //alert(response['value']);
-        if (odin_data.fp_connected){
-            if (response['value'] == ""){
-                $('#fp-hdf-writing').html('Not Loaded');
-                $('#fp-hdf-file-path').html('Not Loaded');
-                $('#fp-hdf-processes').html('Not Loaded');
-                $('#fp-hdf-rank').html('Not Loaded');
-            } else {
-                //alert(response['value'][0]);
-                $('#fp-hdf-writing').html(led_html(response['value'][0].writing, 'green', 26));
-                $('#fp-hdf-file-path').html('' + response['value'][0].file_path + response['value'][0].file_name);
-                $('#fp-hdf-processes').html('' + response['value'][0].processes);
-                $('#fp-hdf-rank').html('' + response['value'][0].rank);
-                $('#fp-hdf-written').html('' + response['value'][0].frames_written);
-            }
+//        alert(response['value']);
+        
+        if (odin_data.fp_connected[0] == true){
+          update_fp_data(1, response['value'][0]);
+        }
+        if (odin_data.fp_connected[1] == true){
+          update_fp_data(2, response['value'][1]);
+        }
+        if (odin_data.fp_connected[2] == true){
+          update_fp_data(3, response['value'][2]);
+        }
+        if (odin_data.fp_connected[3] == true){
+          update_fp_data(4, response['value'][3]);
+        }
+        if (odin_data.fp_connected[4] == true){
+          update_fp_data(5, response['value'][4]);
+        }
+        if (odin_data.fp_connected[5] == true){
+          update_fp_data(6, response['value'][5]);
+        }
+        if (odin_data.fp_connected[6] == true){
+          update_fp_data(7, response['value'][6]);
+        }
+        if (odin_data.fp_connected[7] == true){
+          update_fp_data(8, response['value'][7]);
+        }
+//        $('#fp-processes-1').html('' + response['value'][0].processes);
+//        $('#fp-processes-2').html('' + response['value'][1].processes);
+//        $('#fp-processes-3').html('' + response['value'][2].processes);
+//        $('#fp-processes-4').html('' + response['value'][3].processes);
+//        $('#fp-rank-1').html('' + response['value'][0].rank);
+//        $('#fp-rank-2').html('' + response['value'][1].rank);
+//        $('#fp-rank-3').html('' + response['value'][2].rank);
+//        $('#fp-rank-4').html('' + response['value'][3].rank);
+//        alert(response['value'][0].rank);
+//        if (odin_data.fp_connected){
+//            if (response['value'] == ""){
+//                $('#fp-hdf-writing').html('Not Loaded');
+//                $('#fp-hdf-file-path').html('Not Loaded');
+//                $('#fp-hdf-processes').html('Not Loaded');
+//                $('#fp-hdf-rank').html('Not Loaded');
+//            } else {
+//                //alert(response['value'][0]);
+//                $('#fp-hdf-writing').html(led_html(response['value'][0].writing, 'green', 26));
+//                $('#fp-hdf-file-path').html('' + response['value'][0].file_path + response['value'][0].file_name);
+//                $('#fp-hdf-processes').html('' + response['value'][0].processes);
+//                $('#fp-hdf-rank').html('' + response['value'][0].rank);
+//                $('#fp-hdf-written').html('' + response['value'][0].frames_written);
+//            }
+//        }
+    });
+    $.getJSON('/api/' + odin_data.api_version + '/fp/status/latrd', function(response) {
+//        alert(response['value']);
+
+        if (odin_data.fp_connected[0] == true){
+            update_fp_latrd(1, response['value'][0]);
+        }
+        if (odin_data.fp_connected[1] == true){
+            update_fp_latrd(2, response['value'][1]);
+        }
+        if (odin_data.fp_connected[2] == true){
+            update_fp_latrd(3, response['value'][2]);
+        }
+        if (odin_data.fp_connected[3] == true){
+            update_fp_latrd(4, response['value'][3]);
+        }
+        if (odin_data.fp_connected[4] == true){
+            update_fp_latrd(5, response['value'][4]);
+        }
+        if (odin_data.fp_connected[5] == true){
+            update_fp_latrd(6, response['value'][5]);
+        }
+        if (odin_data.fp_connected[6] == true){
+            update_fp_latrd(7, response['value'][6]);
+        }
+        if (odin_data.fp_connected[7] == true){
+            update_fp_latrd(8, response['value'][7]);
         }
     });
     $.getJSON('/api/' + odin_data.api_version + '/fp/config/latrd', function(response) {
         //alert(response['value']);
-        if (odin_data.fp_connected){
-            if (response['value'] == ""){
-                $('#fp-raw-mode').html('Not Loaded');
+        if (odin_data.fp_connected[0]){
+            if (response['value'][0] == ""){
+                $('#fp-raw-mode-1').html('Not Loaded');
             } else {
-//                alert(response['value'][0].raw_mode);
-                $('#fp-op-mode').html(response['value'][0].mode);
-//                if (response['value'][0].mode == "count"){
-//                    $('#fp-raw-row').hide();
-//                } else {
-//                    $('#fp-raw-row').show();
-//                }
+                $('#fp-op-mode-1').html(response['value'][0].mode);
                 if (response['value'][0].raw_mode == "0") {
-                    $('#fp-raw-mode').html('Process');
+                    $('#fp-raw-mode-1').html('Process');
                     $('#fp-mode-row').show();
                 } else {
-                    $('#fp-raw-mode').html('Raw');
+                    $('#fp-raw-mode-1').html('Raw');
                     $('#fp-mode-row').hide();
+                }
+            }
+        }
+        if (odin_data.fp_connected[1]){
+            if (response['value'][1] == ""){
+                $('#fp-raw-mode-2').html('Not Loaded');
+            } else {
+                $('#fp-op-mode-2').html(response['value'][1].mode);
+                if (response['value'][1].raw_mode == "0") {
+                    $('#fp-raw-mode-2').html('Process');
+                } else {
+                    $('#fp-raw-mode-2').html('Raw');
+                }
+            }
+        }
+        if (odin_data.fp_connected[2]){
+            if (response['value'][2] == ""){
+                $('#fp-raw-mode-3').html('Not Loaded');
+            } else {
+                $('#fp-op-mode-3').html(response['value'][2].mode);
+                if (response['value'][2].raw_mode == "0") {
+                    $('#fp-raw-mode-3').html('Process');
+                } else {
+                    $('#fp-raw-mode-3').html('Raw');
+                }
+            }
+        }
+        if (odin_data.fp_connected[3]){
+            if (response['value'][3] == ""){
+                $('#fp-raw-mode-4').html('Not Loaded');
+            } else {
+                $('#fp-op-mode-4').html(response['value'][3].mode);
+                if (response['value'][3].raw_mode == "0") {
+                    $('#fp-raw-mode-4').html('Process');
+                } else {
+                    $('#fp-raw-mode-4').html('Raw');
+                }
+            }
+        }
+        if (odin_data.fp_connected[4]){
+            if (response['value'][4] == ""){
+                $('#fp-raw-mode-5').html('Not Loaded');
+            } else {
+                $('#fp-op-mode-5').html(response['value'][4].mode);
+                if (response['value'][4].raw_mode == "0") {
+                    $('#fp-raw-mode-5').html('Process');
+                } else {
+                    $('#fp-raw-mode-5').html('Raw');
+                }
+            }
+        }
+        if (odin_data.fp_connected[5]){
+            if (response['value'][5] == ""){
+                $('#fp-raw-mode-6').html('Not Loaded');
+            } else {
+                $('#fp-op-mode-6').html(response['value'][5].mode);
+                if (response['value'][5].raw_mode == "0") {
+                    $('#fp-raw-mode-6').html('Process');
+                } else {
+                    $('#fp-raw-mode-6').html('Raw');
+                }
+            }
+        }
+        if (odin_data.fp_connected[6]){
+            if (response['value'][6] == ""){
+                $('#fp-raw-mode-7').html('Not Loaded');
+            } else {
+                $('#fp-op-mode-7').html(response['value'][6].mode);
+                if (response['value'][6].raw_mode == "0") {
+                    $('#fp-raw-mode-7').html('Process');
+                } else {
+                    $('#fp-raw-mode-7').html('Raw');
+                }
+            }
+        }
+        if (odin_data.fp_connected[7]){
+            if (response['value'][7] == ""){
+                $('#fp-raw-mode-8').html('Not Loaded');
+            } else {
+                $('#fp-op-mode-8').html(response['value'][7].mode);
+                if (response['value'][7].raw_mode == "0") {
+                    $('#fp-raw-mode-8').html('Process');
+                } else {
+                    $('#fp-raw-mode-8').html('Raw');
                 }
             }
         }
     });
 }
 
+function update_fp_data(index, data){
+    $('#fp-processes-'+index).html('' + data.processes);
+    $('#fp-rank-'+index).html('' + data.rank);
+    $('#fp-writing-'+index).html(led_html(data.writing, 'green', 26));
+    $('#fp-written-'+index).html('' + data.frames_written);
+}
+
+function update_fp_latrd(index, data){
+    $('#fp-pkts-processed-'+index).html('' + data.processed_jobs);
+    $('#fp-job-q-'+index).html('' + data.job_queue);
+    $('#fp-result-q-'+index).html('' + data.results_queue);
+    $('#fp-proc-frames-'+index).html('' + data.processed_frames);
+    $('#fp-out-frames-'+index).html('' + data.output_frames);
+}
+
 function update_fr_status() {
     $.getJSON('/api/' + odin_data.api_version + '/fr/status/buffers', function (response) {
         //alert(response['value'][0].empty);
-        $('#fr-empty-buffers').html(response['value'][0].empty);
+        $('#fr-empty-buffers-1').html(response['value'][0].empty);
+        $('#fr-empty-buffers-2').html(response['value'][1].empty);
+        $('#fr-empty-buffers-3').html(response['value'][2].empty);
+        $('#fr-empty-buffers-4').html(response['value'][3].empty);
+        $('#fr-empty-buffers-5').html(response['value'][4].empty);
+        $('#fr-empty-buffers-6').html(response['value'][5].empty);
+        $('#fr-empty-buffers-7').html(response['value'][6].empty);
+        $('#fr-empty-buffers-8').html(response['value'][7].empty);
+    });
+    $.getJSON('/api/' + odin_data.api_version + '/fr/status/decoder/packets', function (response) {
+        //alert(response['value']);
+        $('#fr-packets-1').html(response['value'][0]);
+        $('#fr-packets-2').html(response['value'][1]);
+        $('#fr-packets-3').html(response['value'][2]);
+        $('#fr-packets-4').html(response['value'][3]);
+        $('#fr-packets-5').html(response['value'][4]);
+        $('#fr-packets-6').html(response['value'][5]);
+        $('#fr-packets-7').html(response['value'][6]);
+        $('#fr-packets-8').html(response['value'][7]);
+    });
+    $.getJSON('/api/' + odin_data.api_version + '/fr/status/connected', function(response) {
+        //alert(response['value']);
+        $('#fr-connected-1').html(led_html(response['value'][0], 'green', 26));
+        $('#fr-connected-2').html(led_html(response['value'][1], 'green', 26));
+        $('#fr-connected-3').html(led_html(response['value'][2], 'green', 26));
+        $('#fr-connected-4').html(led_html(response['value'][3], 'green', 26));
+        $('#fr-connected-5').html(led_html(response['value'][4], 'green', 26));
+        $('#fr-connected-6').html(led_html(response['value'][5], 'green', 26));
+        $('#fr-connected-7').html(led_html(response['value'][6], 'green', 26));
+        $('#fr-connected-8').html(led_html(response['value'][7], 'green', 26));
     });
 }
 
