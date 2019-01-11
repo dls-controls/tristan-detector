@@ -30,5 +30,9 @@ build()
     
     export SRC=$BUILD_SCRIPT_DIR/control
     setuptools_build # Defined in Python/CONFIG
+    
+    # Install the static html files for the odin control server
+    mkdir ${TARGET_PREFIX}/html
+    cp -r $BUILD_SCRIPT_DIR/control/latrd/odin/static ${TARGET_PREFIX}/html/
 }
 
