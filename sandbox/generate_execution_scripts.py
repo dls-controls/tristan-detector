@@ -177,7 +177,7 @@ BUFFER_NAME="FrameReceiverBuffer1"\n\
 BUFFER_STRING="$USER$BUFFER_NAME"\n\
 /dls_sw/prod/tools/RHEL6-x86_64/odin-data/0-6-0/prefix/bin/frameReceiver \
 --path /dls_sw/work/tools/RHEL6-x86_64/LATRD/prefix/lib --ctrl=tcp://*:{} \
---port={} --sharedbuf=$BUFFER_STRING --ready=tcp://*:{} --release=tcp://*:{} \
+--port={} --ready=tcp://*:{} --release=tcp://*:{} \
 -t LATRD --rxbuffer=300000000 --sharedbuf=$BUFFER_STRING -m {} \
 --logconfig=/dls_sw/work/tools/RHEL6-x86_64/LATRD/lab29/log4cxx.xml "$@"\n\n'.format(ctrl_connection,
                                                                                      port_number,
@@ -241,6 +241,47 @@ update_interval = 0.5\n\n'.format(fr_endpoint, fp_endpoint)
   os.chmod(os.path.join(out_dir, 'odin_control_server_{}'.format(total)), 0o777)
 
 
+def generate_run_script(out_dir, total):
+  script_string='#!/bin/bash\n\
+\n\
+QTY={}\n\
+\n\
+if [ "$1" != "" ]; then\n\
+QTY=$1\n\
+else\n\
+echo "No qty supplied, defaulting to {}"\n\
+fi\n\
+\n\
+CMD_STR="gnome-terminal --working-directory {}"\n\
+\n\
+for i in `seq 1 $QTY`;\n\
+do\n\
+CMD_STR+=\' --tab -e "./tristan_receiver_\'\n\
+CMD_STR+=$i\n\
+CMD_STR+=\'" -t FR\'\n\
+CMD_STR+=$i\n\
+done\n\
+echo "Running command $CMD_STR"\n\
+$CMD_STR\n\
+\n\
+CMD_STR="gnome-terminal --working-directory {}"\n\
+\n\
+for i in `seq 1 $QTY`;\n\
+do\n\
+CMD_STR+=\' --tab -e "./tristan_processor_\'\n\
+CMD_STR+=$i\n\
+CMD_STR+=\'" -t FP\'\n\
+CMD_STR+=$i\n\
+done\n\
+echo "Running command $CMD_STR"\n\
+$CMD_STR\n\
+\n'.format(total, total, out_dir, out_dir)
+
+  with open(os.path.join(out_dir, 'run_FR_FP_apps.sh'), 'w') as outfile:
+    outfile.write(script_string)
+
+  os.chmod(os.path.join(out_dir, 'run_FR_FP_apps.sh'), 0o777)
+
 
 def main():
     args = options()
@@ -255,6 +296,8 @@ def main():
       generate_fp_script(directory, args.number, index)
       generate_fr_script(directory, args.number, index)
     generate_odin_scripts(directory, args.number)
+    generate_run_script(directory, args.number)
+
 
 if __name__ == "__main__":
     main()
