@@ -14,36 +14,87 @@ from latrd_reactor import LATRDReactor
 
 
 class LATRDControlSimulator(object):
-    def __init__(self):
+    DETECTOR_1M  = 1
+    DETECTOR_10M = 10
+
+    def __init__(self, type=DETECTOR_1M):
         logging.basicConfig(format='%(asctime)-15s %(message)s')
         self._log = logging.getLogger(".".join([__name__, self.__class__.__name__]))
         self._log.setLevel(logging.DEBUG)
         self._ctrl_channel = None
+        self._type = type
         self._reactor = LATRDReactor()
         self._store = {
-            "Status": "Idle",
-            "Config":
-            {
-                "Description": "TRISTAN control interface",
-                "Sensor_Material": "Silicon",
-                "Sensor_Thickness": "300 um",
-                "Serial_Number": "0",
-                "Software_Version": "0.0.1",
-                "x_Pixel_Size": "55 um",
-                "x_Pixels_In_Detector": 2048,
-                "y_Pixel_Size": "55 um",
-                "y_Pixels_In_Detector": 512,
-                "Status": "Idle",
-                "Exposure": 0.0,
-                "Frames": 0,
-                "Frames_Per_Trigger": 0,
-                "Mode": "Time_Energy",
-                "Profile": "Standard",
-                "Readout_Time": 0,
-                "Repeat_Interval": 0,
-                "Threshold": 5.2,
-                "nTrigger": 0
-            }
+            "status":
+                {
+                    "detector":
+                        {
+                            "state": "Idle",
+                            "description": "TRISTAN control interface",
+                            "serial_number": "0",
+                            "software_version": "0.0.1",
+                            "sensor_material": "Silicon",
+                            "sensor_thickness": "300 um",
+                            "x_pixel_size": "55 um",
+                            "y_pixel_size": "55 um",
+                            "x_pixels_in_detector": 2048,
+                            "y_pixels_in_detector": 512,
+                            "timeslice_number": 4
+                        },
+                    "housekeeping":
+                        {
+                            "standby": "On",
+                            "fem_power_enabled": [True] * self._type,
+                            "psu_temp": [28.6] * self._type,
+                            "psu_temp_alert": [False] * self._type,
+                            "fan_alert": [False] * self._type,
+                            "output_alert": [False] * self._type,
+                            "current_sense": [1.5] * self._type,
+                            "voltage_sense": [2.1] * self._type,
+                            "remote_temp": [30.1] * self._type,
+                            "fan_control_temp": [36.3] * self._type,
+                            "tacho": [0.8] * self._type,
+                            "pwm": [128] * self._type
+                        },
+                    "clock":
+                        {
+                            "dpll_lol": [True] * self._type,
+                            "dpll_hold": [True] * self._type,
+                            "clock_freq": [65.7] * self._type
+                        },
+                    "sensor":
+                        {
+                            "temp": [65.8] * self._type,
+                            "humidity": [47.8] * self._type
+                        },
+                    "fem":
+                        {
+                            "temp": [45.3] * self._type
+                        }
+                },
+            "config":
+                {
+                    "state": "Idle",
+                    "exposure_time": 0.0,
+                    "gap": 0.0,
+                    "repeat_interval": 0.0,
+                    "frames": 0,
+                    "frames_per_trigger": 0,
+                    "n_trigger": 0,
+                    "mode": "Time_Energy",
+                    "profile": "Standard",
+                    "threshold": 5.2,
+                    "timeslice":
+                        {
+                            "duration_rollover_bits": 18
+                        },
+                    "bias":
+                        {
+                            "voltage": 0.0,
+                            "enable": False
+                        },
+                    "time": "2018-09-26T09:30Z"
+                }
         }
 
     def setup_control_channel(self, endpoint):
@@ -92,6 +143,8 @@ class LATRDControlSimulator(object):
     def parse_post_msg(self, msg):
         # Nothing to do here, just wait two seconds before replying
         time.sleep(2.0)
+        # Check for the "Run" command.  If it is sent and the simulated script has been supplied then execute it
+
         reply = ResponseMessage(msg.msg_id)
         self._ctrl_channel.send(reply)
 

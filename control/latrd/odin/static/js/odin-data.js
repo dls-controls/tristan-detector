@@ -1,6 +1,7 @@
 
 odin_data = {
   api_version: '0.1',
+  ctrl_name: 'tristan',
   current_page: '.home-view',
   adapter_list: [],
   adapter_objects: {},
@@ -150,32 +151,32 @@ function process_cmd_response(response)
 
 function update_exposure() {
     set_value = $('#set-hw-exposure').val();
-    $.put('/api/' + odin_data.api_version + '/ctrl/config/Exposure/' + set_value, process_cmd_response);
+    $.put('/api/' + odin_data.api_version + '/' + odin_data.ctrl_name + '/config/exposure_time/' + set_value, process_cmd_response);
 }
 
 function update_frames() {
     set_value = $('#set-hw-frames').val();
-    $.put('/api/' + odin_data.api_version + '/ctrl/config/Frames/' + set_value, process_cmd_response);
+    $.put('/api/' + odin_data.api_version + '/' + odin_data.ctrl_name + '/config/Frames/' + set_value, process_cmd_response);
 }
 
 function update_frames_per_trigger() {
     set_value = $('#set-hw-frames-per-trigger').val();
-    $.put('/api/' + odin_data.api_version + '/ctrl/config/Frames_Per_Trigger/' + set_value, process_cmd_response);
+    $.put('/api/' + odin_data.api_version + '/' + odin_data.ctrl_name + '/config/Frames_Per_Trigger/' + set_value, process_cmd_response);
 }
 
 function update_mode() {
     set_value = $('#set-hw-mode').find(":selected").text();
-    $.put('/api/' + odin_data.api_version + '/ctrl/config/Mode/' + set_value, process_cmd_response);
+    $.put('/api/' + odin_data.api_version + '/' + odin_data.ctrl_name + '/config/mode/' + set_value, process_cmd_response);
     fp_mode_command(set_value);
 }
 
 function update_profile() {
     set_value = $('#set-hw-profile').find(":selected").text();
-    $.put('/api/' + odin_data.api_version + '/ctrl/config/Profile/' + set_value, process_cmd_response);
+    $.put('/api/' + odin_data.api_version + '/' + odin_data.ctrl_name + '/config/profile/' + set_value, process_cmd_response);
 }
 
 function ctrl_command(command) {
-    $.put('/api/' + odin_data.api_version + '/ctrl/command/' + command, process_cmd_response);
+    $.put('/api/' + odin_data.api_version + '/' + odin_data.ctrl_name + '/command/' + command, process_cmd_response);
 }
 
 function detector_json_put_command()
@@ -184,7 +185,7 @@ function detector_json_put_command()
     {
         value = JSON.stringify(JSON.parse($('#engineering-cmd').val()));
         $.ajax({
-            url: '/api/' + odin_data.api_version + '/ctrl/engineering_put',
+            url: '/api/' + odin_data.api_version + '/' + odin_data.ctrl_name + '/engineering_put',
             type: 'PUT',
             dataType: 'json',
             data: value,
@@ -208,7 +209,7 @@ function detector_json_get_command()
     {
         value = JSON.stringify(JSON.parse($('#engineering-cmd').val()));
         $.ajax({
-            url: '/api/' + odin_data.api_version + '/ctrl/engineering_get',
+            url: '/api/' + odin_data.api_version + '/' + odin_data.ctrl_name + '/engineering_get',
             type: 'PUT',
             dataType: 'json',
             data: value,
@@ -280,6 +281,7 @@ function fp_reset_statistics()
     });
 }
 
+/*
 function fp_configure_command() {
 //    alert("HERE!");
     send_fp_command('meta_endpoint','tcp://*:5558');
@@ -293,16 +295,16 @@ function fp_configure_command() {
                         }));
     send_fp_command('plugin', JSON.stringify({
         "load": {
-//            "library": "/home/gnx91527/work/tristan/LATRD/prefix/lib/libLATRDProcessPlugin.so",
-            "library": "/dls_sw/work/tools/RHEL6-x86_64/LATRD/prefix/lib/libLATRDProcessPlugin.so",
+            "library": "/home/gnx91527/work/tristan/LATRD/prefix/lib/libLATRDProcessPlugin.so",
+//            "library": "/dls_sw/work/tools/RHEL6-x86_64/LATRD/prefix/lib/libLATRDProcessPlugin.so",
             "index": "latrd",
             "name": "LATRDProcessPlugin"
         }
     }));
     send_fp_command('plugin', JSON.stringify({
         "load": {
-            "library": "/dls_sw/work/tools/RHEL6-x86_64/odin-data/prefix/lib/libHdf5Plugin.so",
-//            "library": "/home/gnx91527/work/tristan/odin-data/prefix/lib/libHdf5Plugin.so",
+//            "library": "/dls_sw/work/tools/RHEL6-x86_64/odin-data/prefix/lib/libHdf5Plugin.so",
+            "library": "/home/gnx91527/work/tristan/odin-data/prefix/lib/libHdf5Plugin.so",
             "index": "hdf",
             "name": "FileWriterPlugin"
         }
@@ -387,6 +389,7 @@ function fp_configure_command() {
         }
     }));
 }
+*/
 
 function fp_debug_command() {
     send_fp_command('debug_level', $('#fp-debug-level').val());
@@ -450,26 +453,26 @@ function update_api_adapters() {
 }
 
 function update_detector_status() {
-    $.getJSON('/api/' + odin_data.api_version + '/ctrl/username', function(response) {
+    $.getJSON('/api/' + odin_data.api_version + '/' + odin_data.ctrl_name + '/username', function(response) {
 //        alert(response.endpoint);
         $('#detector-hw-username').html(response.username);
     });
-    $.getJSON('/api/' + odin_data.api_version + '/ctrl/start_time', function(response) {
+    $.getJSON('/api/' + odin_data.api_version + '/' + odin_data.ctrl_name + '/start_time', function(response) {
 //        alert(response.endpoint);
         $('#detector-hw-start-time').html(response.start_time);
     });
-    $.getJSON('/api/' + odin_data.api_version + '/ctrl/up_time', function(response) {
+    $.getJSON('/api/' + odin_data.api_version + '/' + odin_data.ctrl_name + '/up_time', function(response) {
 //        alert(response.endpoint);
         $('#detector-hw-up-time').html(response.up_time);
     });
-    $.getJSON('/api/' + odin_data.api_version + '/ctrl/endpoint', function(response) {
+    $.getJSON('/api/' + odin_data.api_version + '/' + odin_data.ctrl_name + '/endpoint', function(response) {
 //        alert(response.endpoint);
         $('#detector-hw-endpoint').html(response.endpoint);
     });
-    $.getJSON('/api/' + odin_data.api_version + '/ctrl/status/Connected', function(response) {
+    $.getJSON('/api/' + odin_data.api_version + '/' + odin_data.ctrl_name + '/status/connected', function(response) {
 //        alert(response.endpoint);
-        $('#detector-hw-connected').html(led_html(''+response['status/Connected'], 'green', 26));
-        if (!response['status/Connected']){
+        $('#detector-hw-connected').html(led_html(''+response['value'], 'green', 26));
+        if (!response['value']){
             $('#set-hw-exposure').val('');
             $('#set-hw-frames').val('');
             $('#set-hw-frames-per-trigger').val('');
@@ -486,49 +489,50 @@ function update_detector_status() {
             odin_data.ctrl_connected = true;
         }
     });
-    $.getJSON('/api/' + odin_data.api_version + '/ctrl/status/Software_Version', function(response) {
+    $.getJSON('/api/' + odin_data.api_version + '/' + odin_data.ctrl_name + '/status/detector/software_version', function(response) {
         if (odin_data.ctrl_connected){
-            $('#detector-hw-version').html(response['status/Software_Version']);
+            $('#detector-hw-version').html(response['value']);
         }
     });
-    $.getJSON('/api/' + odin_data.api_version + '/ctrl/status/Version_Check', function(response) {
+    $.getJSON('/api/' + odin_data.api_version + '/' + odin_data.ctrl_name + '/status/detector/version_check', function(response) {
         if (odin_data.ctrl_connected){
-            $('#detector-hw-version-good').html(led_html(response['status/Version_Check'], 'green', 26));
+            $('#detector-hw-version-good').html(led_html(response['value'], 'green', 26));
         }
     });
-    $.getJSON('/api/' + odin_data.api_version + '/ctrl/status/Description', function(response) {
+    $.getJSON('/api/' + odin_data.api_version + '/' + odin_data.ctrl_name + '/status/detector/description', function(response) {
         if (odin_data.ctrl_connected){
-            $('#detector-hw-description').html(response['status/Description']);
+            $('#detector-hw-description').html(response['value']);
         }
     });
-    $.getJSON('/api/' + odin_data.api_version + '/ctrl/config/Exposure', function(response) {
+    $.getJSON('/api/' + odin_data.api_version + '/' + odin_data.ctrl_name + '/config/exposure_time', function(response) {
+        //alert(JSON.stringify(response));
         if (odin_data.ctrl_connected){
-            $('#detector-hw-exposure').html(response['config/Exposure']);
+            $('#detector-hw-exposure').html(response['value']);
         }
     });
-    $.getJSON('/api/' + odin_data.api_version + '/ctrl/config/Frames', function(response) {
+    $.getJSON('/api/' + odin_data.api_version + '/' + odin_data.ctrl_name + '/config/frames', function(response) {
         if (odin_data.ctrl_connected){
-            $('#detector-hw-frames').html(response['config/Frames']);
+            $('#detector-hw-frames').html(response['value']);
         }
     });
-    $.getJSON('/api/' + odin_data.api_version + '/ctrl/config/Frames_Per_Trigger', function(response) {
+    $.getJSON('/api/' + odin_data.api_version + '/' + odin_data.ctrl_name + '/config/frames_per_trigger', function(response) {
         if (odin_data.ctrl_connected){
-            $('#detector-hw-frames-per-trigger').html(response['config/Frames_Per_Trigger']);
+            $('#detector-hw-frames-per-trigger').html(response['value']);
         }
     });
-    $.getJSON('/api/' + odin_data.api_version + '/ctrl/config/Mode', function(response) {
+    $.getJSON('/api/' + odin_data.api_version + '/' + odin_data.ctrl_name + '/config/mode', function(response) {
         if (odin_data.ctrl_connected){
-            $('#detector-hw-mode').html(response['config/Mode']);
+            $('#detector-hw-mode').html(response['value']);
         }
     });
-    $.getJSON('/api/' + odin_data.api_version + '/ctrl/config/Profile', function(response) {
+    $.getJSON('/api/' + odin_data.api_version + '/' + odin_data.ctrl_name + '/config/profile', function(response) {
         if (odin_data.ctrl_connected){
-            $('#detector-hw-profile').html(response['config/Profile']);
+            $('#detector-hw-profile').html(response['value']);
         }
     });
-    $.getJSON('/api/' + odin_data.api_version + '/ctrl/status/State', function(response) {
+    $.getJSON('/api/' + odin_data.api_version + '/' + odin_data.ctrl_name + '/status/detector/state', function(response) {
         if (odin_data.ctrl_connected){
-            $('#detector-hw-state').html(response['status/State']);
+            $('#detector-hw-state').html(response['value']);
         }
     });
 }
