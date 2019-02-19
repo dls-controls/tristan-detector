@@ -6,7 +6,8 @@
 #include <stdio.h>
 namespace FrameProcessor {
 
-LATRDTimeSliceBuffer::LATRDTimeSliceBuffer()
+LATRDTimeSliceBuffer::LATRDTimeSliceBuffer() :
+    no_of_events_(0)
 {
   // Setup logging for the class
   logger_ = Logger::getLogger("FP.LATRDTimeSliceBuffer");
@@ -27,6 +28,7 @@ void LATRDTimeSliceBuffer::add_job(boost::shared_ptr<LATRDProcessJob> job)
     throw LATRDProcessingException("Duplicate packet ID for the same time slice");
   } else {
     job_store_[job->packet_number] = job;
+    no_of_events_ += job->valid_results;
   }
 }
 
@@ -38,12 +40,18 @@ std::vector<boost::shared_ptr<LATRDProcessJob> > LATRDTimeSliceBuffer::empty()
     jobs.push_back(iter->second);
   }
   job_store_.clear();
+  no_of_events_ = 0;
   return jobs;
 }
 
 size_t LATRDTimeSliceBuffer::size()
 {
   return job_store_.size();
+}
+
+uint32_t LATRDTimeSliceBuffer::no_of_events()
+{
+  return no_of_events_;
 }
 
 std::string LATRDTimeSliceBuffer::report()

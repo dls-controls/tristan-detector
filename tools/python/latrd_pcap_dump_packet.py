@@ -97,6 +97,7 @@ class LATRDFrameProducer(object):
         """
         # IDLE packet record
         self._idle_packet = None
+        self._data_packet = None
 
         # Create an empty list for packet storage
         self._packets = []
@@ -196,7 +197,7 @@ class LATRDFrameProducer(object):
         Run the frame producer.
         """
         self.load_pcap()
-        self.send_packets()
+#        self.send_packets()
 
     def load_pcap(self):
         """
@@ -231,6 +232,14 @@ class LATRDFrameProducer(object):
                 if (hdr_pkt_1 & LATRDPacket.IDLE_PACKET_MASK) == LATRDPacket.IDLE_PACKET_MASK:
                     if self._idle_packet is None:
                         logging.debug("IDLE Packet processed...")
+                        pkt_length = len(udp_layer.data[24:])
+                        logging.debug("Length of packet: {}".format(pkt_length))
+                        words = struct.unpack('<{}Q'.format(pkt_length/8), udp_layer.data[24:])
+                        logging.debug("0x{0:016X}".format(zero_pkt))
+                        logging.debug("0x{0:016X}".format(hdr_pkt_1))
+                        logging.debug("0x{0:016X}".format(hdr_pkt_2))
+                        for word in words:
+                            logging.debug("0x{0:016X}".format(word))
                         self._idle_packet = udp_layer.data
                 else:
                     # Store the packets exactly as recorded
@@ -240,6 +249,18 @@ class LATRDFrameProducer(object):
                     ts_buff = (hdr_pkt_2 & LATRDPacket.TIME_SLICE_BUFFER_MASK) >> 32
                     self._ts.append((ts_wrap * LATRDPacket.NO_OF_BUFFERS) + ts_buff)
                     #logging.debug("Ts ID: %d", (ts_wrap * LATRDPacket.NO_OF_BUFFERS) + ts_buff)
+                    if self._data_packet is None:
+                        logging.debug("Data Packet processed...")
+                        pkt_length = len(udp_layer.data[24:])
+                        logging.debug("Length of packet: {}".format(pkt_length))
+                        words = struct.unpack('<{}Q'.format(pkt_length/8), udp_layer.data[24:])
+                        logging.debug("0x{0:016X}".format(zero_pkt))
+                        logging.debug("0x{0:016X}".format(hdr_pkt_1))
+                        logging.debug("0x{0:016X}".format(hdr_pkt_2))
+                        for word in words:
+                            logging.debug("0x{0:016X}".format(word))
+                        self._data_packet = udp_layer.data
+
             else:
                 logging.debug("Ignoring data packet with length [%s]...", len(udp_layer.data))
 

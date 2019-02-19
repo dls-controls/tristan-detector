@@ -71,6 +71,9 @@ const std::string LATRDProcessPlugin::CONFIG_SENSOR_HEIGHT       = "height";
     // Create the meta header document
 //    this->createMetaHeader();
 
+    // Register this parent as a meta message publisher with the coordinator class
+    coordinator_.register_meta_message_publisher(this);
+
   LOG4CXX_DEBUG_LEVEL(1, logger_, "Completed LATRDProcessPlugin constructor.");
 }
 

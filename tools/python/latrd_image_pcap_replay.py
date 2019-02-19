@@ -18,8 +18,7 @@ import threading
 class LATRDPacket(object):
     IDLE_PACKET_MASK       = 0x000000000003F800
     PRODUCER_ID_MASK       = 0x03FC000000000000
-    TIME_SLICE_WRAP_MASK   = 0x0003FFFFFFFC0000
-    TIME_SLICE_BUFFER_MASK = 0x000000FF00000000
+    IMAGE_NUMBER_MASK      = 0x00FFFFFF00000000
     WORD_COUNT_MASK        = 0x00000000000007FF
     NO_OF_BUFFERS          = 4
 
@@ -102,7 +101,7 @@ class LATRDFrameProducer(object):
         self._packets = []
 
         # Create an empty list for timeslice information
-        self._ts = []
+        self._im = []
 
         # Load default parameters
         self.defaults = LATRDProducerDefaults()
@@ -235,10 +234,9 @@ class LATRDFrameProducer(object):
                 else:
                     # Store the packets exactly as recorded
                     self._packets.append(udp_layer.data)
-                    # Store the source timeslice so that we can use it for round robin
-                    ts_wrap = (hdr_pkt_1 & LATRDPacket.TIME_SLICE_WRAP_MASK) >> 18
-                    ts_buff = (hdr_pkt_2 & LATRDPacket.TIME_SLICE_BUFFER_MASK) >> 32
-                    self._ts.append((ts_wrap * LATRDPacket.NO_OF_BUFFERS) + ts_buff)
+                    # Store the source image number so that we can use it for round robin
+                    image_number = (hdr_pkt_2 & LATRDPacket.IMAGE_NUMBER_MASK) >> 32
+                    self._im.append(image_number)
                     #logging.debug("Ts ID: %d", (ts_wrap * LATRDPacket.NO_OF_BUFFERS) + ts_buff)
             else:
                 logging.debug("Ignoring data packet with length [%s]...", len(udp_layer.data))
@@ -296,10 +294,10 @@ class LATRDFrameProducer(object):
         data_bytes_sent = 0
         data_packets_sent = 0
         delay = float(self.args.duration)/float(len(self._packets)/self._no_of_ports)
-        for packet, ts_id in zip(self._packets, self._ts):
+        for packet, im_id in zip(self._packets, self._im):
             # Send the packet over the UDP socket
             try:
-                if ts_id % self._no_of_ports == index:
+                if im_id % self._no_of_ports == index:
                     data_bytes_sent += udp_socket.sendto(packet, (self.args.ip_addr, port))
                     data_packets_sent += 1
                     # Add 1 second delay

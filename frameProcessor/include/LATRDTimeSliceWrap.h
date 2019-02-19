@@ -32,6 +32,8 @@ namespace FrameProcessor {
     void add_job(uint32_t buffer_no, boost::shared_ptr<LATRDProcessJob> job);
     std::vector<boost::shared_ptr<LATRDProcessJob> > empty_all_buffers();
     std::vector<boost::shared_ptr<LATRDProcessJob> > empty_buffer(uint32_t buffer_number);
+    std::vector<uint32_t> get_all_event_data_counts();
+    uint32_t get_event_data_counts(uint32_t buffer_number);
     std::string report();
 
   private:

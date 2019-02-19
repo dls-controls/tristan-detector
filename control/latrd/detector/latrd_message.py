@@ -133,10 +133,12 @@ class PutMessage(LATRDMessage):
 
 
 class PostMessage(LATRDMessage):
-    def __init__(self, msg_id=None):
+    def __init__(self, msg_id=None, params=None):
         if not msg_id:
             msg_id = LATRDMessage.new_id()
         super(PostMessage, self).__init__(msg_type=LATRDMessage.MSG_TYPE_POST, msg_id=msg_id)
+        if params:
+            self._attrs['Parameters'] = params
 
 
 class ResponseMessage(LATRDMessage):
