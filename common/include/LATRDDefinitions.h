@@ -56,27 +56,28 @@ namespace LATRD
   static const size_t total_frame_size    = data_type_size + sizeof(FrameHeader);
   static const size_t num_frame_packets   = num_primary_packets;
 
-  static const uint64_t packet_header_idle_mask       = 0x000000000003F800;
-  static const uint64_t control_word_mask             = 0x8000000000000000;
-  static const uint8_t  control_type_mask             = 0x3F;
-  static const uint8_t  control_header_0_mask         = 0x38;
-  static const uint8_t  control_header_1_mask         = 0x39;
-  static const uint8_t  control_course_timestamp_mask = 0x20;
-  static const uint8_t  control_word_id_mask          = 0x0F;
-  static const uint64_t control_word_full_mask        = 0xFFF0000000000000;
-  static const uint64_t header_packet_producer_mask   = 0x03FC000000000000;
-  static const uint64_t header_packet_count_mask      = 0x00000000FFFFFFFF;
-  static const uint64_t header_packet_ts_number_mask  = 0x000000FF00000000;
-  static const uint64_t control_word_count_mask       = 0x00000000000007FF;
-  static const uint64_t control_word_idle_mask        = 0xFC00000000000000;
-  static const uint64_t control_word_time_slice_mask  = 0x0003FFFFFFFC0000;
-  static const uint64_t course_timestamp_mask         = 0x000FFFFFFFFFFFF8;
-  static const uint64_t fine_timestamp_mask           = 0x00000000007FFFFF;
-  static const uint64_t energy_mask                   = 0x0000000000003FFF;
-  static const uint64_t position_mask                 = 0x0000000003FFFFFF;
-  static const uint64_t timestamp_match_mask          = 0x000FFFFFFF800000;
+  static const uint64_t packet_header_idle_mask         = 0x000000000003F800;
+  static const uint64_t control_word_mask               = 0x8000000000000000;
+  static const uint8_t  control_type_mask               = 0x3F;
+  static const uint8_t  control_header_0_mask           = 0x38;
+  static const uint8_t  control_header_1_mask           = 0x39;
+  static const uint8_t  control_course_timestamp_mask   = 0x20;
+  static const uint8_t  control_word_id_mask            = 0x0F;
+  static const uint64_t control_word_full_mask          = 0xFFF0000000000000;
+  static const uint64_t header_packet_producer_mask     = 0x03FC000000000000;
+  static const uint64_t header_packet_count_mask        = 0x00000000FFFFFFFF;
+  static const uint64_t header_packet_ts_number_mask    = 0x000000FF00000000;
+  static const uint64_t header_packet_image_number_mask = 0x00FFFFFF00000000;
+  static const uint64_t control_word_count_mask         = 0x00000000000007FF;
+  static const uint64_t control_word_idle_mask          = 0xFC00000000000000;
+  static const uint64_t control_word_time_slice_mask    = 0x0003FFFFFFFC0000;
+  static const uint64_t course_timestamp_mask           = 0x000FFFFFFFFFFFF8;
+  static const uint64_t fine_timestamp_mask             = 0x00000000007FFFFF;
+  static const uint64_t energy_mask                     = 0x0000000000003FFF;
+  static const uint64_t position_mask                   = 0x0000000003FFFFFF;
+  static const uint64_t timestamp_match_mask            = 0x000FFFFFFF800000;
 
-  static const uint64_t course_timestamp_rollover     = 0x00000000001FFFFF;
+  static const uint64_t course_timestamp_rollover       = 0x00000000001FFFFF;
 
   static uint8_t get_producer_ID(uint64_t  headerWord1)
   {
@@ -100,6 +101,12 @@ namespace LATRD
   {
     // Extract relevant bits to obtain the time slice number
     return (uint8_t )((headerWord2 & header_packet_ts_number_mask) >> 32);
+  }
+
+  static uint8_t get_image_number(uint64_t headerWord2)
+  {
+    // Extract relevant bits to obtain the time slice number
+    return (uint32_t )((headerWord2 & header_packet_image_number_mask) >> 32);
   }
 
   static uint32_t get_time_slice_id(uint64_t headerWord1, uint64_t headerWord2)

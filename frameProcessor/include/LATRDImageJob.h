@@ -17,18 +17,20 @@ namespace FrameProcessor {
     class LATRDImageJob
     {
     public:
-      LATRDImageJob(uint32_t width, uint32_t height);
+      LATRDImageJob(uint32_t width, uint32_t height, uint32_t number);
       virtual ~LATRDImageJob();
       void set_eoi(uint32_t packet_id);
+      uint32_t get_frame_number();
       void add_pixel(uint32_t packet_id, uint32_t x, uint32_t y, uint32_t event_count);
       bool verify_image();
-      boost::shared_ptr<Frame> to_frame(uint32_t frame_no);
+      boost::shared_ptr<Frame> to_frame();
       void reset();
       void mark_sent();
       bool get_sent();
 
       uint32_t width_;
       uint32_t height_;
+      uint32_t frame_number_;
       uint16_t *image_ptr_;
       uint64_t timestamp_;
       bool sent_;
