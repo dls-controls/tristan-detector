@@ -52,7 +52,7 @@ def main():
         client.send_configuration(config, "fr_setup")
         config = {
             "load": {
-                "library": "/home/gnx91527/work/tristan/LATRD/build/lib/libLATRDProcessPlugin.so",
+                "library": "/home/gnx91527/work/tristan/LATRD/prefix/lib/libLATRDProcessPlugin.so",
                 "index": "latrd",
                 "name": "LATRDProcessPlugin"
             }

@@ -4,6 +4,9 @@ class DataWordException(Exception):
     pass
 
 class DataWord(object):
+
+    COURSE_ROLLOVER = 0x00000000001FFFFF
+
     def __init__(self, line_in):
         self._raw_packet = re.sub("[\s]","",line_in)
         self._raw_packet = re.sub("\x00","",self._raw_packet)   # Found a badly formatted file
@@ -46,7 +49,7 @@ class DataWord(object):
     def timestamp_fine(self):
         if not self.is_event:
             raise DataWordException()
-        return (self._packet >> 14) & 0x0000000000FFFFFF
+        return (self._packet >> 14) & 0x00000000007FFFFF
 
     @property
     def energy(self):
@@ -68,12 +71,14 @@ class DataWord(object):
 
     def full_timestmap(self, prev_course, course):
         full_ts = 0
+        if prev_course == 0:
+            prev_course = course - self.COURSE_ROLLOVER
         if not self.is_event:
             raise DataWordException()
         if self.find_match_ts(course) == self.find_match_ts(self.timestamp_fine) or self.find_match_ts(course)+1 == self.find_match_ts(self.timestamp_fine):
-            full_ts = (course & 0x0FFFFFFF000000) + self.timestamp_fine
+            full_ts = (course & 0x0FFFFFFF800000) + self.timestamp_fine
         elif self.find_match_ts(prev_course) == self.find_match_ts(self.timestamp_fine) or self.find_match_ts(prev_course)+1 == self.find_match_ts(self.timestamp_fine):
-            full_ts = (prev_course & 0x0FFFFFFF000000) + self.timestamp_fine
+            full_ts = (prev_course & 0x0FFFFFFF800000) + self.timestamp_fine
         else:
             print("********* Warning ***********")
         return full_ts
@@ -81,5 +86,5 @@ class DataWord(object):
     def find_match_ts(self, time_stamp):
         # This method will return the 2 bits required for
         # matching a course timestamp to an extended timestamp
-        match = (time_stamp >> 22) & 0x03
+        match = (time_stamp >> 21) & 0x03
         return match

@@ -2,12 +2,16 @@ import os
 import random
 import sys
 from ascii_stack_reader import AsciiStackReader
+from raw_h5_stack_reader import RawH5StackReader
 from data_word import DataWord
 from nexus_swmr_file import NexusSwmrFileWriter
 
 class TimepixDataParser(object):
-    def __init__(self, num_files, data_dir, out_dir):
-        self._asr = AsciiStackReader(data_dir)
+    def __init__(self, num_files, data_dir, out_dir, h5_flag):
+        if h5_flag is True:
+            self._asr = RawH5StackReader(data_dir)
+        else:
+            self._asr = AsciiStackReader(data_dir)
         for x in range(0, 50000):
             self._asr.read_next()
 
@@ -64,32 +68,33 @@ class TimepixDataParser(object):
             if packet.is_event:
                 if self._timestamp_course > 0 and self._prev_timestamp_course > 0:
                     # print("Data Event found at index", count)
-                    self._count += 1
-                    self._time_slice_count += 1
-                    self._file_counts[self._current_file] += 1
-                    self._event_times.append(packet.full_timestmap(self._prev_timestamp_course, self._timestamp_course))
+                    if packet.full_timestmap(self._prev_timestamp_course, self._timestamp_course) > 0:
+                        self._count += 1
+                        self._time_slice_count += 1
+                        self._file_counts[self._current_file] += 1
+                        self._event_times.append(packet.full_timestmap(self._prev_timestamp_course, self._timestamp_course))
 
-                    if len(self._event_times) > 999 or self._time_slice_count == self._time_slices[self._current_file] or self._count == samples:
-                        self._nx_files[self._current_file].event_time_offset.resize((self._file_counts[self._current_file],))
-                        self._nx_files[self._current_file].event_time_offset[self._file_counts[self._current_file] - len(self._event_times):self._file_counts[self._current_file]] = self._event_times
-                        self._event_times = []
+                        if len(self._event_times) > 999 or self._time_slice_count == self._time_slices[self._current_file] or self._count == samples:
+                            self._nx_files[self._current_file].event_time_offset.resize((self._file_counts[self._current_file],))
+                            self._nx_files[self._current_file].event_time_offset[self._file_counts[self._current_file] - len(self._event_times):self._file_counts[self._current_file]] = self._event_times
+                            self._event_times = []
 
-                    self._event_ids.append(packet.pos_x + (256 * packet.pos_y))
+                        self._event_ids.append(packet.pos_x + (256 * packet.pos_y))
 
-                    if len(self._event_ids) > 999 or self._time_slice_count == self._time_slices[self._current_file] or self._count == samples:
-                        self._nx_files[self._current_file].event_id_dset.resize((self._file_counts[self._current_file],))
-                        self._nx_files[self._current_file].event_id_dset[self._file_counts[self._current_file] - len(self._event_ids):self._file_counts[self._current_file]] = self._event_ids
-                        self._nx_files[self._current_file].event_id_dset.flush()
-                        self._event_ids = []
+                        if len(self._event_ids) > 999 or self._time_slice_count == self._time_slices[self._current_file] or self._count == samples:
+                            self._nx_files[self._current_file].event_id_dset.resize((self._file_counts[self._current_file],))
+                            self._nx_files[self._current_file].event_id_dset[self._file_counts[self._current_file] - len(self._event_ids):self._file_counts[self._current_file]] = self._event_ids
+                            self._nx_files[self._current_file].event_id_dset.flush()
+                            self._event_ids = []
 
-                    if self._time_slice_count == self._time_slices[self._current_file] or self._count == samples:
-                        # End of a time slice so put in a marker
-                        self._slice_counts[self._current_file] += 1
-                        self._nx_files[self._current_file].event_index_dset.resize((self._slice_counts[self._current_file],))
-                        self._nx_files[self._current_file].event_index_dset[self._slice_counts[self._current_file] - 1] = self._file_counts[self._current_file]
-                        self._nx_files[self._current_file].event_index_dset.flush()
-                        self._nx_files[self._current_file].event_time_zero_dset.resize((self._slice_counts[self._current_file],))
-                        self._nx_files[self._current_file].event_time_zero_dset[self._slice_counts[self._current_file] - 1] = packet.full_timestmap(self._prev_timestamp_course, self._timestamp_course)
+                        if self._time_slice_count == self._time_slices[self._current_file] or self._count == samples:
+                            # End of a time slice so put in a marker
+                            self._slice_counts[self._current_file] += 1
+                            self._nx_files[self._current_file].event_index_dset.resize((self._slice_counts[self._current_file],))
+                            self._nx_files[self._current_file].event_index_dset[self._slice_counts[self._current_file] - 1] = self._file_counts[self._current_file]
+                            self._nx_files[self._current_file].event_index_dset.flush()
+                            self._nx_files[self._current_file].event_time_zero_dset.resize((self._slice_counts[self._current_file],))
+                            self._nx_files[self._current_file].event_time_zero_dset[self._slice_counts[self._current_file] - 1] = packet.full_timestmap(self._prev_timestamp_course, self._timestamp_course)
 
             else:
                 if packet.ctrl_type == 0x20:  # Extended Time
@@ -108,10 +113,12 @@ class TimepixDataParser(object):
                         # Determine the event type
                         if packet.ctrl_type == 0x21:  # Shutter Open
                             cue_type = 0
-                        if packet.ctrl_type == 0x22:  # Shutter Close
+                        elif packet.ctrl_type == 0x22:  # Shutter Close
                             cue_type = 1
-                        if packet.ctrl_type == 0x23:  # Trigger
+                        elif packet.ctrl_type == 0x23:  # Trigger
                             cue_type = 2
+                        else:  # Other
+                            cue_type = 3
                         self._nx_files[self._current_file].cue_id_dset.resize((self._cue_counts[self._current_file],))
                         self._nx_files[self._current_file].cue_id_dset[self._cue_counts[self._current_file] - 1] = cue_type
                         self._nx_files[self._current_file].cue_timestamp_zero_dset.resize((self._cue_counts[self._current_file],))
