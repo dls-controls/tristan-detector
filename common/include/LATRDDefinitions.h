@@ -103,7 +103,7 @@ namespace LATRD
     return (uint8_t )((headerWord2 & header_packet_ts_number_mask) >> 32);
   }
 
-  static uint8_t get_image_number(uint64_t headerWord2)
+  static uint32_t get_image_number(uint64_t headerWord2)
   {
     // Extract relevant bits to obtain the time slice number
     return (uint32_t )((headerWord2 & header_packet_image_number_mask) >> 32);
