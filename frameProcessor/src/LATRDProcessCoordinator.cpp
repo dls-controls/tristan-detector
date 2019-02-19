@@ -9,11 +9,14 @@
 namespace FrameProcessor {
 static int no_of_job = 0;
     LATRDProcessCoordinator::LATRDProcessCoordinator() :
+    rank_(0),
     current_ts_wrap_(0),
     current_ts_buffer_(0),
     processed_jobs_(0),
     processed_frames_(0),
-    output_frames_(0)
+    output_frames_(0),
+    last_written_ts_index_(0),
+    metaPtr_(0)
     {
         // Setup logging for the class
         logger_ = Logger::getLogger("FP.LATRDProcessCoordinator");
@@ -37,6 +40,8 @@ static int no_of_job = 0;
         ctrlWordBuffer_ = boost::shared_ptr<LATRDBuffer>(new LATRDBuffer(LATRD::frame_size, "cue_id", UINT16_TYPE));
         ctrlTimeStampBuffer_ = boost::shared_ptr<LATRDBuffer>(new LATRDBuffer(LATRD::frame_size, "cue_timestamp_zero", UINT64_TYPE));
 
+        // Initialise the ts index vector
+        ts_index_array_.assign(LATRD::time_slice_write_size * LATRD::number_of_time_slice_buffers, 0);
 
         // Configure threads for processing
         // Now start the worker thread to monitor the queue
@@ -58,6 +63,11 @@ static int no_of_job = 0;
         *output_frames = output_frames_;
     }
 
+    void LATRDProcessCoordinator::register_meta_message_publisher(MetaMessagePublisher *ptr)
+    {
+        metaPtr_ = ptr;
+    }
+
     void LATRDProcessCoordinator::reset_statistics()
     {
         processed_jobs_ = 0;
@@ -72,6 +82,8 @@ static int no_of_job = 0;
 
     void LATRDProcessCoordinator::configure_process(size_t processes, size_t rank)
     {
+        // Record the rank
+        rank_ = rank;
         // Configure each of the buffer objects
         timeStampBuffer_->configureProcess(processes, rank);
         idBuffer_->configureProcess(processes, rank);
@@ -109,6 +121,9 @@ static int no_of_job = 0;
             energyBuffer_->resetFrameNumber();
             ctrlWordBuffer_->resetFrameNumber();
             ctrlTimeStampBuffer_->resetFrameNumber();
+            // Reset the time slice array and counter
+            last_written_ts_index_ = 0;
+            ts_index_array_.assign(LATRD::time_slice_write_size * LATRD::number_of_time_slice_buffers, 0);
         }
         LOG4CXX_DEBUG_LEVEL(2, logger_, "Job stack size: " << jobStack_.size());
         return frames;
@@ -322,6 +337,9 @@ static int no_of_job = 0;
             for (iter = ts_store_.begin(); iter != ts_store_.end();) {
                 // Check for old wraps, return the jobs and delete them
                 if (iter->first < current_ts_wrap_ - 1) {
+                    // Update the time slice information for this wrap
+                    this->update_time_slice_meta_data(iter->first, iter->second->get_all_event_data_counts());
+
                     // This is two or more wraps in the past, so we can clear it out and then delete it
                     std::vector<boost::shared_ptr<LATRDProcessJob> > wrap_jobs = iter->second->empty_all_buffers();
                     jobs.insert(jobs.end(), wrap_jobs.begin(), wrap_jobs.end());
@@ -341,17 +359,102 @@ static int no_of_job = 0;
         return jobs;
     }
 
+    void LATRDProcessCoordinator::update_time_slice_meta_data(uint32_t wrap, std::vector<uint32_t> event_counts)
+    {
+        // Calculate the base index for the time slice array
+        // This is the (wrap number * number of buffers in a wrap) - last written out index
+        uint32_t base_index = (wrap * LATRD::number_of_time_slice_buffers) - last_written_ts_index_;
+        for (int index = 0; index < event_counts.size(); index++){
+            ts_index_array_[base_index] = event_counts[index];
+            base_index++;
+            if (base_index == ts_index_array_.size()){
+                // We have got a full time slice array so publish the array and reset it
+                this->publish_time_slice_meta_data("test", ts_index_array_.size());
+                // Update the last written ts_index value
+                last_written_ts_index_ += (LATRD::time_slice_write_size * LATRD::number_of_time_slice_buffers);
+                ts_index_array_.assign(LATRD::time_slice_write_size * LATRD::number_of_time_slice_buffers, 0);
+            }
+        }
+    }
+
+    void LATRDProcessCoordinator::purge_time_slice_meta_data()
+    {
+        // We only want to purge if there is real data
+        if (last_written_ts_index_ > 0) {
+            // Publish the current array even if it isn't full and then reset it
+            this->publish_time_slice_meta_data("test", ts_index_array_.size());
+            ts_index_array_.assign(LATRD::time_slice_write_size * LATRD::number_of_time_slice_buffers, 0);
+        } else {
+            // If the last written index is 0 check if there are any non zero values
+            uint32_t sum_of_elems = 0;
+            for(std::vector<uint32_t>::iterator it = ts_index_array_.begin(); it != ts_index_array_.end(); ++it){
+                sum_of_elems += *it;
+            }
+            // If there are non zero elements then this must be a valid array of indexes so publish the meta data
+            if (sum_of_elems > 0) {
+                this->publish_time_slice_meta_data("test", ts_index_array_.size());
+                ts_index_array_.assign(LATRD::time_slice_write_size * LATRD::number_of_time_slice_buffers, 0);
+            }
+        }
+    }
+
+    void LATRDProcessCoordinator::publish_time_slice_meta_data(const std::string& acq_id, uint32_t qty_of_ts)
+    {
+        if (metaPtr_){
+            rapidjson::Document meta_document;
+            meta_document.SetObject();
+
+            // Add Acquisition ID
+            rapidjson::Value key_acq_id("acqID", meta_document.GetAllocator());
+            rapidjson::Value value_acq_id;
+            value_acq_id.SetString(acq_id.c_str(), acq_id.size(), meta_document.GetAllocator());
+            meta_document.AddMember(key_acq_id, value_acq_id, meta_document.GetAllocator());
+            // Add rank
+            rapidjson::Value key_rank("rank", meta_document.GetAllocator());
+            rapidjson::Value value_rank;
+            value_rank.SetInt(rank_);
+            meta_document.AddMember(key_rank, value_rank, meta_document.GetAllocator());
+            // Add number of data points
+            rapidjson::Value key_qty("qty", meta_document.GetAllocator());
+            rapidjson::Value value_qty;
+            value_qty.SetInt(qty_of_ts);
+            meta_document.AddMember(key_qty, value_qty, meta_document.GetAllocator());
+            // Add ts index
+            rapidjson::Value key_index("index", meta_document.GetAllocator());
+            rapidjson::Value value_index;
+            value_index.SetInt(last_written_ts_index_);
+            meta_document.AddMember(key_index, value_index, meta_document.GetAllocator());
+
+            rapidjson::StringBuffer buffer;
+            rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+            meta_document.Accept(writer);
+
+            LOG4CXX_ERROR(logger_, "Publishing time slice meta data");
+            metaPtr_->publish_meta("latrd",
+                                   "time_slice",
+                                   ts_index_array_.data(),
+                                   qty_of_ts * sizeof(uint32_t),
+                                   buffer.GetString());
+        }
+    }
+
     std::vector<boost::shared_ptr<LATRDProcessJob> > LATRDProcessCoordinator::purge_remaining_jobs()
     {
         std::vector<boost::shared_ptr<LATRDProcessJob> > jobs;
         // Loop over ts_store_ and return any data from old wraps (more than 1 wrap in the past)
         std::map<uint32_t, boost::shared_ptr<LATRDTimeSliceWrap> >::iterator iter;
         for (iter = ts_store_.begin(); iter != ts_store_.end(); ++iter) {
+            // Update the time slice information for this wrap
+            this->update_time_slice_meta_data(iter->first, iter->second->get_all_event_data_counts());
+
             std::vector<boost::shared_ptr<LATRDProcessJob> > wrap_jobs = iter->second->empty_all_buffers();
             jobs.insert(jobs.end(), wrap_jobs.begin(), wrap_jobs.end());
 //            ts_store_.erase(iter);
         }
         ts_store_.clear();
+
+        // Purge any remaining time slice information
+        this->purge_time_slice_meta_data();
         return jobs;
     }
 
@@ -419,6 +522,11 @@ static int no_of_job = 0;
               }
               catch (LATRDTimestampMismatchException& ex)
               {
+                  //printf("Timestamp mismatch: Word index [%d] Buffer Wrap [%d] Buffer ID [%d] Packet ID: %d\n", index, job->time_slice_wrap, job->time_slice_buffer, job->packet_number);
+                  //printf(" => Current course timestamp: %lX\n", current_course_timestamp);
+                  //printf(" => Previous course timestamp: %lX\n", previous_course_timestamp);
+                  //printf(" => Data word: %lX\n", *data_word_ptr);
+                  //printf(" => Fine Timestamp: %lX\n", getFineTimestamp(*data_word_ptr));
                   job->timestamp_mismatches++;
               }
               data_word_ptr++;
@@ -485,6 +593,9 @@ static int no_of_job = 0;
           *event_ts = getFullTimestmap(data_word, *previous_course_timestamp, *current_course_timestamp);
           *event_energy = getEnergy(data_word);
           *event_id = getPositionID(data_word);
+//          *event_ts = packet_number;
+//          *event_energy = time_slice_wrap;
+//          *event_id = time_slice_buffer;
           event_word = true;
       }
       return event_word;

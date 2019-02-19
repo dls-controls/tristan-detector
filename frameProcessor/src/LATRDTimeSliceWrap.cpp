@@ -52,6 +52,20 @@ namespace FrameProcessor {
         return buffer_store_[buffer_number]->empty();
     }
 
+    std::vector<uint32_t> LATRDTimeSliceWrap::get_all_event_data_counts()
+    {
+        std::vector<uint32_t> event_counts;
+        for (uint32_t index = 0; index < number_of_buffers_; index++) {
+            event_counts.push_back(get_event_data_counts(index));
+        }
+        return event_counts;
+    }
+
+    uint32_t LATRDTimeSliceWrap::get_event_data_counts(uint32_t buffer_number)
+    {
+        return buffer_store_[buffer_number]->no_of_events();
+    }
+
     std::string LATRDTimeSliceWrap::report() {
         // Print a full report of wrap object
         std::stringstream ss;

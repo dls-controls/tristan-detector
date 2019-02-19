@@ -32,6 +32,7 @@ namespace FrameProcessor {
     void add_job(boost::shared_ptr<LATRDProcessJob> job);
     std::vector<boost::shared_ptr<LATRDProcessJob> > empty();
     size_t size();
+    uint32_t no_of_events();
     std::string report();
 
   private:
@@ -39,6 +40,8 @@ namespace FrameProcessor {
     LoggerPtr logger_;
 
     std::map<uint32_t, boost::shared_ptr<LATRDProcessJob> > job_store_;
+
+    uint32_t no_of_events_;
   };
 
 

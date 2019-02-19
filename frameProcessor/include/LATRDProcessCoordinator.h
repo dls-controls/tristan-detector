@@ -22,6 +22,7 @@ using namespace log4cxx::helpers;
 #include <stack>
 
 #include "Frame.h"
+#include "MetaMessagePublisher.h"
 #include "WorkQueue.h"
 #include "LATRDBuffer.h"
 #include "LATRDDefinitions.h"
@@ -36,6 +37,8 @@ namespace FrameProcessor {
     LATRDProcessCoordinator();
 
     virtual ~LATRDProcessCoordinator();
+
+    void register_meta_message_publisher(MetaMessagePublisher *ptr);
 
     void get_statistics(uint32_t *processed_jobs,
                         uint32_t *job_q_size,
@@ -56,6 +59,12 @@ namespace FrameProcessor {
     void frame_to_jobs(boost::shared_ptr<Frame> frame);
 
     std::vector<boost::shared_ptr<LATRDProcessJob> > check_for_data_to_write();
+
+    void update_time_slice_meta_data(uint32_t wrap, std::vector<uint32_t> event_counts);
+
+    void purge_time_slice_meta_data();
+
+    void publish_time_slice_meta_data(const std::string& acq_id, uint32_t qty_of_ts);
 
     std::vector<boost::shared_ptr<LATRDProcessJob> > purge_remaining_jobs();
 
@@ -92,6 +101,9 @@ namespace FrameProcessor {
     /** Pointer to logger */
     LoggerPtr logger_;
 
+    /** Rank of this process coordinator */
+    size_t rank_;
+
     /** Pointer to worker queue thread */
     boost::thread *thread_[LATRD::number_of_processing_threads];
 
@@ -122,6 +134,13 @@ namespace FrameProcessor {
     boost::shared_ptr<LATRDBuffer> ctrlTimeStampBuffer_;
     uint64_t headerWord1;
     uint64_t headerWord2;
+
+    /** Time slice information used for VDS reconstruction */
+    uint32_t last_written_ts_index_;
+    std::vector<uint32_t> ts_index_array_;
+
+    /** Meta data publisher */
+    MetaMessagePublisher *metaPtr_;
 
     /** Status information */
     uint32_t processed_jobs_;
