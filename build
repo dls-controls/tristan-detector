@@ -1,5 +1,5 @@
-PROGRAM=LATRD
-VERSION=0.1.0
+PROGRAM=tristan-detector
+VERSION=0.1.1
 TAR_FILE=none
 
 build()

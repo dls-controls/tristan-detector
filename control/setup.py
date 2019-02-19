@@ -1,4 +1,4 @@
-"""Large Area Time Resolved Detector (LATRD) setuptools based setup module.
+"""Large Area Time Resolved Detector (Tristan) setuptools based setup module.
 Created on 12 January 2017
 @author: Alan Greer
 """
@@ -15,11 +15,11 @@ with open(path.join(rootdir, '../README.md'), encoding='utf-8') as f:
     long_description = f.read()
 
 setup(
-    name='latrd',
+    name='tristan-detector',
 
-    version='0.1.0',
+    version='0.1.1',
 
-    description='A Python based odin-control interface library to the LATRD detector',
+    description='A Python based odin-control interface library to the Tristan detector',
     long_description=long_description,
 
     # The project's main homepage.
@@ -48,7 +48,7 @@ setup(
         'Programming Language :: Python :: 3.3',
         'Programming Language :: Python :: 3.4',
     ],
-    keywords='Timepix LATRD Detector Science',
+    keywords='Timepix Tristan Detector Science',
 
     # Specify the packages that this project provides (using find_packages() for automation)
     packages=find_packages(exclude=['docs', 'sandbox', 'tests*']),
@@ -80,8 +80,8 @@ setup(
     # pip to create the appropriate form of executable for the target platform.
     entry_points={
         'console_scripts': [
-            'latrd_odin=odin.server:main',
-            'latrd-simulator=latrd.detector.control_simulator:main',
+            'tristan_odin=odin.server:main',
+            'tristan-simulator=latrd.detector.control_simulator:main',
             'test-control-interface=latrd.detector.test_control_interface:main',
         ],
     },
