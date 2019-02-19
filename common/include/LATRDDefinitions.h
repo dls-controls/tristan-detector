@@ -30,6 +30,8 @@ namespace LATRD
 
   static const size_t number_of_time_slice_buffers = 4;
 
+  static const size_t time_slice_write_size = 10;
+
   static const size_t frame_size = 524288;  // 4MB / 8 byte values
 
   enum LATRDDataControlType {
