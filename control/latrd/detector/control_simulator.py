@@ -8,6 +8,8 @@ from __future__ import print_function
 import argparse
 import logging
 import time
+import threading
+import subprocess
 from latrd_channel import LATRDChannel
 from latrd_message import LATRDMessageException, LATRDMessage, GetMessage, PutMessage, PostMessage, ResponseMessage
 from latrd_reactor import LATRDReactor
@@ -22,14 +24,16 @@ class LATRDControlSimulator(object):
         self._log = logging.getLogger(".".join([__name__, self.__class__.__name__]))
         self._log.setLevel(logging.DEBUG)
         self._ctrl_channel = None
+        self._script = None
+        self._script_thread = None
         self._type = type
         self._reactor = LATRDReactor()
         self._store = {
             "status":
                 {
+                    "state": "idle",
                     "detector":
                         {
-                            "state": "Idle",
                             "description": "TRISTAN control interface",
                             "serial_number": "0",
                             "software_version": "0.0.1",
@@ -97,6 +101,9 @@ class LATRDControlSimulator(object):
                 }
         }
 
+    def register_script(self, script):
+        self._script = script
+
     def setup_control_channel(self, endpoint):
         self._ctrl_channel = LATRDChannel(LATRDChannel.CHANNEL_TYPE_ROUTER)
         self._ctrl_channel.bind(endpoint)
@@ -142,11 +149,25 @@ class LATRDControlSimulator(object):
 
     def parse_post_msg(self, msg):
         # Nothing to do here, just wait two seconds before replying
-        time.sleep(2.0)
         # Check for the "Run" command.  If it is sent and the simulated script has been supplied then execute it
+        if 'command' in msg.params:
+            if 'arm' == msg.params['command']:
+                self._store['status']['state'] = 'armed'
+            elif 'run' == msg.params['command']:
+                # Execute any run scripts
+                self._store['status']['state'] = 'running'
+                self._script_thread = threading.Thread(target=self.execute_script)
+                self._script_thread.start()
 
         reply = ResponseMessage(msg.msg_id)
         self._ctrl_channel.send(reply)
+
+    def execute_script(self):
+        if self._script is not None:
+            # Execute the script
+            self._log.error("Running script: %s", self._script)
+            subprocess.call(self._script, shell=True)
+        self._store['status']['state'] = 'idle'
 
     def apply_parameters(self, store, key, param):
         if key not in store:
@@ -171,6 +192,7 @@ class LATRDControlSimulator(object):
 def options():
     parser = argparse.ArgumentParser()
     parser.add_argument("-c", "--control", default="tcp://127.0.0.1:7001", help="Control endpoint")
+    parser.add_argument("-s", "--script", default="/home/gnx91527/work/tristan/bin/run_decode_mode_replay")
     args = parser.parse_args()
     return args
 
@@ -180,6 +202,7 @@ def main():
 
     simulator = LATRDControlSimulator()
     simulator.setup_control_channel(args.control)
+    simulator.register_script(args.script)
     simulator.start_reactor()
 
 
