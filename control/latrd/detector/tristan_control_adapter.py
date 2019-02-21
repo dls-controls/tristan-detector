@@ -5,6 +5,8 @@ Created on 1st November 2017
 """
 import json
 import logging
+import time
+import threading
 from latrd_channel import LATRDChannel
 from latrd_message import LATRDMessage, GetMessage, PutMessage, PostMessage
 from odin.adapters.adapter import ApiAdapter, ApiAdapterResponse, request_types, response_types
@@ -158,7 +160,7 @@ class TristanControlAdapter(ApiAdapter):
         'error': ''
     }
 
-    CONFIG_ITEM_LIST = {'exposure_time': float,
+    CONFIG_ITEM_LIST = {'exposure': float,
                         'repeat_interval': float,
                         'frames': int,
                         'frames_per_trigger': int,
@@ -170,8 +172,8 @@ class TristanControlAdapter(ApiAdapter):
 
     STATUS_ITEM_LIST = [
         {
+            "state": None,
             "detector": {
-                "state": None,
                 "description": None,
                 "serial_number": None,
                 "software_version": None,
@@ -201,7 +203,7 @@ class TristanControlAdapter(ApiAdapter):
 
         # Status dictionary read from client
         self._param = {
-            'exposure_time': DoubleParameter('exposure_time', 1.0),
+            'exposure': DoubleParameter('exposure', 1.0),
             'repeat_interval': DoubleParameter('repeat_interal', 1.0),
             'frames': IntegerParameter('frames', 0),
             'frames_per_trigger': IntegerParameter('frames_per_trigger', 0),
@@ -221,6 +223,7 @@ class TristanControlAdapter(ApiAdapter):
         self._update_interval = None
         self._start_time = datetime.now()
         self._username = getpass.getuser()
+        self._comms_lock = threading.RLock()
 
         logging.debug(kwargs)
 
@@ -351,8 +354,25 @@ class TristanControlAdapter(ApiAdapter):
         # Check to see if this is a command
         if 'command' in config_items[0]:
             logging.debug("Command message: %s", config_items[1])
+            # Intercept the start_acquisition command and send arm followed by run
+            if 'start_acquisition' == config_items[1]:
+                # Send an arm command
+                msg = PostMessage()
+                msg.set_param('command', 'arm')
+                reply = self.send_recv(msg)
+                logging.error("Response from detector: %s", reply)
+                # Wait for the mode to become armed
+                # TODO: Wait for the status to become armed
+                #while self._parameters['status']['detector']['state'] != 'armed':
+                time.sleep(5.0)
+                # Send a run command
+                msg = PostMessage()
+                msg.set_param('command', 'run')
+                reply = self.send_recv(msg)
+                logging.error("Response from detector: %s", reply)
+
             msg = PostMessage()
-            msg.set_param('Command', config_items[1])
+            msg.set_param('command', config_items[1])
             logging.debug("Sending message: %s", msg)
             self._detector.send(msg)
             pollevts = self._detector.poll(TristanControlAdapter.DETECTOR_TIMEOUT)
@@ -372,7 +392,7 @@ class TristanControlAdapter(ApiAdapter):
                 msg = PutMessage()
             if 'engineering_get' in config_items[0]:
                 msg = GetMessage()
-            msg.set_param('Config', value_dict)
+            msg.set_param('config', value_dict)
             logging.debug("Sending message: %s", msg)
             self._detector.send(msg)
             pollevts = self._detector.poll(TristanControlAdapter.DETECTOR_TIMEOUT)
@@ -464,6 +484,33 @@ class TristanControlAdapter(ApiAdapter):
         logging.error("Command [%s] parameter dictionary: %s", command, param_dict)
         return command, param_dict
 
+    def send_recv(self, msg):
+        """
+        Send a message and wait for the response
+        :param self:
+        :param msg:
+        :return:
+        """
+        logging.debug("Message Request: %s", msg)
+        reply = None
+        with self._comms_lock:
+            self._detector.send(msg)
+
+            pollevts = self._detector.poll(TristanControlAdapter.DETECTOR_TIMEOUT)
+            if pollevts == LATRDChannel.POLLIN:
+                reply = LATRDMessage.parse_json(self._detector.recv())
+
+            # Try twice more to get the correct reply
+            attempt = 0
+            while reply and reply.msg_id != msg.msg_id and attempt < 2:
+                reply = None
+                attempt += 1
+                pollevts = self._detector.poll(TristanControlAdapter.DETECTOR_TIMEOUT)
+                if pollevts == LATRDChannel.POLLIN:
+                    reply = LATRDMessage.parse_json(self._detector.recv())
+
+        return reply
+
     def update_loop(self):
         """Handle background update loop tasks.
         This method handles background update tasks executed periodically in the tornado
@@ -507,35 +554,14 @@ class TristanControlAdapter(ApiAdapter):
                         self._parameters['status']['detector']['version_check'] = False
 
                     # Set the acquisition state item
-                    if data['status']['detector']['state'] == 'Idle':
+                    if data['status']['state'] == 'idle':
                         self._parameters['status']['acquisition_complete'] = True
             else:
                 self._parameters['status']['connected'] = False
                 self._parameters['status']['detector']['version_check'] = False
+            logging.debug("self._parameters: %s", self._parameters)
             self._parameters['status'].update(self.CORE_STATUS_LIST)
 
-            # Detector status message
-#            msg = GetMessage()
-#            msg.set_param('Status', None)
-#            logging.debug("Message Request: %s", msg)
-#            self._detector.send(msg)
-#
-#            pollevts = self._detector.poll(TristanControlAdapter.DETECTOR_TIMEOUT)
-#            reply = None
-#            if pollevts == LATRDChannel.POLLIN:
-#                reply = LATRDMessage.parse_json(self._detector.recv())
-#
-#            while reply and reply.msg_id != msg.msg_id:
-#                pollevts = self._detector.poll(TristanControlAdapter.DETECTOR_TIMEOUT)
-#                reply = None
-#                if pollevts == LATRDChannel.POLLIN:
-#                    reply = LATRDMessage.parse_json(self._detector.recv())
-#
-#            if reply:
-#                logging.debug("Raw reply: %s", reply)
-#                if LATRDMessage.MSG_TYPE_RESPONSE in reply.msg_type:
-#                    data = reply.data
-#                    self._parameters['status']['State'] = data['Status']
 
             config_dict = {}
             for item in TristanControlAdapter.CONFIG_ITEM_LIST:
