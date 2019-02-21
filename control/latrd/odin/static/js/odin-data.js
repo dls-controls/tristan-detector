@@ -81,23 +81,23 @@ $( document ).ready(function()
   });
 
   $('#detector-arm-cmd').click(function(){
-    ctrl_command('Arm');
+    ctrl_command('arm');
   });
 
   $('#detector-run-cmd').click(function(){
-    ctrl_command('Run');
+    ctrl_command('run');
   });
 
   $('#detector-stop-cmd').click(function(){
-    ctrl_command('Stop');
+    ctrl_command('stop');
   });
 
   $('#detector-abort-cmd').click(function(){
-    ctrl_command('Abort');
+    ctrl_command('abort');
   });
 
   $('#detector-dac-scan-cmd').click(function(){
-    ctrl_command('DAC_scan');
+    ctrl_command('dac_scan');
   });
 
   $('#detector-config-put-cmd').click(function(){
@@ -151,17 +151,17 @@ function process_cmd_response(response)
 
 function update_exposure() {
     set_value = $('#set-hw-exposure').val();
-    $.put('/api/' + odin_data.api_version + '/' + odin_data.ctrl_name + '/config/exposure_time/' + set_value, process_cmd_response);
+    $.put('/api/' + odin_data.api_version + '/' + odin_data.ctrl_name + '/config/exposure/' + set_value, process_cmd_response);
 }
 
 function update_frames() {
     set_value = $('#set-hw-frames').val();
-    $.put('/api/' + odin_data.api_version + '/' + odin_data.ctrl_name + '/config/Frames/' + set_value, process_cmd_response);
+    $.put('/api/' + odin_data.api_version + '/' + odin_data.ctrl_name + '/config/frames/' + set_value, process_cmd_response);
 }
 
 function update_frames_per_trigger() {
     set_value = $('#set-hw-frames-per-trigger').val();
-    $.put('/api/' + odin_data.api_version + '/' + odin_data.ctrl_name + '/config/Frames_Per_Trigger/' + set_value, process_cmd_response);
+    $.put('/api/' + odin_data.api_version + '/' + odin_data.ctrl_name + '/config/frames_per_trigger/' + set_value, process_cmd_response);
 }
 
 function update_mode() {
@@ -504,7 +504,7 @@ function update_detector_status() {
             $('#detector-hw-description').html(response['value']);
         }
     });
-    $.getJSON('/api/' + odin_data.api_version + '/' + odin_data.ctrl_name + '/config/exposure_time', function(response) {
+    $.getJSON('/api/' + odin_data.api_version + '/' + odin_data.ctrl_name + '/config/exposure', function(response) {
         //alert(JSON.stringify(response));
         if (odin_data.ctrl_connected){
             $('#detector-hw-exposure').html(response['value']);
@@ -530,7 +530,7 @@ function update_detector_status() {
             $('#detector-hw-profile').html(response['value']);
         }
     });
-    $.getJSON('/api/' + odin_data.api_version + '/' + odin_data.ctrl_name + '/status/detector/state', function(response) {
+    $.getJSON('/api/' + odin_data.api_version + '/' + odin_data.ctrl_name + '/status/state', function(response) {
         if (odin_data.ctrl_connected){
             $('#detector-hw-state').html(response['value']);
         }
