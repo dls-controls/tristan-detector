@@ -81,7 +81,7 @@ setup(
     entry_points={
         'console_scripts': [
             'tristan_odin=odin.server:main',
-            'tristan-simulator=latrd.detector.control_simulator:main',
+            'tristan_simulator=latrd.detector.control_simulator:main',
             'test-control-interface=latrd.detector.test_control_interface:main',
         ],
     },
