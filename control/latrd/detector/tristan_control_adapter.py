@@ -256,7 +256,13 @@ class TristanControlAdapter(ApiAdapter):
         self._update_interval = float(self.options.get('update_interval', 0.5))
         self._kwargs['update_interval'] = self._update_interval
         # Start up the status loop
-        self.update_loop()
+        self._executing_updates = True
+        self._update_time = datetime.now()
+        self._status_thread = threading.Thread(target=self.update_loop)
+        self._status_thread.start()
+
+    def cleanup(self):
+        self._executing_updates = False
 
     @request_types('application/json')
     @response_types('application/json', default='application/json')
@@ -513,96 +519,95 @@ class TristanControlAdapter(ApiAdapter):
 
     def update_loop(self):
         """Handle background update loop tasks.
-        This method handles background update tasks executed periodically in the tornado
-        IOLoop instance. This includes requesting the status from the underlying application
+        This method handles background update tasks executed periodically in a thread
+        This includes requesting the status from the underlying application
         and preparing the JSON encoded reply in a format that can be easily parsed.
         """
+        while self._executing_updates:
+            if (datetime.now() - self._update_time).seconds > self._update_interval:
+                self._update_time = datetime.now()
+                try:
+                    logging.debug("Updating status from detector...")
+                    # Update server uptime
+                    self._kwargs['up_time'] = str(datetime.now() - self._start_time)
 
-        try:
-            logging.debug("Updating status from detector...")
-            # Update server uptime
-            self._kwargs['up_time'] = str(datetime.now() - self._start_time)
+                    #status_dict = {}
+                    #for item in TristanControlAdapter.STATUS_ITEM_LIST:
+                    #    status_dict[item] = None
+                    msg = GetMessage()
+                    msg.set_param('status', TristanControlAdapter.STATUS_ITEM_LIST)
+                    logging.debug("Message Request: %s", msg)
+                    self._detector.send(msg)
 
-            #status_dict = {}
-            #for item in TristanControlAdapter.STATUS_ITEM_LIST:
-            #    status_dict[item] = None
-            msg = GetMessage()
-            msg.set_param('status', TristanControlAdapter.STATUS_ITEM_LIST)
-            logging.debug("Message Request: %s", msg)
-            self._detector.send(msg)
+                    pollevts = self._detector.poll(TristanControlAdapter.DETECTOR_TIMEOUT)
+                    reply = None
+                    if pollevts == LATRDChannel.POLLIN:
+                        reply = LATRDMessage.parse_json(self._detector.recv())
 
-            pollevts = self._detector.poll(TristanControlAdapter.DETECTOR_TIMEOUT)
-            reply = None
-            if pollevts == LATRDChannel.POLLIN:
-                reply = LATRDMessage.parse_json(self._detector.recv())
+                    while reply and reply.msg_id != msg.msg_id:
+                        pollevts = self._detector.poll(TristanControlAdapter.DETECTOR_TIMEOUT)
+                        reply = None
+                        if pollevts == LATRDChannel.POLLIN:
+                            reply = LATRDMessage.parse_json(self._detector.recv())
 
-            while reply and reply.msg_id != msg.msg_id:
-                pollevts = self._detector.poll(TristanControlAdapter.DETECTOR_TIMEOUT)
-                reply = None
-                if pollevts == LATRDChannel.POLLIN:
-                    reply = LATRDMessage.parse_json(self._detector.recv())
+                    if reply:
+                        logging.debug("Raw reply: %s", reply)
+                        if LATRDMessage.MSG_TYPE_RESPONSE in reply.msg_type:
+                            data = reply.data
+                            self._parameters['status'] = data['status']
+                            self._parameters['status']['connected'] = True
+                            if self._firmware == self._parameters['status']['detector']['software_version']:
+                                self._parameters['status']['detector']['version_check'] = True
+                            else:
+                                self._parameters['status']['detector']['version_check'] = False
 
-            if reply:
-                logging.debug("Raw reply: %s", reply)
-                if LATRDMessage.MSG_TYPE_RESPONSE in reply.msg_type:
-                    data = reply.data
-                    self._parameters['status'] = data['status']
-                    self._parameters['status']['connected'] = True
-                    if self._firmware == self._parameters['status']['detector']['software_version']:
-                        self._parameters['status']['detector']['version_check'] = True
+                            # Set the acquisition state item
+                            if data['status']['state'] == 'idle':
+                                self._parameters['status']['acquisition_complete'] = True
                     else:
+                        self._parameters['status']['connected'] = False
                         self._parameters['status']['detector']['version_check'] = False
-
-                    # Set the acquisition state item
-                    if data['status']['state'] == 'idle':
-                        self._parameters['status']['acquisition_complete'] = True
-            else:
-                self._parameters['status']['connected'] = False
-                self._parameters['status']['detector']['version_check'] = False
-            logging.debug("self._parameters: %s", self._parameters)
-            self._parameters['status'].update(self.CORE_STATUS_LIST)
+                    logging.debug("self._parameters: %s", self._parameters)
+                    self._parameters['status'].update(self.CORE_STATUS_LIST)
 
 
-            config_dict = {}
-            for item in TristanControlAdapter.CONFIG_ITEM_LIST:
-                config_dict[item] = None
-            msg = GetMessage()
-            msg.set_param('config', config_dict)
-            logging.debug("Message Request: %s", msg)
-            self._detector.send(msg)
+                    config_dict = {}
+                    for item in TristanControlAdapter.CONFIG_ITEM_LIST:
+                        config_dict[item] = None
+                    msg = GetMessage()
+                    msg.set_param('config', config_dict)
+                    logging.debug("Message Request: %s", msg)
+                    self._detector.send(msg)
 
-            pollevts = self._detector.poll(TristanControlAdapter.DETECTOR_TIMEOUT)
-            reply = None
-            if pollevts == LATRDChannel.POLLIN:
-                reply = LATRDMessage.parse_json(self._detector.recv())
+                    pollevts = self._detector.poll(TristanControlAdapter.DETECTOR_TIMEOUT)
+                    reply = None
+                    if pollevts == LATRDChannel.POLLIN:
+                        reply = LATRDMessage.parse_json(self._detector.recv())
 
-            while reply and reply.msg_id != msg.msg_id:
-                pollevts = self._detector.poll(TristanControlAdapter.DETECTOR_TIMEOUT)
-                reply = None
-                if pollevts == LATRDChannel.POLLIN:
-                    reply = LATRDMessage.parse_json(self._detector.recv())
+                    while reply and reply.msg_id != msg.msg_id:
+                        pollevts = self._detector.poll(TristanControlAdapter.DETECTOR_TIMEOUT)
+                        reply = None
+                        if pollevts == LATRDChannel.POLLIN:
+                            reply = LATRDMessage.parse_json(self._detector.recv())
 
-            if reply:
-                logging.debug("Raw reply: %s", reply)
-                logging.debug("TESTING: %s", reply)
-                if LATRDMessage.MSG_TYPE_RESPONSE in reply.msg_type:
-                    data = reply.data['config']
-                    logging.debug("Reply data: %s", data)
-                    for item in data:
-                        logging.debug("Setting parameter for data item: %s", item)
-                        if item in self._param:
-                            logging.debug("Setting value to: %s", str(data[item]))
-                            self._param[item].set_value(data[item])
-                    # Translate config strings to enum IDs.
-#                    if 'mode' in data['config']:
-#                        data['config']['mode'] = ModeType[data['config']['mode']].value
-                    self._parameters['config'] = data['config']
+                    if reply:
+                        logging.debug("Raw reply: %s", reply)
+                        logging.debug("TESTING: %s", reply)
+                        if LATRDMessage.MSG_TYPE_RESPONSE in reply.msg_type:
+                            data = reply.data['config']
+                            logging.debug("Reply data: %s", data)
+                            for item in data:
+                                logging.debug("Setting parameter for data item: %s", item)
+                                if item in self._param:
+                                    logging.debug("Setting value to: %s", str(data[item]))
+                                    self._param[item].set_value(data[item])
+                            # Translate config strings to enum IDs.
+        #                    if 'mode' in data['config']:
+        #                        data['config']['mode'] = ModeType[data['config']['mode']].value
+                            #self._parameters['config'] = data['config']
 
-            logging.debug("Status items: %s", self._parameters)
-            logging.debug("Config parameters: %s", self._param)
+                    logging.debug("Status items: %s", self._parameters)
+                    logging.debug("Config parameters: %s", self._param)
 
-        except:
-            pass
-
-        # Schedule the update loop to run in the IOLoop instance again after appropriate interval
-        IOLoop.instance().call_later(self._update_interval, self.update_loop)
+                except Exception as ex:
+                    logging.error("Excecption: %s", ex)
