@@ -78,15 +78,14 @@ class LATRDControlSimulator(object):
                 },
             "config":
                 {
-                    "state": "Idle",
-                    "exposure_time": 0.0,
+                    "exposure": 0.0,
                     "gap": 0.0,
                     "repeat_interval": 0.0,
                     "frames": 0,
                     "frames_per_trigger": 0,
                     "n_trigger": 0,
-                    "mode": "Time_Energy",
-                    "profile": "Standard",
+                    "mode": "time_energy",
+                    "profile": "standard",
                     "threshold": 5.2,
                     "timeslice":
                         {
