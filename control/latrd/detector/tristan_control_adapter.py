@@ -64,7 +64,7 @@ class Parameter(object):
         return_value = {'value': self._value,
                         'type': self._datatype.value
                         }
-        logging.error("Parameter return_value: %s", return_value)
+        logging.debug("Parameter return_value: %s", return_value)
         return return_value
 
     def set_value(self, value, callback=True):
@@ -94,13 +94,13 @@ class EnumParameter(Parameter):
         return return_value
 
     def set_value(self, value, callback=True):
-        logging.error("enum set_value called with: %s", value)
+        logging.debug("enum set_value called with: %s", value)
         # Call super set with the name of the enum type
         if isinstance(value, EnumParameter):
-            logging.error("value considered an enum")
+            logging.debug("value considered an enum")
             super(EnumParameter, self).set_value(value.name, callback)
         else:
-            logging.error("value is a string")
+            logging.debug("value is a string")
             super(EnumParameter, self).set_value(value, callback)
 
     @property
@@ -150,6 +150,8 @@ class TristanControlAdapter(ApiAdapter):
     transforming the REST-like API HTTP verbs into the appropriate Tristan ZeroMQ control messages
     """
     ADODIN_MAPPING = {
+        'config/exposure_time': 'config/exposure',
+        'config/num_images': 'config/frames',
         'status/sensor/width': 'status/detector/x_pixels_in_detector',
         'status/sensor/height': 'status/detector/y_pixels_in_detector'
     }
@@ -277,8 +279,8 @@ class TristanControlAdapter(ApiAdapter):
         """
         status_code = 200
         response = {}
-        logging.error("GET path: %s", path)
-        logging.error("GET request: %s", request)
+        logging.debug("GET path: %s", path)
+        logging.debug("GET request: %s", request)
 
         # Check if the adapter type is being requested
         request_command = path.strip('/')
@@ -334,7 +336,7 @@ class TristanControlAdapter(ApiAdapter):
                 status_code = 503
                 response['error'] = TristanControlAdapter.ERROR_FAILED_GET
 
-        logging.error("Full response from FP: %s", response)
+        logging.debug("Full response from FP: %s", response)
 
         return ApiAdapterResponse(response, status_code=status_code)
 
@@ -356,6 +358,8 @@ class TristanControlAdapter(ApiAdapter):
         logging.debug("PUT body: %s", request.body)
 
         request_command = path.strip('/')
+        if request_command in self.ADODIN_MAPPING:
+            request_command = self.ADODIN_MAPPING[request_command]
         config_items = request_command.split('/')
         # Check to see if this is a command
         if 'command' in config_items[0]:
@@ -366,26 +370,23 @@ class TristanControlAdapter(ApiAdapter):
                 msg = PostMessage()
                 msg.set_param('command', 'arm')
                 reply = self.send_recv(msg)
-                logging.error("Response from detector: %s", reply)
-                # Wait for the mode to become armed
-                # TODO: Wait for the status to become armed
-                #while self._parameters['status']['detector']['state'] != 'armed':
-                time.sleep(5.0)
+                # Wait for the status to become armed
+                while self._parameters['status']['state'] != 'armed':
+                    time.sleep(0.2)
                 # Send a run command
                 msg = PostMessage()
                 msg.set_param('command', 'run')
-                reply = self.send_recv(msg)
-                logging.error("Response from detector: %s", reply)
+                with self._comms_lock:
+                    reply = self.send_recv(msg)
+                    # Once the reply has been received set the acquisition status to active
+                    self._parameters['status']['acquisition_complete'] = False
+                response['reply'] = str(reply)
 
-            msg = PostMessage()
-            msg.set_param('command', config_items[1])
-            logging.debug("Sending message: %s", msg)
-            self._detector.send(msg)
-            pollevts = self._detector.poll(TristanControlAdapter.DETECTOR_TIMEOUT)
-            reply = None
-            if pollevts == LATRDChannel.POLLIN:
-                reply = LATRDMessage.parse_json(self._detector.recv())
-            logging.debug("Reply: %s", reply)
+            else:
+                msg = PostMessage()
+                msg.set_param('command', config_items[1])
+                reply = self.send_recv(msg)
+                response['reply'] = str(reply)
 
         if 'engineering' in config_items[0]:
             # This is a special command that allows an arbitrary JSON object to be sent to the hardware
@@ -399,29 +400,18 @@ class TristanControlAdapter(ApiAdapter):
             if 'engineering_get' in config_items[0]:
                 msg = GetMessage()
             msg.set_param('config', value_dict)
-            logging.debug("Sending message: %s", msg)
-            self._detector.send(msg)
-            pollevts = self._detector.poll(TristanControlAdapter.DETECTOR_TIMEOUT)
-            reply = None
-            if pollevts == LATRDChannel.POLLIN:
-                reply = LATRDMessage.parse_json(self._detector.recv())
-            logging.debug("Reply: %s", reply)
+            reply = self.send_recv(msg)
             response['reply'] = str(reply)
 
         # Verify that config[0] is a config item
         if 'config' in config_items[0]:
             command, value_dict = self.uri_params_to_dictionary(request_command, request)
 
-            logging.error("Config dict: %s", value_dict)
+            logging.debug("Config dict: %s", value_dict)
             msg = PutMessage()
             msg.set_param('config', value_dict)
-            logging.debug("Sending message: %s", msg)
-            self._detector.send(msg)
-            pollevts = self._detector.poll(TristanControlAdapter.DETECTOR_TIMEOUT)
-            reply = None
-            if pollevts == LATRDChannel.POLLIN:
-                reply = LATRDMessage.parse_json(self._detector.recv())
-            logging.debug("Reply: %s", reply)
+            reply = self.send_recv(msg)
+            response['reply'] = str(reply)
 
         return ApiAdapterResponse(response, status_code=status_code)
 
@@ -497,7 +487,7 @@ class TristanControlAdapter(ApiAdapter):
         :param msg:
         :return:
         """
-        logging.debug("Message Request: %s", msg)
+        logging.error("Message Request: %s", msg)
         reply = None
         with self._comms_lock:
             self._detector.send(msg)
@@ -515,6 +505,7 @@ class TristanControlAdapter(ApiAdapter):
                 if pollevts == LATRDChannel.POLLIN:
                     reply = LATRDMessage.parse_json(self._detector.recv())
 
+        logging.error("Reply: %s", reply)
         return reply
 
     def update_loop(self):
@@ -524,90 +515,61 @@ class TristanControlAdapter(ApiAdapter):
         and preparing the JSON encoded reply in a format that can be easily parsed.
         """
         while self._executing_updates:
+            time.sleep(0.1)
             if (datetime.now() - self._update_time).seconds > self._update_interval:
                 self._update_time = datetime.now()
                 try:
-                    logging.debug("Updating status from detector...")
-                    # Update server uptime
-                    self._kwargs['up_time'] = str(datetime.now() - self._start_time)
+                    with self._comms_lock:
+                        logging.debug("Updating status from detector...")
+                        # Update server uptime
+                        self._kwargs['up_time'] = str(datetime.now() - self._start_time)
 
-                    #status_dict = {}
-                    #for item in TristanControlAdapter.STATUS_ITEM_LIST:
-                    #    status_dict[item] = None
-                    msg = GetMessage()
-                    msg.set_param('status', TristanControlAdapter.STATUS_ITEM_LIST)
-                    logging.debug("Message Request: %s", msg)
-                    self._detector.send(msg)
+                        msg = GetMessage()
+                        msg.set_param('status', TristanControlAdapter.STATUS_ITEM_LIST)
+                        reply = self.send_recv(msg)
 
-                    pollevts = self._detector.poll(TristanControlAdapter.DETECTOR_TIMEOUT)
-                    reply = None
-                    if pollevts == LATRDChannel.POLLIN:
-                        reply = LATRDMessage.parse_json(self._detector.recv())
+                        if reply:
+                            logging.debug("Raw reply: %s", reply)
+                            if LATRDMessage.MSG_TYPE_RESPONSE in reply.msg_type:
+                                data = reply.data
+                                self._parameters['status'] = data['status']
+                                self._parameters['status']['connected'] = True
+                                if self._firmware == self._parameters['status']['detector']['software_version']:
+                                    self._parameters['status']['detector']['version_check'] = True
+                                else:
+                                    self._parameters['status']['detector']['version_check'] = False
 
-                    while reply and reply.msg_id != msg.msg_id:
-                        pollevts = self._detector.poll(TristanControlAdapter.DETECTOR_TIMEOUT)
-                        reply = None
-                        if pollevts == LATRDChannel.POLLIN:
-                            reply = LATRDMessage.parse_json(self._detector.recv())
-
-                    if reply:
-                        logging.debug("Raw reply: %s", reply)
-                        if LATRDMessage.MSG_TYPE_RESPONSE in reply.msg_type:
-                            data = reply.data
-                            self._parameters['status'] = data['status']
-                            self._parameters['status']['connected'] = True
-                            if self._firmware == self._parameters['status']['detector']['software_version']:
-                                self._parameters['status']['detector']['version_check'] = True
-                            else:
-                                self._parameters['status']['detector']['version_check'] = False
-
-                            # Set the acquisition state item
-                            if data['status']['state'] == 'idle':
-                                self._parameters['status']['acquisition_complete'] = True
-                    else:
-                        self._parameters['status']['connected'] = False
-                        self._parameters['status']['detector']['version_check'] = False
-                    logging.debug("self._parameters: %s", self._parameters)
-                    self._parameters['status'].update(self.CORE_STATUS_LIST)
+                                # Set the acquisition state item
+                                if data['status']['state'] == 'idle':
+                                    self._parameters['status']['acquisition_complete'] = True
+                        else:
+                            self._parameters['status']['connected'] = False
+                            self._parameters['status']['detector']['version_check'] = False
+                        logging.debug("self._parameters: %s", self._parameters)
+                        self._parameters['status'].update(self.CORE_STATUS_LIST)
 
 
-                    config_dict = {}
-                    for item in TristanControlAdapter.CONFIG_ITEM_LIST:
-                        config_dict[item] = None
-                    msg = GetMessage()
-                    msg.set_param('config', config_dict)
-                    logging.debug("Message Request: %s", msg)
-                    self._detector.send(msg)
+                        config_dict = {}
+                        for item in TristanControlAdapter.CONFIG_ITEM_LIST:
+                            config_dict[item] = None
+                        msg = GetMessage()
+                        msg.set_param('config', config_dict)
+                        reply = self.send_recv(msg)
 
-                    pollevts = self._detector.poll(TristanControlAdapter.DETECTOR_TIMEOUT)
-                    reply = None
-                    if pollevts == LATRDChannel.POLLIN:
-                        reply = LATRDMessage.parse_json(self._detector.recv())
+                        if reply:
+                            logging.debug("Raw reply: %s", reply)
+                            logging.debug("TESTING: %s", reply)
+                            if LATRDMessage.MSG_TYPE_RESPONSE in reply.msg_type:
+                                data = reply.data['config']
+                                logging.debug("Reply data: %s", data)
+                                for item in data:
+                                    logging.debug("Setting parameter for data item: %s", item)
+                                    if item in self._param:
+                                        logging.debug("Setting value to: %s", str(data[item]))
+                                        self._param[item].set_value(data[item])
 
-                    while reply and reply.msg_id != msg.msg_id:
-                        pollevts = self._detector.poll(TristanControlAdapter.DETECTOR_TIMEOUT)
-                        reply = None
-                        if pollevts == LATRDChannel.POLLIN:
-                            reply = LATRDMessage.parse_json(self._detector.recv())
-
-                    if reply:
-                        logging.debug("Raw reply: %s", reply)
-                        logging.debug("TESTING: %s", reply)
-                        if LATRDMessage.MSG_TYPE_RESPONSE in reply.msg_type:
-                            data = reply.data['config']
-                            logging.debug("Reply data: %s", data)
-                            for item in data:
-                                logging.debug("Setting parameter for data item: %s", item)
-                                if item in self._param:
-                                    logging.debug("Setting value to: %s", str(data[item]))
-                                    self._param[item].set_value(data[item])
-                            # Translate config strings to enum IDs.
-        #                    if 'mode' in data['config']:
-        #                        data['config']['mode'] = ModeType[data['config']['mode']].value
-                            #self._parameters['config'] = data['config']
-
-                    logging.debug("Status items: %s", self._parameters)
-                    logging.debug("Config parameters: %s", self._param)
+                        logging.debug("Status items: %s", self._parameters)
+                        logging.debug("Config parameters: %s", self._param)
 
                 except Exception as ex:
                     logging.error("Excecption: %s", ex)
