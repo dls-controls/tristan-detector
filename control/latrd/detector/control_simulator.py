@@ -122,10 +122,10 @@ class LATRDControlSimulator(object):
             self.parse_get_msg(msg, id)
         elif isinstance(msg, PutMessage):
             self._log.debug("Received PutMessage, parsing...")
-            self.parse_put_msg(msg)
+            self.parse_put_msg(msg, id)
         elif isinstance(msg, PostMessage):
             self._log.debug("Received PostMessage, parsing...")
-            self.parse_post_msg(msg)
+            self.parse_post_msg(msg, id)
         else:
             raise LATRDMessageException("Unknown message type received")
 
@@ -137,16 +137,16 @@ class LATRDControlSimulator(object):
         reply = ResponseMessage(msg.msg_id, values, ResponseMessage.RESPONSE_OK)
         self._ctrl_channel.send_multi([send_id, reply])
 
-    def parse_put_msg(self, msg):
+    def parse_put_msg(self, msg, send_id):
         # Retrieve the parameters and merge them with the store
         params = msg.params
         for key in params:
             self.apply_parameters(self._store, key, params[key])
         self._log.debug("Updated parameter Store: %s", self._store)
         reply = ResponseMessage(msg.msg_id)
-        self._ctrl_channel.send(reply)
+        self._ctrl_channel.send_multi([send_id, reply])
 
-    def parse_post_msg(self, msg):
+    def parse_post_msg(self, msg, send_id):
         # Nothing to do here, just wait two seconds before replying
         # Check for the "Run" command.  If it is sent and the simulated script has been supplied then execute it
         if 'command' in msg.params:
@@ -159,7 +159,7 @@ class LATRDControlSimulator(object):
                 self._script_thread.start()
 
         reply = ResponseMessage(msg.msg_id)
-        self._ctrl_channel.send(reply)
+        self._ctrl_channel.send_multi([send_id, reply])
 
     def execute_script(self):
         if self._script is not None:
