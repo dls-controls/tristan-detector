@@ -20,19 +20,19 @@ import getpass
 class ModeType(Enum):
     """Enumeration of operational modes
     """
-    Time_Energy = 0
-    Time_Only = 1
-    Count = 2
+    time_energy = 0
+    time_only = 1
+    count = 2
 
 
 class ProfileType(Enum):
     """Enumeration of operational modes
     """
-    Standard = 0
-    Fast = 1
-    Energy = 2
-    User = 3
-    Current = 4
+    standard = 0
+    fast = 1
+    energy = 2
+    user = 3
+    current = 4
 
 
 class ParameterType(Enum):
@@ -153,7 +153,8 @@ class TristanControlAdapter(ApiAdapter):
         'config/exposure_time': 'config/exposure',
         'config/num_images': 'config/frames',
         'status/sensor/width': 'status/detector/x_pixels_in_detector',
-        'status/sensor/height': 'status/detector/y_pixels_in_detector'
+        'status/sensor/height': 'status/detector/y_pixels_in_detector',
+        'status/sensor/bytes': 'status/detector/bytes'
     }
 
     CORE_STATUS_LIST = {
@@ -212,10 +213,10 @@ class TristanControlAdapter(ApiAdapter):
             'n_trigger': IntegerParameter('n_trigger', 0),
             'threshold': StringParameter('threshold', ''),
             'mode': EnumParameter('mode',
-                                  ModeType.Time_Energy.name,
+                                  ModeType.time_energy.name,
                                   [e.name for e in ModeType]),
             'profile': EnumParameter('profile',
-                                     ProfileType.Energy.name,
+                                     ProfileType.energy.name,
                                      [e.name for e in ProfileType])
         }
         self._parameters = {}
@@ -533,6 +534,12 @@ class TristanControlAdapter(ApiAdapter):
                             if LATRDMessage.MSG_TYPE_RESPONSE in reply.msg_type:
                                 data = reply.data
                                 self._parameters['status'] = data['status']
+                                if 'detector' in self._parameters['status']:
+                                    if 'x_pixels_in_detector' in self._parameters['status']['detector'] and \
+                                            'y_pixels_in_detector' in self._parameters['status']['detector']:
+                                        x_pixels = self._parameters['status']['detector']['x_pixels_in_detector']
+                                        y_pixels = self._parameters['status']['detector']['y_pixels_in_detector']
+                                        self._parameters['status']['detector']['bytes'] = x_pixels * y_pixels * 2
                                 self._parameters['status']['connected'] = True
                                 if self._firmware == self._parameters['status']['detector']['software_version']:
                                     self._parameters['status']['detector']['version_check'] = True
@@ -572,4 +579,4 @@ class TristanControlAdapter(ApiAdapter):
                         logging.debug("Config parameters: %s", self._param)
 
                 except Exception as ex:
-                    logging.error("Excecption: %s", ex)
+                    logging.error("Exception: %s", ex)
