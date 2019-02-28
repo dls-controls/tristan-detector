@@ -8,6 +8,7 @@
 #include <LATRDDefinitions.h>
 #include "LATRDProcessPlugin.h"
 #include "DebugLevelLogger.h"
+#include "version.h"
 
 namespace FrameProcessor
 {
@@ -52,21 +53,8 @@ const std::string LATRDProcessPlugin::CONFIG_SENSOR_HEIGHT       = "height";
     integral_.init(sensor_width_, sensor_height_);
     integral_.reset_image();
 
-    // Create the work queue for processing jobs
-//    jobQueue_ = boost::shared_ptr<WorkQueue<boost::shared_ptr<LATRDProcessJob> > >(new WorkQueue<boost::shared_ptr<LATRDProcessJob> >);
-    // Create the work queue for completed jobs
-//    resultsQueue_ = boost::shared_ptr<WorkQueue<boost::shared_ptr<LATRDProcessJob> > >(new WorkQueue<boost::shared_ptr<LATRDProcessJob> >);
-
-    // Create a stack of process job objects ready to work
-//    for (int index = 0; index < LATRD::num_primary_packets*2; index++){
-//    	jobStack_.push(boost::shared_ptr<LATRDProcessJob>(new LATRDProcessJob(LATRD::primary_packet_size/sizeof(uint64_t))));
-//    }
-
     // Create the buffer managers
     rawBuffer_ = boost::shared_ptr<LATRDBuffer>(new LATRDBuffer(LATRD::frame_size, "raw_data", UINT64_TYPE));
-//    timeStampBuffer_ = boost::shared_ptr<LATRDBuffer>(new LATRDBuffer(LATRD::frame_size, "event_time_offset", UINT64_TYPE));
-//    idBuffer_ = boost::shared_ptr<LATRDBuffer>(new LATRDBuffer(LATRD::frame_size, "event_id", UINT32_TYPE));
-//    energyBuffer_ = boost::shared_ptr<LATRDBuffer>(new LATRDBuffer(LATRD::frame_size, "event_energy", UINT32_TYPE));
 
     // Create the meta header document
 //    this->createMetaHeader();
@@ -74,7 +62,7 @@ const std::string LATRDProcessPlugin::CONFIG_SENSOR_HEIGHT       = "height";
     // Register this parent as a meta message publisher with the coordinator class
     coordinator_.register_meta_message_publisher(this);
 
-  LOG4CXX_DEBUG_LEVEL(1, logger_, "Completed LATRDProcessPlugin constructor.");
+  LOG4CXX_INFO(logger_, "LATRDProcessPlugin version " << this->get_version_long() << " loaded");
 }
 
 LATRDProcessPlugin::~LATRDProcessPlugin()
@@ -373,34 +361,54 @@ bool LATRDProcessPlugin::reset_statistics()
     return true;
 }
 
+/**
+  * Get the plugin major version number.
+  *
+  * \return major version number as an integer
+  */
 int LATRDProcessPlugin::get_version_major()
 {
-  // TOOD: This is a placeholder for when version information is added
-  return 0;
+  return ODIN_DATA_VERSION_MAJOR;
 }
 
+/**
+  * Get the plugin minor version number.
+  *
+  * \return minor version number as an integer
+  */
 int LATRDProcessPlugin::get_version_minor()
 {
-  // TOOD: This is a placeholder for when version information is added
-  return 0;
+  return ODIN_DATA_VERSION_MINOR;
 }
 
+/**
+  * Get the plugin patch version number.
+  *
+  * \return patch version number as an integer
+  */
 int LATRDProcessPlugin::get_version_patch()
 {
-  // TOOD: This is a placeholder for when version information is added
-  return 0;
+  return ODIN_DATA_VERSION_PATCH;
 }
 
+/**
+  * Get the plugin short version (e.g. x.y.z) string.
+  *
+  * \return short version as a string
+  */
 std::string LATRDProcessPlugin::get_version_short()
 {
-  // TOOD: This is a placeholder for when version information is added
-  return "0.0.0";
+  return ODIN_DATA_VERSION_STR_SHORT;
 }
 
+/**
+  * Get the plugin long version (e.g. x.y.z-qualifier) string.
+  *
+  * \return long version as a string
+  */
 std::string LATRDProcessPlugin::get_version_long()
 {
-  // TOOD: This is a placeholder for when version information is added
-  return "0.0.0";
+  return ODIN_DATA_VERSION_STR;
 }
 
 } /* namespace FrameProcesser */

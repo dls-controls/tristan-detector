@@ -7,6 +7,7 @@
 
 #include <LATRDDefinitions.h>
 #include "LATRDFrameDecoder.h"
+#include "version.h"
 
 namespace FrameReceiver
 {
@@ -25,6 +26,9 @@ LATRDFrameDecoder::LATRDFrameDecoder() :
 {
     current_raw_packet_header_.reset(new uint8_t[LATRD::packet_header_size]);
     dropped_frame_buffer_.reset(new uint8_t[LATRD::total_frame_size]);
+
+    this->logger_ = Logger::getLogger("FR.LATRDDecoderPlugin");
+    LOG4CXX_INFO(logger_, "LATRDFrameDecoder version " << this->get_version_long() << " loaded");
 }
 
 void LATRDFrameDecoder::init(LoggerPtr& logger, OdinData::IpcMessage& config_msg)
@@ -366,34 +370,54 @@ unsigned int LATRDFrameDecoder::elapsed_ms(struct timespec& start, struct timesp
     return (unsigned int)((end_ns - start_ns)/1000000);
 }
 
+/**
+  * Get the plugin major version number.
+  *
+  * \return major version number as an integer
+  */
 int LATRDFrameDecoder::get_version_major()
 {
-    // TOOD: This is a placeholder for when version information is added
-    return 0;
+    return ODIN_DATA_VERSION_MAJOR;
 }
 
+/**
+  * Get the plugin minor version number.
+  *
+  * \return minor version number as an integer
+  */
 int LATRDFrameDecoder::get_version_minor()
 {
-    // TOOD: This is a placeholder for when version information is added
-    return 0;
+    return ODIN_DATA_VERSION_MINOR;
 }
 
+/**
+  * Get the plugin patch version number.
+  *
+  * \return patch version number as an integer
+  */
 int LATRDFrameDecoder::get_version_patch()
 {
-    // TOOD: This is a placeholder for when version information is added
-    return 0;
+    return ODIN_DATA_VERSION_PATCH;
 }
 
+/**
+  * Get the plugin short version (e.g. x.y.z) string.
+  *
+  * \return short version as a string
+  */
 std::string LATRDFrameDecoder::get_version_short()
 {
-    // TOOD: This is a placeholder for when version information is added
-    return "0.0.0";
+    return ODIN_DATA_VERSION_STR_SHORT;
 }
 
+/**
+  * Get the plugin long version (e.g. x.y.z-qualifier) string.
+  *
+  * \return long version as a string
+  */
 std::string LATRDFrameDecoder::get_version_long()
 {
-    // TOOD: This is a placeholder for when version information is added
-    return "0.0.0";
+    return ODIN_DATA_VERSION_STR;
 }
 
 } /* namespace FrameReceiver */

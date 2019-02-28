@@ -30,39 +30,27 @@ find_package(Log4CXX 0.10.0 REQUIRED)
 find_package(ZeroMQ 3.2.4 REQUIRED)
 find_package(OdinData REQUIRED)
 
-# find package HDF5
-# FindHDF5.cmake is essentially broken and does not allow
-# to properly override the search path by setting HDF5_ROOT.
-# This is a work-around to allow setting a custom HDF5
-# installation location to search.
-message("\nSearching for HDF5")
 
-IF (HDF5_ROOT)
-  message(STATUS "HDF5_ROOT set: " ${HDF5_ROOT})
-  set( ENV{HDF5_ROOT} ${HDF5_ROOT} )
-  find_path( HDF5_INCLUDE_DIRS
-             NAMES hdf5.h hdf5_hl.h
-             PATHS ${HDF5_ROOT}/include
-             NO_DEFAULT_PATH )
-  find_library( HDF5_LIBRARIES
-                NAMES hdf5 
-                PATHS ${HDF5_ROOT}/lib
-                NO_DEFAULT_PATH )
-  find_library( HDF5HL_LIBRARIES
-                NAMES hdf5_hl
-                PATHS ${HDF5_ROOT}/lib
-                NO_DEFAULT_PATH )
-  if (HDF5HL_LIBRARIES)
-    set(HDF5_FOUND true)
-  else (HDF5HL_LIBRARIES)
-    set(HDF5_FOUND false)
-  endif (HDF5HL_LIBRARIES)
-ELSE(HDF5_ROOT)
-    # If no HDF5_ROOT variable has been set then we just
-    # use the built-in FindHDF5.cmake...
-    find_package(HDF5 1.8.14 
-                 COMPONENTS C HL)
-ENDIF(HDF5_ROOT)
+message("Determining tristan-detector version")
+include(GetGitRevisionDescription)
+git_describe(GIT_DESC_STR)
+
+string(REGEX REPLACE "^([0-9]+)[\\.-].*" "\\1" VERSION_MAJOR "${GIT_DESC_STR}")
+string(REGEX REPLACE "^[0-9]+[\\.-]([0-9]+).*" "\\1" VERSION_MINOR "${GIT_DESC_STR}")
+string(REGEX REPLACE "^[0-9]+[\\.-][0-9]+[\\.-]([0-9]+).*" "\\1" VERSION_PATCH "${GIT_DESC_STR}")
+string(REGEX REPLACE "^[0-9]+[\\.-][0-9]+[\\.-][0-9]+-[0-9]+-(.*)" "\\1" VERSION_SHA1 "${GIT_DESC_STR}")
+
+set(VERSION_SHORT "${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}")
+set(VERSION_STR ${GIT_DESC_STR})
+message("-- Git describe version: ${GIT_DESC_STR}")
+message("-- major:${VERSION_MAJOR} minor:${VERSION_MINOR} patch:${VERSION_PATCH} sha1:${VERSION_SHA1}")
+message("-- short version: ${VERSION_SHORT}")
+
+configure_file(${COMMON_DIR}/include/version.h.in "${CMAKE_BINARY_DIR}/include/version.h")
+include_directories(${CMAKE_BINARY_DIR}/include)
+# Add common/include directory to include path
+include_directories(${COMMON_DIR}/include)
+
 
 # Add the frameReceiver subdirectory
 add_subdirectory(${FRAMERECEIVER_DIR})
