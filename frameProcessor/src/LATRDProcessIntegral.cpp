@@ -106,81 +106,89 @@ namespace FrameProcessor {
       if (hdrPtr->packet_state[index] == 0) {
         dropped_packets += 1;
       } else {
-        // Walk through each data word
-        uint16_t word_count = LATRD::get_word_count(packet_header.headerWord1);
-        uint32_t packet_id = LATRD::get_packet_number(packet_header.headerWord2);
-        uint32_t image_number = LATRD::get_image_number(packet_header.headerWord2);
-        // Ignore the first 0x00000000 which is not used
-        uint64_t *data_word_ptr = (((uint64_t *) payload_ptr) + 1 + packet_header_count);
+        // Check if this is the correct packet type for image construction
+        if (LATRD::get_packet_mode(packet_header.headerWord1) == LATRD::MODE_COUNT) {
 
-        uint64_t packet_timestamp = 0;
-        try {
-          packet_timestamp = get_course_timestamp(*data_word_ptr);
-        } catch (...){
-          // Caught an exception whilst reading the course timestamp so dump the packet header
-          LOG4CXX_ERROR(logger_, "Caught ERROR whilst decoding a count mode packet: Could not retrieve course timestamp");
-          std::stringstream ss1;
-          ss1 << std::hex << std::setfill('0');
-          ss1 << " 0x" << std::setw(16) << packet_header.headerWord1;
-          LOG4CXX_ERROR(logger_, "Header 1: " << ss1.str());
-          std::stringstream ss2;
-          ss2 << std::hex << std::setfill('0');
-          ss2 << " 0x" << std::setw(16) << packet_header.headerWord2;
-          LOG4CXX_ERROR(logger_, "Header 2: " << ss2.str());
-          std::stringstream ss3;
-          ss3 << std::hex << std::setfill('0');
-          ss3 << " 0x" << std::setw(16) << *data_word_ptr;
-          LOG4CXX_ERROR(logger_, "Tmstamp : " << ss3.str());
-          bad_packet = 1;
-        }
+          // Walk through each data word
+          uint16_t word_count = LATRD::get_word_count(packet_header.headerWord1);
+          uint32_t packet_id = LATRD::get_packet_number(packet_header.headerWord2);
+          uint32_t image_number = LATRD::get_image_number(packet_header.headerWord2);
+          // Ignore the first 0x00000000 which is not used
+          uint64_t *data_word_ptr = (((uint64_t *) payload_ptr) + 1 + packet_header_count);
 
-        if (!bad_packet) {
-          LOG4CXX_DEBUG(logger_,
-                        "Pkt [" << packet_id << "] timestamp [" << packet_timestamp << "] word count " << word_count);
-          data_word_ptr++;
-
-          // Check if we have an image job for this packet's timestamp
-          boost::shared_ptr<LATRDImageJob> image_job_ptr;
-          if (image_store_.count(packet_timestamp) > 0) {
-            image_job_ptr = image_store_[packet_timestamp];
-          } else {
-            // We need to create a new image job for this packet
-            // TODO: Check this is not an old packet
-            image_job_ptr = boost::shared_ptr<LATRDImageJob>(new LATRDImageJob(width_, height_, image_number));
-            // Store the image job in the store, index by timestamp
-            image_store_[packet_timestamp] = image_job_ptr;
+          uint64_t packet_timestamp = 0;
+          try {
+            packet_timestamp = get_course_timestamp(*data_word_ptr);
+          } catch (...) {
+            // Caught an exception whilst reading the course timestamp so dump the packet header
+            LOG4CXX_ERROR(logger_,
+                          "Caught ERROR whilst decoding a count mode packet: Could not retrieve course timestamp");
+            std::stringstream ss1;
+            ss1 << std::hex << std::setfill('0');
+            ss1 << " 0x" << std::setw(16) << packet_header.headerWord1;
+            LOG4CXX_ERROR(logger_, "Header 1: " << ss1.str());
+            std::stringstream ss2;
+            ss2 << std::hex << std::setfill('0');
+            ss2 << " 0x" << std::setw(16) << packet_header.headerWord2;
+            LOG4CXX_ERROR(logger_, "Header 2: " << ss2.str());
+            std::stringstream ss3;
+            ss3 << std::hex << std::setfill('0');
+            ss3 << " 0x" << std::setw(16) << *data_word_ptr;
+            LOG4CXX_ERROR(logger_, "Tmstamp : " << ss3.str());
+            bad_packet = 1;
           }
 
-          // Start from index 3 as we can ignore the header words and extended timestamp
-          for (uint16_t index = 3; index < word_count; index++) {
-            uint32_t x_pos = 0;
-            uint32_t y_pos = 0;
-            uint32_t i_tot = 0;
-            uint32_t event_count = 0;
-            uint32_t e_tot = 0;
-            try {
-              // Check if the word is a final packet word
-              if (check_for_final_packet_word(*data_word_ptr)) {
-                LOG4CXX_DEBUG(logger_, "Image [" << image_job_ptr->get_frame_number() << "] End Of Image on packet ["
-                                                 << packet_id << "]");
-                image_job_ptr->set_eoi(packet_id);
-              } else {
-                if (process_data_word(*data_word_ptr,
-                                      &x_pos,
-                                      &y_pos,
-                                      &i_tot,
-                                      &event_count)) {
-                  // Add the event count to the 2D image
-                  image_job_ptr->add_pixel(packet_id, x_pos, y_pos, event_count);
-                  total_count_ += event_count;
+          if (!bad_packet) {
+            LOG4CXX_DEBUG(logger_,
+                          "Pkt [" << packet_id << "] timestamp [" << packet_timestamp << "] word count " << word_count);
+            data_word_ptr++;
+
+            // Check if we have an image job for this packet's timestamp
+            boost::shared_ptr <LATRDImageJob> image_job_ptr;
+            if (image_store_.count(packet_timestamp) > 0) {
+              image_job_ptr = image_store_[packet_timestamp];
+            } else {
+              // We need to create a new image job for this packet
+              // TODO: Check this is not an old packet
+              image_job_ptr = boost::shared_ptr<LATRDImageJob>(new LATRDImageJob(width_, height_, image_number));
+              // Store the image job in the store, index by timestamp
+              image_store_[packet_timestamp] = image_job_ptr;
+            }
+
+            // Start from index 3 as we can ignore the header words and extended timestamp
+            for (uint16_t index = 3; index < word_count; index++) {
+              uint32_t x_pos = 0;
+              uint32_t y_pos = 0;
+              uint32_t i_tot = 0;
+              uint32_t event_count = 0;
+              uint32_t e_tot = 0;
+              try {
+                // Check if the word is a final packet word
+                if (check_for_final_packet_word(*data_word_ptr)) {
+                  LOG4CXX_DEBUG(logger_, "Image [" << image_job_ptr->get_frame_number() << "] End Of Image on packet ["
+                                                   << packet_id << "]");
+                  image_job_ptr->set_eoi(packet_id);
+                } else {
+                  if (process_data_word(*data_word_ptr,
+                                        &x_pos,
+                                        &y_pos,
+                                        &i_tot,
+                                        &event_count)) {
+                    // Add the event count to the 2D image
+                    image_job_ptr->add_pixel(packet_id, x_pos, y_pos, event_count);
+                    total_count_ += event_count;
+                  }
                 }
               }
+              catch (LATRDProcessingException &ex) {
+                // TODO: What to do here if there is an exception
+              }
+              data_word_ptr++;
             }
-            catch (LATRDProcessingException &ex) {
-              // TODO: What to do here if there is an exception
-            }
-            data_word_ptr++;
           }
+        } else {
+          dropped_packets += 1;
+          LOG4CXX_ERROR(logger_, "Invalid packet mode detected! Packet marked as event mode");
         }
       }
       // Increment the payload pointer to the next packet

@@ -34,6 +34,9 @@ namespace LATRD
 
   static const size_t frame_size = 524288;  // 4MB / 8 byte values
 
+  static const uint8_t MODE_EVENT = 0;
+  static const uint8_t MODE_COUNT = 1;
+
   enum LATRDDataControlType {
     Unknown, HeaderWord0, HeaderWord1, ExtendedTimestamp, IdleControlWord
   };
@@ -66,6 +69,7 @@ namespace LATRD
   static const uint8_t  control_course_timestamp_mask   = 0x20;
   static const uint8_t  control_word_id_mask            = 0x0F;
   static const uint64_t control_word_full_mask          = 0xFFF0000000000000;
+  static const uint64_t header_packet_mode_mask         = 0x0000000000000800;
   static const uint64_t header_packet_producer_mask     = 0x03FC000000000000;
   static const uint64_t header_packet_count_mask        = 0x00000000FFFFFFFF;
   static const uint64_t header_packet_ts_number_mask    = 0x000000FF00000000;
@@ -81,7 +85,15 @@ namespace LATRD
 
   static const uint64_t course_timestamp_rollover       = 0x00000000001FFFFF;
 
-  static uint8_t get_producer_ID(uint64_t  headerWord1)
+  static uint8_t get_packet_mode(uint64_t headerWord1)
+  {
+    // Extract relevant bit to obtain the operation mode of the packet
+    // 0 => time mode (event mode)
+    // 1 => image mode (count mode)
+    return (uint8_t)((headerWord1 & header_packet_mode_mask) >> 11);
+  }
+
+  static uint8_t get_producer_ID(uint64_t headerWord1)
   {
     // Extract relevant bits to obtain the producer ID
     return (uint8_t)((headerWord1 & header_packet_producer_mask) >> 50);

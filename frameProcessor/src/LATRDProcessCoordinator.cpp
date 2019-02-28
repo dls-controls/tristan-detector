@@ -12,6 +12,8 @@ static int no_of_job = 0;
     rank_(0),
     current_ts_wrap_(0),
     current_ts_buffer_(0),
+    dropped_packets_(0),
+    invalid_packets_(0),
     processed_jobs_(0),
     processed_frames_(0),
     output_frames_(0),
@@ -50,12 +52,16 @@ static int no_of_job = 0;
         }
     }
 
-    void LATRDProcessCoordinator::get_statistics(uint32_t *processed_jobs,
+    void LATRDProcessCoordinator::get_statistics(uint32_t *dropped_packets,
+                                                 uint32_t *invalid_packets,
+                                                 uint32_t *processed_jobs,
                                                  uint32_t *job_q_size,
                                                  uint32_t *result_q_size,
                                                  uint32_t *processed_frames,
                                                  uint32_t *output_frames)
     {
+        *dropped_packets = dropped_packets_;
+        *invalid_packets = invalid_packets_;
         *processed_jobs = processed_jobs_;
         *job_q_size = jobQueue_->size();
         *result_q_size = resultsQueue_->size();
@@ -70,6 +76,8 @@ static int no_of_job = 0;
 
     void LATRDProcessCoordinator::reset_statistics()
     {
+        dropped_packets_ = 0;
+        invalid_packets_ = 0;
         processed_jobs_ = 0;
         processed_frames_ = 0;
         output_frames_ = 0;
@@ -270,23 +278,32 @@ static int no_of_job = 0;
                 packet_header.headerWord1 = *(((uint64_t *) payload_ptr) + 1);
                 packet_header.headerWord2 = *(((uint64_t *) payload_ptr) + 2);
 
-                // We need to decode how many values are in the packet
-                uint32_t packet_number = LATRD::get_packet_number(packet_header.headerWord2);
-                uint16_t word_count = LATRD::get_word_count(packet_header.headerWord1);
-                uint32_t time_slice = LATRD::get_time_slice_id(packet_header.headerWord1, packet_header.headerWord2);
-                uint16_t words_to_process = word_count - packet_header_count;
+                // Check if this is the correct packet type for processing
+                if (LATRD::get_packet_mode(packet_header.headerWord1) == LATRD::MODE_EVENT) {
+                    // We need to decode how many values are in the packet
+                    uint32_t packet_number = LATRD::get_packet_number(packet_header.headerWord2);
+                    uint16_t word_count = LATRD::get_word_count(packet_header.headerWord1);
+                    uint32_t time_slice = LATRD::get_time_slice_id(packet_header.headerWord1,
+                                                                   packet_header.headerWord2);
+                    uint16_t words_to_process = word_count - packet_header_count;
 
-                uint64_t *data_ptr = (((uint64_t *) payload_ptr) + 1);
-                data_ptr += packet_header_count;
-                boost::shared_ptr<LATRDProcessJob> job = this->getJob();
-                job->job_id = (uint32_t)index;
-                job->packet_number = packet_number;
-                job->data_ptr = data_ptr;
-                job->time_slice = time_slice;
-                job->time_slice_wrap = LATRD::get_time_slice_modulo(packet_header.headerWord1);
-                job->time_slice_buffer = LATRD::get_time_slice_number(packet_header.headerWord2);
-                job->words_to_process = words_to_process;
-                jobQueue_->add(job, true);
+                    uint64_t *data_ptr = (((uint64_t *) payload_ptr) + 1);
+                    data_ptr += packet_header_count;
+                    boost::shared_ptr <LATRDProcessJob> job = this->getJob();
+                    job->job_id = (uint32_t) index;
+                    job->packet_number = packet_number;
+                    job->data_ptr = data_ptr;
+                    job->time_slice = time_slice;
+                    job->time_slice_wrap = LATRD::get_time_slice_modulo(packet_header.headerWord1);
+                    job->time_slice_buffer = LATRD::get_time_slice_number(packet_header.headerWord2);
+                    job->words_to_process = words_to_process;
+                    jobQueue_->add(job, true);
+                } else {
+                    dropped_packets += 1;
+                    // Record the invalid packet as a statistic
+                    invalid_packets_ += 1;
+                    LOG4CXX_ERROR(logger_, "Invalid packet mode detected! Packet marked as count mode");
+                }
             }
             payload_ptr += LATRD::primary_packet_size;
         }

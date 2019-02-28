@@ -40,7 +40,9 @@ namespace FrameProcessor {
 
     void register_meta_message_publisher(MetaMessagePublisher *ptr);
 
-    void get_statistics(uint32_t *processed_jobs,
+    void get_statistics(uint32_t *dropped_packets,
+                        uint32_t *invalid_packets,
+                        uint32_t *processed_jobs,
                         uint32_t *job_q_size,
                         uint32_t *result_q_size,
                         uint32_t *processed_frames,
@@ -143,6 +145,8 @@ namespace FrameProcessor {
     MetaMessagePublisher *metaPtr_;
 
     /** Status information */
+    uint32_t dropped_packets_;
+    uint32_t invalid_packets_;
     uint32_t processed_jobs_;
     uint32_t processed_frames_;
     uint32_t output_frames_;
