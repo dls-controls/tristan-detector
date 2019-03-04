@@ -13,6 +13,7 @@ import subprocess
 from latrd_channel import LATRDChannel
 from latrd_message import LATRDMessageException, LATRDMessage, GetMessage, PutMessage, PostMessage, ResponseMessage
 from latrd_reactor import LATRDReactor
+from tristan_control_adapter import TriggerInType, TriggerOutType, TriggerTimestampType, TriggerInTerminationType, TriggerOutTerminationType, TriggerClockSourceType, TriggerTZeroType
 
 
 class LATRDControlSimulator(object):
@@ -29,74 +30,86 @@ class LATRDControlSimulator(object):
         self._type = type
         self._reactor = LATRDReactor()
         self._store = {
-            "status":
+            'status':
                 {
-                    "state": "idle",
-                    "detector":
+                    'state': 'idle',
+                    'detector':
                         {
-                            "description": "TRISTAN control interface",
-                            "serial_number": "0",
-                            "software_version": "0.0.1",
-                            "sensor_material": "Silicon",
-                            "sensor_thickness": "300 um",
-                            "x_pixel_size": "55 um",
-                            "y_pixel_size": "55 um",
-                            "x_pixels_in_detector": 2048,
-                            "y_pixels_in_detector": 512,
-                            "timeslice_number": 4
+                            'description': 'TRISTAN control interface',
+                            'serial_number': '0',
+                            'software_version': '0.0.1',
+                            'sensor_material': 'Silicon',
+                            'sensor_thickness': '300 um',
+                            'x_pixel_size': '55 um',
+                            'y_pixel_size': '55 um',
+                            'x_pixels_in_detector': 2048,
+                            'y_pixels_in_detector': 512,
+                            'timeslice_number': 4
                         },
-                    "housekeeping":
+                    'housekeeping':
                         {
-                            "standby": "On",
-                            "fem_power_enabled": [True] * self._type,
-                            "psu_temp": [28.6] * self._type,
-                            "psu_temp_alert": [False] * self._type,
-                            "fan_alert": [False] * self._type,
-                            "output_alert": [False] * self._type,
-                            "current_sense": [1.5] * self._type,
-                            "voltage_sense": [2.1] * self._type,
-                            "remote_temp": [30.1] * self._type,
-                            "fan_control_temp": [36.3] * self._type,
-                            "tacho": [0.8] * self._type,
-                            "pwm": [128] * self._type
+                            'standby': 'On',
+                            'fem_power_enabled': [True] * self._type,
+                            'psu_temp': [28.6] * self._type,
+                            'psu_temp_alert': [False] * self._type,
+                            'fan_alert': [False] * self._type,
+                            'output_alert': [False] * self._type,
+                            'current_sense': [1.5] * self._type,
+                            'voltage_sense': [2.1] * self._type,
+                            'remote_temp': [30.1] * self._type,
+                            'fan_control_temp': [36.3] * self._type,
+                            'tacho': [0.8] * self._type,
+                            'pwm': [128] * self._type
                         },
-                    "clock":
+                    'clock':
                         {
-                            "dpll_lol": [True] * self._type,
-                            "dpll_hold": [True] * self._type,
-                            "clock_freq": [65.7] * self._type
+                            'dpll_lol': [True] * self._type,
+                            'dpll_hold': [True] * self._type,
+                            'clock_freq': [65.7] * self._type
                         },
-                    "sensor":
+                    'sensor':
                         {
-                            "temp": [65.8] * self._type,
-                            "humidity": [47.8] * self._type
+                            'temp': [[65.8, 62.6]] * self._type,
+                            'humidity': [47.8] * self._type
                         },
-                    "fem":
+                    'fem':
                         {
-                            "temp": [45.3] * self._type
+                            'temp': [[45.3, 37.8]] * self._type
                         }
                 },
-            "config":
+            'config':
                 {
-                    "exposure": 0.0,
-                    "gap": 0.0,
-                    "repeat_interval": 0.0,
-                    "frames": 0,
-                    "frames_per_trigger": 0,
-                    "n_trigger": 0,
-                    "mode": "time_energy",
-                    "profile": "standard",
-                    "threshold": 5.2,
-                    "timeslice":
+                    'exposure': 0.0,
+                    'gap': 0.0,
+                    'repeat_interval': 0.0,
+                    'frames': 0,
+                    'frames_per_trigger': 0,
+                    'n_trigger': 0,
+                    'mode': 'time_energy',
+                    'profile': 'standard',
+                    'threshold': 5.2,
+                    'timeslice':
                         {
-                            "duration_rollover_bits": 18
+                            'duration_rollover_bits': 18
                         },
-                    "bias":
+                    'bias':
                         {
-                            "voltage": 0.0,
-                            "enable": False
+                            'voltage': 0.0,
+                            'enable': False
                         },
-                    "time": "2018-09-26T09:30Z"
+                    'time': '2018-09-26T09:30Z',
+                    'trigger':
+                        {
+                            'start': TriggerInType.internal.name,
+                            'stop': TriggerInType.internal.name,
+                            'timestamp': TriggerTimestampType.none.name,
+                            'ttl_in_term': TriggerInTerminationType.term_50_ohm.name,
+                            'ttl_out_term': TriggerOutTerminationType.term_50_ohm.name,
+                            'primary_clock_source': TriggerClockSourceType.internal.name,
+                            'tzero': TriggerTZeroType.internal.name,
+                            'ttl_out': TriggerOutType.follow_shutter.name,
+                            'lvds_out': TriggerOutType.follow_shutter.name
+                        }
                 }
         }
 

@@ -35,6 +35,68 @@ class ProfileType(Enum):
     current = 4
 
 
+class TriggerInType(Enum):
+    """Enumeration of trigger in types
+    """
+    internal = 0
+    external_re = 1
+    external_fe = 2
+    external_lvds_re = 3
+    external_lvds_fe = 4
+
+
+class TriggerTimestampType(Enum):
+    """Enumeration of trigger out types
+    """
+    none = 0
+    re = 1
+    fe = 2
+    both = 3
+
+
+class TriggerInTerminationType(Enum):
+    """Enumeration of trigger out types
+    """
+    term_50_ohm = 0
+    hi_z = 1
+
+
+class TriggerOutTerminationType(Enum):
+    """Enumeration of trigger out types
+    """
+    term_50_ohm = 0
+    lo_z = 1
+
+
+class TriggerClockSourceType(Enum):
+    """Enumeration of trigger out types
+    """
+    internal = 0
+    external = 1
+
+
+class TriggerTZeroType(Enum):
+    """Enumeration of trigger out types
+    """
+    internal = 0
+    external = 1
+    off = 2
+
+
+class TriggerOutType(Enum):
+    """Enumeration of trigger out types
+    """
+    follow_shutter = 0
+    follow_shutter_read = 1
+    one_per_acq_burst = 2
+    busy = 3
+    counter_select = 4
+    tzero = 5
+    sync = 6
+    lvds = 7
+    ttl = 8
+
+
 class ParameterType(Enum):
     """Enumeration of all available types
     """
@@ -163,16 +225,6 @@ class TristanControlAdapter(ApiAdapter):
         'error': ''
     }
 
-    CONFIG_ITEM_LIST = {'exposure': float,
-                        'repeat_interval': float,
-                        'frames': int,
-                        'frames_per_trigger': int,
-                        'n_trigger': int,
-                        'threshold': str,
-                        'mode': str,
-                        'profile': str
-                        }
-
     STATUS_ITEM_LIST = [
         {
             "state": None,
@@ -217,7 +269,36 @@ class TristanControlAdapter(ApiAdapter):
                                   [e.name for e in ModeType]),
             'profile': EnumParameter('profile',
                                      ProfileType.energy.name,
-                                     [e.name for e in ProfileType])
+                                     [e.name for e in ProfileType]),
+            'trigger': {
+                'start': EnumParameter('start',
+                                       TriggerInType.internal.name,
+                                       [e.name for e in TriggerInType]),
+                'stop': EnumParameter('stop',
+                                      TriggerInType.internal.name,
+                                      [e.name for e in TriggerInType]),
+                'timestamp': EnumParameter('timestamp',
+                                           TriggerTimestampType.none.name,
+                                           [e.name for e in TriggerTimestampType]),
+                'ttl_in_term': EnumParameter('ttl_in_term',
+                                             TriggerInTerminationType.term_50_ohm.name,
+                                             [e.name for e in TriggerInTerminationType]),
+                'ttl_out_term': EnumParameter('ttl_out_term',
+                                              TriggerOutTerminationType.term_50_ohm.name,
+                                              [e.name for e in TriggerOutTerminationType]),
+                'primary_clock_source': EnumParameter('primary_clock_source',
+                                                      TriggerClockSourceType.internal.name,
+                                                      [e.name for e in TriggerClockSourceType]),
+                'tzero': EnumParameter('tzero',
+                                       TriggerTZeroType.internal.name,
+                                       [e.name for e in TriggerTZeroType]),
+                'ttl_out': EnumParameter('ttl_out',
+                                         TriggerOutType.follow_shutter.name,
+                                         [e.name for e in TriggerOutType]),
+                'lvds_out': EnumParameter('lvds_out',
+                                          TriggerOutType.follow_shutter.name,
+                                          [e.name for e in TriggerOutType])
+            }
         }
         self._parameters = {}
         self._endpoint = None
@@ -534,6 +615,8 @@ class TristanControlAdapter(ApiAdapter):
                             if LATRDMessage.MSG_TYPE_RESPONSE in reply.msg_type:
                                 data = reply.data
                                 self._parameters['status'] = data['status']
+
+                                # Perform post status manipulation
                                 if 'detector' in self._parameters['status']:
                                     if 'x_pixels_in_detector' in self._parameters['status']['detector'] and \
                                             'y_pixels_in_detector' in self._parameters['status']['detector']:
@@ -546,6 +629,17 @@ class TristanControlAdapter(ApiAdapter):
                                 else:
                                     self._parameters['status']['detector']['version_check'] = False
 
+                                if 'sensor' in self._parameters['status']:
+                                    if 'temp' in self._parameters['status']['sensor']:
+                                        # temp is supplied as a 2D array, we need to split that out for monitoring
+                                        temp_0 = []
+                                        temp_1 = []
+                                        for temp in self._parameters['status']['sensor']['temp']:
+                                            temp_0.append(temp[0])
+                                            temp_1.append(temp[1])
+                                        self._parameters['status']['sensor']['temp_0'] = temp_0
+                                        self._parameters['status']['sensor']['temp_1'] = temp_1
+
                                 # Set the acquisition state item
                                 if data['status']['state'] == 'idle':
                                     self._parameters['status']['acquisition_complete'] = True
@@ -555,10 +649,7 @@ class TristanControlAdapter(ApiAdapter):
                         logging.debug("self._parameters: %s", self._parameters)
                         self._parameters['status'].update(self.CORE_STATUS_LIST)
 
-
-                        config_dict = {}
-                        for item in TristanControlAdapter.CONFIG_ITEM_LIST:
-                            config_dict[item] = None
+                        config_dict = self.create_config_request(self._param)
                         msg = GetMessage()
                         msg.set_param('config', config_dict)
                         reply = self.send_recv(msg)
@@ -569,14 +660,30 @@ class TristanControlAdapter(ApiAdapter):
                             if LATRDMessage.MSG_TYPE_RESPONSE in reply.msg_type:
                                 data = reply.data['config']
                                 logging.debug("Reply data: %s", data)
-                                for item in data:
-                                    logging.debug("Setting parameter for data item: %s", item)
-                                    if item in self._param:
-                                        logging.debug("Setting value to: %s", str(data[item]))
-                                        self._param[item].set_value(data[item])
+                                self.update_config(self._param, data)
 
                         logging.debug("Status items: %s", self._parameters)
                         logging.debug("Config parameters: %s", self._param)
 
                 except Exception as ex:
                     logging.error("Exception: %s", ex)
+
+    def create_config_request(self, config):
+        config_dict = {}
+        for item in config:
+            if isinstance(config[item], dict):
+                config_dict[item] = self.create_config_request(config[item])
+            else:
+                config_dict[item] = None
+        return config_dict
+
+    def update_config(self, params, data):
+        for item in data:
+            logging.debug("Setting parameter for data item: %s", item)
+            if isinstance(data[item], dict):
+                if item in params:
+                    self.update_config(params[item], data[item])
+            else:
+                if item in params:
+                    logging.debug("Setting value to: %s", str(data[item]))
+                    params[item].set_value(data[item])
