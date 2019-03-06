@@ -29,9 +29,6 @@ using namespace log4cxx::helpers;
 #include "ClassLoader.h"
 
 namespace FrameProcessor {
-/*    enum LATRDDataControlType {
-        Unknown, HeaderWord0, HeaderWord1, ExtendedTimestamp, IdleControlWord
-    };*/
 
     class LATRDProcessPlugin : public FrameProcessorPlugin {
     public:
@@ -53,11 +50,11 @@ namespace FrameProcessor {
 
         bool reset_statistics(void);
 
-    int get_version_major();
-    int get_version_minor();
-    int get_version_patch();
-    std::string get_version_short();
-    std::string get_version_long();
+        int get_version_major();
+        int get_version_minor();
+        int get_version_patch();
+        std::string get_version_short();
+        std::string get_version_long();
 
     private:
 
@@ -88,6 +85,9 @@ namespace FrameProcessor {
         /** Configuration constant for this process rank */
         static const std::string CONFIG_PROCESS_RANK;
 
+        /** Configuration constant for the acquisition ID used for meta data writing */
+        static const std::string CONFIG_ACQ_ID;
+
         /** Pointer to logger */
         LoggerPtr logger_;
         /** Mutex used to make this class thread safe */
@@ -99,24 +99,8 @@ namespace FrameProcessor {
         /** Integral mode processing object */
         LATRDProcessIntegral integral_;
 
-        /** Timestamp manager object */
-//        LATRDTimestampManager ts_manager_;
-
-        /** Pointers to job queues for processing packets and results notification */
-//        boost::shared_ptr<WorkQueue<boost::shared_ptr<LATRDProcessJob> > > jobQueue_;
-//        boost::shared_ptr<WorkQueue<boost::shared_ptr<LATRDProcessJob> > > resultsQueue_;
-
-        /** Stack of processing job objects **/
-//        std::stack<boost::shared_ptr<LATRDProcessJob> > jobStack_;
-
-        /** Map containing extended timestamps for the current time slice **/
-//        std::map<uint32_t, uint64_t> extended_timestamps_;
-
         /** Pointer to LATRD buffer and frame manager */
         boost::shared_ptr<LATRDBuffer> rawBuffer_;
-//        boost::shared_ptr<LATRDBuffer> timeStampBuffer_;
-//        boost::shared_ptr<LATRDBuffer> idBuffer_;
-//        boost::shared_ptr<LATRDBuffer> energyBuffer_;
 
         rapidjson::Document meta_document_;
 
@@ -124,15 +108,10 @@ namespace FrameProcessor {
         size_t sensor_height_;
 
         std::string mode_;
+        std::string acq_id_;
 
         size_t concurrent_processes_;
         size_t concurrent_rank_;
-
-        /** Last processed information */
-//        uint32_t last_processed_ts_wrap_;
-//        uint32_t last_processed_ts_buffer_;
-//        uint32_t last_processed_frame_number_;
-//        uint32_t last_processed_was_idle_;
 
         /** Management of time slice information **/
         uint64_t current_point_index_;
@@ -140,10 +119,6 @@ namespace FrameProcessor {
 
         /** Process raw mode **/
         uint32_t raw_mode_;
-
-//        boost::shared_ptr<LATRDProcessJob> getJob();
-
-//        void releaseJob(boost::shared_ptr<LATRDProcessJob> job);
 
         void dump_frame(boost::shared_ptr<Frame> frame);
 

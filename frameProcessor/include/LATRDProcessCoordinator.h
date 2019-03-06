@@ -40,6 +40,8 @@ namespace FrameProcessor {
 
     void register_meta_message_publisher(MetaMessagePublisher *ptr);
 
+    void set_acquisition_id(const std::string& acq_id);
+
     void get_statistics(uint32_t *dropped_packets,
                         uint32_t *invalid_packets,
                         uint32_t *processed_jobs,
@@ -151,6 +153,8 @@ namespace FrameProcessor {
     uint32_t processed_frames_;
     uint32_t output_frames_;
 
+    /** Acquisition ID */
+    std::string acq_id_;
   };
 
 

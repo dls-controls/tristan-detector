@@ -27,6 +27,8 @@ const std::string LATRDProcessPlugin::CONFIG_PROCESS             = "process";
 const std::string LATRDProcessPlugin::CONFIG_PROCESS_NUMBER      = "number";
 const std::string LATRDProcessPlugin::CONFIG_PROCESS_RANK        = "rank";
 
+const std::string LATRDProcessPlugin::CONFIG_ACQ_ID              = "acq_id";
+
 const std::string LATRDProcessPlugin::CONFIG_SENSOR              = "sensor";
 const std::string LATRDProcessPlugin::CONFIG_SENSOR_WIDTH        = "width";
 const std::string LATRDProcessPlugin::CONFIG_SENSOR_HEIGHT       = "height";
@@ -43,7 +45,8 @@ const std::string LATRDProcessPlugin::CONFIG_SENSOR_HEIGHT       = "height";
 //    last_processed_ts_buffer_(0),
 //    last_processed_frame_number_(0),
 //    last_processed_was_idle_(0),
-    raw_mode_(0)
+    raw_mode_(0),
+    acq_id_("")
 {
     // Setup logging for the class
     logger_ = Logger::getLogger("FP.LATRDProcessPlugin");
@@ -122,6 +125,12 @@ void LATRDProcessPlugin::configure(OdinData::IpcMessage& config, OdinData::IpcMe
     this->configureSensor(sensorConfig, reply);
   }
 
+  // Check for the acquisition ID
+  if (config.has_param(LATRDProcessPlugin::CONFIG_ACQ_ID)) {
+    this->acq_id_ = config.get_param<std::string>(LATRDProcessPlugin::CONFIG_ACQ_ID);
+    this->coordinator_.set_acquisition_id(this->acq_id_);
+    LOG4CXX_DEBUG_LEVEL(1, logger_, "Acquisition ID set to " << this->acq_id_);
+  }
 }
 
 void LATRDProcessPlugin::requestConfiguration(OdinData::IpcMessage& reply)
@@ -129,6 +138,11 @@ void LATRDProcessPlugin::requestConfiguration(OdinData::IpcMessage& reply)
   // Return the configuration of the LATRD process plugin
   reply.set_param(get_name() + "/" + LATRDProcessPlugin::CONFIG_MODE, this->mode_);
   reply.set_param(get_name() + "/" + LATRDProcessPlugin::CONFIG_RAW_MODE, this->raw_mode_);
+  reply.set_param(get_name() + "/" + LATRDProcessPlugin::CONFIG_PROCESS + "/" +
+                  LATRDProcessPlugin::CONFIG_PROCESS_NUMBER, this->concurrent_processes_);
+  reply.set_param(get_name() + "/" + LATRDProcessPlugin::CONFIG_PROCESS + "/" +
+                  LATRDProcessPlugin::CONFIG_PROCESS_RANK, this->concurrent_rank_);
+  reply.set_param(get_name() + "/" + LATRDProcessPlugin::CONFIG_ACQ_ID, this->acq_id_);
 }
 
 void LATRDProcessPlugin::status(OdinData::IpcMessage& status)

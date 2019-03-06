@@ -18,7 +18,8 @@ static int no_of_job = 0;
     processed_frames_(0),
     output_frames_(0),
     last_written_ts_index_(0),
-    metaPtr_(0)
+    metaPtr_(0),
+    acq_id_("")
     {
         // Setup logging for the class
         logger_ = Logger::getLogger("FP.LATRDProcessCoordinator");
@@ -72,6 +73,11 @@ static int no_of_job = 0;
     void LATRDProcessCoordinator::register_meta_message_publisher(MetaMessagePublisher *ptr)
     {
         metaPtr_ = ptr;
+    }
+
+    void LATRDProcessCoordinator::set_acquisition_id(const std::string& acq_id)
+    {
+        acq_id_ = acq_id;
     }
 
     void LATRDProcessCoordinator::reset_statistics()
@@ -386,7 +392,7 @@ static int no_of_job = 0;
             base_index++;
             if (base_index == ts_index_array_.size()){
                 // We have got a full time slice array so publish the array and reset it
-                this->publish_time_slice_meta_data("test", ts_index_array_.size());
+                this->publish_time_slice_meta_data(acq_id_, ts_index_array_.size());
                 // Update the last written ts_index value
                 last_written_ts_index_ += (LATRD::time_slice_write_size * LATRD::number_of_time_slice_buffers);
                 ts_index_array_.assign(LATRD::time_slice_write_size * LATRD::number_of_time_slice_buffers, 0);
@@ -399,7 +405,7 @@ static int no_of_job = 0;
         // We only want to purge if there is real data
         if (last_written_ts_index_ > 0) {
             // Publish the current array even if it isn't full and then reset it
-            this->publish_time_slice_meta_data("test", ts_index_array_.size());
+            this->publish_time_slice_meta_data(acq_id_, ts_index_array_.size());
             ts_index_array_.assign(LATRD::time_slice_write_size * LATRD::number_of_time_slice_buffers, 0);
         } else {
             // If the last written index is 0 check if there are any non zero values
@@ -409,7 +415,7 @@ static int no_of_job = 0;
             }
             // If there are non zero elements then this must be a valid array of indexes so publish the meta data
             if (sum_of_elems > 0) {
-                this->publish_time_slice_meta_data("test", ts_index_array_.size());
+                this->publish_time_slice_meta_data(acq_id_, ts_index_array_.size());
                 ts_index_array_.assign(LATRD::time_slice_write_size * LATRD::number_of_time_slice_buffers, 0);
             }
         }
