@@ -83,7 +83,7 @@ namespace LATRD
   static const uint64_t position_mask                   = 0x0000000003FFFFFF;
   static const uint64_t timestamp_match_mask            = 0x000FFFFFFF800000;
 
-  static const uint64_t course_timestamp_rollover       = 0x00000000001FFFFF;
+  static const uint64_t course_timestamp_rollover       = 0x0000000000200000;
 
   static uint8_t get_packet_mode(uint64_t headerWord1)
   {
