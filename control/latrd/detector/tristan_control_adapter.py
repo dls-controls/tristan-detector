@@ -13,6 +13,7 @@ from odin.adapters.adapter import ApiAdapter, ApiAdapterResponse, request_types,
 from tornado import escape
 from tornado.ioloop import IOLoop
 from datetime import datetime
+from pytz import utc
 from enum import Enum
 import getpass
 
@@ -225,6 +226,16 @@ class TristanControlAdapter(ApiAdapter):
         'error': ''
     }
 
+    CONFIG_ITEM_LIST = {'exposure': float,
+                        'Repeat_Interval': float,
+                        'Readout_Time': float,
+                        'frames': int,
+                        'Frames_Per_Trigger': int,
+                        'nTrigger': int,
+                        'Threshold': str,
+                        'Mode': str,
+                        'Profile': str
+                        }
     STATUS_ITEM_LIST = [
         {
             "state": None,
@@ -300,7 +311,7 @@ class TristanControlAdapter(ApiAdapter):
                                           [e.name for e in TriggerOutType])
             }
         }
-        self._parameters = {}
+        self._parameters = {'status':{'connected':False}}
         self._endpoint = None
         self._firmware = None
         self._detector = None
@@ -578,11 +589,9 @@ class TristanControlAdapter(ApiAdapter):
             if pollevts == LATRDChannel.POLLIN:
                 reply = LATRDMessage.parse_json(self._detector.recv())
 
-            # Try twice more to get the correct reply
-            attempt = 0
-            while reply and reply.msg_id != msg.msg_id and attempt < 2:
+            # Continue to attempt to get the correct reply until we timeout (or get the correct reply)
+            while reply and reply.msg_id != msg.msg_id:
                 reply = None
-                attempt += 1
                 pollevts = self._detector.poll(TristanControlAdapter.DETECTOR_TIMEOUT)
                 if pollevts == LATRDChannel.POLLIN:
                     reply = LATRDMessage.parse_json(self._detector.recv())
@@ -614,6 +623,7 @@ class TristanControlAdapter(ApiAdapter):
                             logging.debug("Raw reply: %s", reply)
                             if LATRDMessage.MSG_TYPE_RESPONSE in reply.msg_type:
                                 data = reply.data
+                                currently_connected = self._parameters['status']['connected']
                                 self._parameters['status'] = data['status']
 
                                 # Perform post status manipulation
@@ -623,6 +633,14 @@ class TristanControlAdapter(ApiAdapter):
                                         x_pixels = self._parameters['status']['detector']['x_pixels_in_detector']
                                         y_pixels = self._parameters['status']['detector']['y_pixels_in_detector']
                                         self._parameters['status']['detector']['bytes'] = x_pixels * y_pixels * 2
+                                # Check if we have just reconnected
+                                if not currently_connected:
+                                    # Reconnection event so send down the time stamp config item
+                                    connect_time = datetime.now(tz=utc).strftime("%Y-%m-%dT%H:%M%Z")
+                                    msg = PutMessage()
+                                    msg.set_param('config', {'time': connect_time})
+                                    reply = self.send_recv(msg)
+                                # Now set the connection status to True
                                 self._parameters['status']['connected'] = True
                                 if self._firmware == self._parameters['status']['detector']['software_version']:
                                     self._parameters['status']['detector']['version_check'] = True
