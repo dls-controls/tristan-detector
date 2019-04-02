@@ -43,8 +43,9 @@ class TristanMetaWriter(MetaWriter):
         self._vds_total_pts = 0
         self._vds_file_count = 0
 
+        self._logger.debug('TristanMetaWriter directory ' + directory)
         # Record the directory for VDS file creation
-        self._directory = directory
+        #self._directory = directory
         self._acquisition_id = acquisitionID
 
         for index in range(self._number_of_processors):
@@ -104,14 +105,16 @@ class TristanMetaWriter(MetaWriter):
 
         :param userHeader: The header
         """
-        self._logger.debug('Handling frame writer start acquisition for acqID ' + self._acquisition_id)
+        self._logger.info('Handling frame writer start acquisition for acqID ' + self._acquisition_id)
         self._logger.debug(userHeader)
 
         self.number_processes_running = self.number_processes_running + 1
 
         if not self.file_created:
+            self._logger.info('Creating meta file for acqID ' + self._acquisition_id)
             self.create_file()
             # Create the top level VDS file
+            self._logger.info('Creating top level VDS file for acqID ' + self._acquisition_id)
             self.create_top_level_vds_file(self.BLOCKSIZE)
 
         if self._num_frames_to_write == -1:
@@ -133,6 +136,8 @@ class TristanMetaWriter(MetaWriter):
 
         if self.number_processes_running == 0:
             self._logger.info('Last processor ended for acqID ' + str(self._acquisition_id))
+            # Force a write of the VDS out
+            self.create_vds_file(self.BLOCKSIZE)
             self.close_file()
         else:
             self._logger.info('Processor ended, but not the last for acqID ' + str(self._acquisition_id))
@@ -145,7 +150,7 @@ class TristanMetaWriter(MetaWriter):
         if self._hdf5_file is not None:
             self._logger.info('Closing file ' + self.full_file_name)
             self._hdf5_file.close()
-            self._logger.info('Meta frames written: ' + str(self._current_frame_count) + ' of ' + str(self._num_frames_to_write))
+#            self._logger.info('Meta frames written: ' + str(self._current_frame_count) + ' of ' + str(self._num_frames_to_write))
             self._hdf5_file = None
 
         self.finished = True
@@ -172,7 +177,7 @@ class TristanMetaWriter(MetaWriter):
         :param user_header: The header
         :param value: An array of time slice sizes
         """
-        self._logger.debug('Handling time slice information for acqID ' + self._acquisition_id)
+        self._logger.info('Handling time slice information for acqID ' + self._acquisition_id)
         self._logger.debug(user_header)
         self._logger.debug(len(value))
 
@@ -182,11 +187,12 @@ class TristanMetaWriter(MetaWriter):
         array_size = user_header['qty']
         format_str = '{}i'.format(array_size)
         array = struct.unpack(format_str, value)
-        self._logger.debug(array)
+        self._logger.info("Rank: {}  Index {}  Array_Size {}".format(rank, index, array_size))
+        self._logger.info(array)
 
         # Check to see if the expected index matches the index for this rank of message
         if self._expected_index[rank] == index:
-            self._logger.debug("Index match, writing to file...")
+            self._logger.info("Index match, writing to file...")
             self._time_slices[rank][self._expected_index[rank]:self._expected_index[rank]+array_size] = array
             self.write_ts_data(rank, self._expected_index[rank], array, array_size)
             self._expected_index[rank] += array_size
@@ -253,10 +259,10 @@ class TristanMetaWriter(MetaWriter):
                                 self._vds_total_pts += new_block[2] - new_block[1] + 1
                 self._vds_index += 1
 
-    def create_vds_file(self, block_size=50000):
+    def create_vds_file(self, file_block_size=50000):
         # Create the virtual dataset file
         filename = '{}_vds_{}.h5'.format(self._acquisition_id, self._vds_file_count)
-        f = h5py.File(os.path.join(self._directory, filename), 'w', libver='latest')
+        f = h5py.File(os.path.join(self.directory, filename), 'w', libver='latest')
 
         entry_group = f.create_group("entry")
         entry_group.attrs["NX_class"] = "NXentry"
@@ -280,7 +286,7 @@ class TristanMetaWriter(MetaWriter):
 
 
         # Create the virtual dataset dataspace
-        virt_dspace = h5py.h5s.create_simple((block_size,), (block_size,))
+        virt_dspace = h5py.h5s.create_simple((file_block_size,), (file_block_size,))
 
         # Create the virtual dataset property list
         dcpl = h5py.h5p.create(h5py.h5p.DATASET_CREATE)
@@ -288,7 +294,6 @@ class TristanMetaWriter(MetaWriter):
         dset_ptr = 0
 
         for block in self._vds_blocks:
-            print("Block : ", block)
             file_index = block[0] + 1
 
             # Size of block
@@ -303,16 +308,47 @@ class TristanMetaWriter(MetaWriter):
             virt_dspace.select_hyperslab(start=(dset_ptr,), count=(1,), block=(block_size,))
 
             dset_ptr += block_size
-            print("Dset ptr size: {}".format(dset_ptr))
 
             # Set the virtual dataset hyperslab to point to the real first dataset
-            src_filename = os.path.join(self._directory, '{}_{:06d}.h5'.format(self._acquisition_id, file_index))
+            src_filename = os.path.join(self.directory, '{}_{:06d}.h5'.format(self._acquisition_id, file_index))
             dcpl.set_virtual(virt_dspace, src_filename, "/event_id", src_dspace)
 
         # Create the virtual dataset
         h5py.h5d.create(event_group.id, name="event_id", tid=h5py.h5t.NATIVE_INT32, space=virt_dspace, dcpl=dcpl)
 
         # Move onto the next VDS
+
+        # Create the virtual dataset dataspace
+        virt_dspace_2 = h5py.h5s.create_simple((file_block_size,), (file_block_size,))
+
+        # Create the virtual dataset property list
+        dcpl_2 = h5py.h5p.create(h5py.h5p.DATASET_CREATE)
+
+        dset_ptr = 0
+
+        for block in self._vds_blocks:
+            file_index = block[0] + 1
+            # Size of block
+            block_size = block[2] - block[1] + 1
+            # Create the source dataset dataspace
+            src_dspace_2 = h5py.h5s.create_simple((block_size,), (block_size,))
+
+            # Select the source dataset hyperslab
+            src_dspace_2.select_hyperslab(start=(block[1],), count=(1,), block=(block_size,))
+
+            # Select the virtual dataset first hyperslab (for the first source dataset)
+            virt_dspace_2.select_hyperslab(start=(dset_ptr,), count=(1,), block=(block_size,))
+
+            #print("file_index {}  block_size {}  dset_ptr {}".format(file_index, block_size, dset_ptr))
+
+            dset_ptr += block_size
+
+            # Set the virtual dataset hyperslab to point to the real first dataset
+            src_filename = os.path.join(self.directory, '{}_{:06d}.h5'.format(self._acquisition_id, file_index))
+            dcpl_2.set_virtual(virt_dspace_2, src_filename, "/event_time_offset", src_dspace_2)
+
+        # Create the virtual dataset
+        h5py.h5d.create(event_group.id, name="event_time_offset", tid=h5py.h5t.NATIVE_INT64, space=virt_dspace_2, dcpl=dcpl_2)
 
         # # Create the virtual dataset dataspace
         # virt_dspace = h5py.h5s.create_simple((block_size,), (block_size,))
@@ -360,7 +396,8 @@ class TristanMetaWriter(MetaWriter):
     def create_top_level_vds_file(self, block_size=50000):
         # Create the virtual dataset file
         filename = '{}_complete.h5'.format(self._acquisition_id)
-        f = h5py.File(os.path.join(self._directory, filename), 'w', libver='latest')
+        self._logger.info('Creating file ' + os.path.join(self.directory, filename))
+        f = h5py.File(os.path.join(self.directory, filename), 'w', libver='latest')
 
         src_filename = '{}_vds_%b.h5'.format(self._acquisition_id)
 
@@ -398,7 +435,7 @@ class TristanMetaWriter(MetaWriter):
         # Select the virtual dataset first hyperslab (for the first source dataset)
         virt_dspace.select_hyperslab(start=(0,), count=(h5py.h5s.UNLIMITED,), stride=(block_size,), block=(block_size,))
 
-        dcpl.set_virtual(virt_dspace, os.path.join(self._directory, src_filename), "/entry/data/event/event_id", src_dspace)
+        dcpl.set_virtual(virt_dspace, os.path.join(self.directory, src_filename), "/entry/data/event/event_id", src_dspace)
 
         # Create the virtual dataset
         dset = h5py.h5d.create(event_group.id, name="event_id", tid=h5py.h5t.NATIVE_INT32, space=virt_dspace, dcpl=dcpl)
@@ -417,7 +454,7 @@ class TristanMetaWriter(MetaWriter):
         # Select the virtual dataset first hyperslab (for the first source dataset)
         virt_dspace.select_hyperslab(start=(0,), count=(h5py.h5s.UNLIMITED,), stride=(block_size,), block=(block_size,))
 
-        dcpl.set_virtual(virt_dspace, os.path.join(self._directory, src_filename), "/entry/data/event/event_time_offset", src_dspace)
+        dcpl.set_virtual(virt_dspace, os.path.join(self.directory, src_filename), "/entry/data/event/event_time_offset", src_dspace)
 
         # Create the virtual dataset
         dset = h5py.h5d.create(event_group.id, name="event_time_offset", tid=h5py.h5t.NATIVE_INT64, space=virt_dspace, dcpl=dcpl)
