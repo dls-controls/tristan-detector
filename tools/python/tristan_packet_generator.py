@@ -34,7 +34,8 @@ class TristanDefinitions(object):
 
 class TristanData(object):
     WORD_INDEX = 0
-    TIMESTAMP = 9033808973057
+#    TIMESTAMP = 9033808973057
+    TIMESTAMP = 0
     TIME_SLICE_NUMBER = 0
     PACKET_NUMBER = 0
 
@@ -204,6 +205,12 @@ class LATRDFrameProducer(object):
         # Create an empty list for timeslice information
         self._ts = []
 
+        # Time slice container
+        self._time_slices = []
+
+        # Start packet numbers from 0
+        self._pkt_number = 0
+
         # Load default parameters
         self.defaults = LATRDProducerDefaults()
 
@@ -286,7 +293,7 @@ class LATRDFrameProducer(object):
         """
         Run the frame producer.
         """
-        self.create_packets(self.args.num_events, 5000)
+        self.create_packets(self.args.num_events, 5000000)
         self.send_packets()
 
     def create_packets(self, total_events, per_slice):
@@ -301,14 +308,22 @@ class LATRDFrameProducer(object):
         time_slice = 0
 
         while generated_events < total_events:
+            time_slice_dict = {'id': time_slice, 'packets': [], 'ts': []}
             # Generate a new packet
             slice_events = 0
             while slice_events < per_slice:
                 pkt = TristanPacket(800, time_slice)
+                #print("Packet length bytes: {}".format(len(pkt.to_packet())))
                 generated_events += 800
                 slice_events+=800
-                self._packets.append(pkt.to_packet())
-                self._ts.append(time_slice)
+
+                time_slice_dict['packets'].append(pkt.to_packet())
+                time_slice_dict['ts'].append(self._pkt_number)
+                #self._packets.append(pkt.to_packet())
+                #self._ts.append(self._pkt_number)
+                self._pkt_number += 1
+            #print("Generated time slice {}".format(time_slice))
+            self._time_slices.append(time_slice_dict)
             time_slice += 1
             TristanData.PACKET_NUMBER=0
 
@@ -359,22 +374,35 @@ class LATRDFrameProducer(object):
                 break
 
         # Packet delay is total duration / number of packets
-        logging.info("Sending %d data packets in %f seconds", len(self._packets)/self._no_of_ports, self.args.duration)
+        packet_count = 0
+        for ts in self._time_slices:
+            if ts['id'] % self._no_of_ports == index:
+                packet_count += len(ts['packets'])
+        logging.info("Sending %d data packets in %f seconds", packet_count, self.args.duration)
         data_bytes_sent = 0
         data_packets_sent = 0
-        delay = float(self.args.duration)/float(len(self._packets)/self._no_of_ports)
-        for packet, ts_id in zip(self._packets, self._ts):
-            # Send the packet over the UDP socket
-            try:
-                if ts_id % self._no_of_ports == index:
-                    data_bytes_sent += udp_socket.sendto(packet, (self.args.ip_addr, port))
-                    data_packets_sent += 1
-                    # Add 1 second delay
-                    if delay > 0.001:
+        delay = float(self.args.duration)/float(packet_count)
+        logging.info("Packet send delay %f", delay)
+        if delay < 0.001:
+            delay = 0.001
+#        for packet, ts_id in zip(self._packets, self._ts):
+        for ts in self._time_slices:
+            if ts['id'] % self._no_of_ports == index:
+                # Send the packet over the UDP socket
+                for packet in ts['packets']:
+                    try:
+                    #logging.info("Checking port number for %d at index %d", ts_id, index)
+                        #logging.info("Sending UDP packet")
+                        data_bytes_sent += udp_socket.sendto(packet, (self.args.ip_addr, port))
+                        #logging.info("Sent UDP packet")
+                        data_packets_sent += 1
+                        # Add 1 second delay
                         time.sleep(delay)
-            except socket.error as exc:
-                logging.error("Got error sending frame packet: %s", exc)
-                break
+                        if data_packets_sent % 1000 == 0:
+                            logging.info("Sent %d packets", data_packets_sent)
+                    except socket.error as exc:
+                        logging.error("Got error sending frame packet: %s", exc)
+                        break
 
         time.sleep(1.0)
         idle_bytes_sent = 0
