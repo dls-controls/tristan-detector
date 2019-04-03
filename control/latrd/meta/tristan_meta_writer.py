@@ -256,6 +256,7 @@ class TristanMetaWriter(MetaWriter):
                             self._vds_file_count += 1
                             if new_block is not None:
                                 self._vds_blocks.append(new_block)
+                                self._time_slice_data_index[index] = new_block[2] + 1
                                 self._vds_total_pts += new_block[2] - new_block[1] + 1
                 self._vds_index += 1
 
@@ -292,6 +293,7 @@ class TristanMetaWriter(MetaWriter):
         dcpl = h5py.h5p.create(h5py.h5p.DATASET_CREATE)
 
         dset_ptr = 0
+        self._logger.info("VDS Blocks: {}".format(self._vds_blocks))
 
         for block in self._vds_blocks:
             file_index = block[0] + 1
