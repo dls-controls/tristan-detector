@@ -10,6 +10,6 @@ PYTHON = $(TOOLS_SUPPORT)/Python/2-7-3
 ODINCONTROL = $(TOOLS_SUPPORT)/../../common/python/RHEL6-x86_64/odin-control/0-3-0dls1
 NUMPY  = $(TOOLS_SUPPORT)/numpy/1-11-1
 ENUM  = $(TOOLS_SUPPORT)/enum34/1-0-4
-PYTZ  = $(TOOLS_SUPPORT)/pytz/2015-7
+DATEUTIL = $(TOOLS_SUPPORT)/python-dateutil/2-2
 CONFIGPARSER = $(TOOLS_SUPPORT)/configparser/3-5-0dls1
 

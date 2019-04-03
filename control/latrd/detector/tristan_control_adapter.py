@@ -13,7 +13,7 @@ from odin.adapters.adapter import ApiAdapter, ApiAdapterResponse, request_types,
 from tornado import escape
 from tornado.ioloop import IOLoop
 from datetime import datetime
-from pytz import utc
+from dateutil.tz import tzlocal
 from enum import Enum
 import getpass
 
@@ -636,7 +636,7 @@ class TristanControlAdapter(ApiAdapter):
                                 # Check if we have just reconnected
                                 if not currently_connected:
                                     # Reconnection event so send down the time stamp config item
-                                    connect_time = datetime.now(tz=utc).strftime("%Y-%m-%dT%H:%M%Z")
+                                    connect_time = datetime.now(tzlocal()).strftime("%Y-%m-%dT%H:%M%z")
                                     msg = PutMessage()
                                     msg.set_param('config', {'time': connect_time})
                                     reply = self.send_recv(msg)
