@@ -6,7 +6,8 @@ odin_data = {
   adapter_list: [],
   adapter_objects: {},
   ctrl_connected: false,
-  fp_connected: [false,false,false,false]
+  fp_connected: [false,false,false,false],
+  acq_id: ''
   };
 
 
@@ -59,6 +60,7 @@ $( document ).ready(function()
   setInterval(update_detector_status, 1000);
   setInterval(update_fp_status, 1000);
   setInterval(update_fr_status, 1000);
+  setInterval(update_meta_status, 1000);
 
   $('#set-hw-exposure').change(function(){
     update_exposure();
@@ -118,6 +120,7 @@ $( document ).ready(function()
   });
 
   $('#fp-start-cmd').click(function(){
+    meta_start_command();
     fp_start_command();
   });
 
@@ -225,6 +228,20 @@ function detector_json_get_command()
     {
         alert("Failed to submit JSON GET command.\nError: " + err.message);
     }
+}
+
+function send_meta_command(command, params)
+{
+    $.ajax({
+        url: '/api/' + odin_data.api_version + '/meta_listener/config/' + command,
+        type: 'PUT',
+        dataType: 'json',
+        data: params,
+        headers: {'Content-Type': 'application/json',
+            'Accept': 'application/json'},
+        success: process_cmd_response,
+        async: false
+    });
 }
 
 function send_fp_command(command, params)
@@ -405,8 +422,17 @@ function fp_mode_command(mode) {
     }));
 }
 
+function meta_start_command() {
+    send_fp_command('latrd', JSON.stringify({
+        "acq_id": $('#set-fp-filename').val()
+    }));
+    send_meta_command("output_dir", $('#set-fp-path').val());
+    send_meta_command("acquisition_id", $('#set-fp-filename').val());
+}
+
 function fp_start_command() {
     send_fp_command('hdf', JSON.stringify({
+        "acquisition_id": $('#set-fp-filename').val(),
         "file": {
             "name": $('#set-fp-filename').val(),
             "path": $('#set-fp-path').val()
@@ -787,6 +813,9 @@ function update_fp_data(index, data){
     $('#fp-rank-'+index).html('' + data.rank);
     $('#fp-writing-'+index).html(led_html(data.writing, 'green', 26));
     $('#fp-written-'+index).html('' + data.frames_written);
+    if (index == 1){
+        odin_data.acq_id = data['acquisition_id'];
+    }
 }
 
 function update_fp_latrd(index, data){
@@ -831,6 +860,28 @@ function update_fr_status() {
         $('#fr-connected-6').html(led_html(response['value'][5], 'green', 26));
         $('#fr-connected-7').html(led_html(response['value'][6], 'green', 26));
         $('#fr-connected-8').html(led_html(response['value'][7], 'green', 26));
+    });
+}
+
+function update_meta_status() {
+    $.getJSON('/api/' + odin_data.api_version + '/meta_listener/status', function (response) {
+        data = response['value'][0];
+        //alert(JSON.stringify(data));
+        //alert(JSON.stringify(odin_data.acq_id));
+        $('#meta-init').html(led_html(data['connected'], 'green', 26));
+        if ($.isEmptyObject(data['acquisitions'])){
+          $('#meta-active').html(led_html(false, 'green', 26));
+          $('#meta-writing').html(led_html(false, 'green', 26));
+          $('#meta-out').html('');
+          $('#meta-frames').html('0');
+          $('#meta-writers').html('0');
+        } else {
+          $('#meta-active').html(led_html(true, 'green', 26));
+          $('#meta-writing').html(led_html(data['acquisitions'][odin_data.acq_id]['writing'], 'green', 26));
+          $('#meta-out').html(data['acquisitions'][odin_data.acq_id]['filename']);
+          $('#meta-frames').html(data['acquisitions'][odin_data.acq_id]['written']);
+          $('#meta-writers').html(data['acquisitions'][odin_data.acq_id]['num_processors']);
+        }
     });
 }
 
