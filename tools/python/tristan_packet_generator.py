@@ -87,8 +87,14 @@ class TristanPacket(object):
         self._fine_ts = TristanData.TIMESTAMP&TristanDefinitions.FINE_TIMESTAMP_MASK
 
         self._ts_word = TristanTimestampWord(self._course_ts)
+        extra_words = 0
 
         for index in range(words):
+            if index > 0:
+                if self._fine_ts&TristanDefinitions.FINE_TIMESTAMP_MASK == 0:
+                    self._course_ts = TristanData.TIMESTAMP&TristanDefinitions.COURSE_TIMESTAMP_MASK
+                    self._words.append(TristanTimestampWord(self._course_ts))
+                    extra_words += 1
             self._words.append(TristanWord(self._fine_ts))
             self._fine_ts += 1
             TristanData.TIMESTAMP += 1
@@ -104,7 +110,8 @@ class TristanPacket(object):
         self._hdr_1 = TristanDefinitions.HEADER_WORD_1
         # Header 2 contains time slice wrap and word count
         # Word count is no of words + 1 for timestamp + 2 for header words
-        word_count = words + 3
+        # plus any additional timestamp words required for wrapping
+        word_count = words + 3 + extra_words
         self._hdr_2 = TristanDefinitions.HEADER_WORD_2 | \
                       (word_count&TristanDefinitions.WORD_COUNT_MASK) | \
                       ((self._ts_wrap<<18)&TristanDefinitions.TIME_SLICE_WRAP_MASK)
