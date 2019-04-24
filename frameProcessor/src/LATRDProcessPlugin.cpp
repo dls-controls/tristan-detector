@@ -149,6 +149,7 @@ void LATRDProcessPlugin::status(OdinData::IpcMessage& status)
 {
   uint32_t dropped_packets = 0;
   uint32_t invalid_packets = 0;
+  uint32_t timestamp_mismatches = 0;
   uint32_t processed_jobs = 0;
   uint32_t job_q_size = 0;
   uint32_t result_q_size = 0;
@@ -157,6 +158,7 @@ void LATRDProcessPlugin::status(OdinData::IpcMessage& status)
   // Return the status of the LATRD process plugin
   this->coordinator_.get_statistics(&dropped_packets,
                                     &invalid_packets,
+                                    &timestamp_mismatches,
                                     &processed_jobs,
                                     &job_q_size,
                                     &result_q_size,
@@ -164,6 +166,7 @@ void LATRDProcessPlugin::status(OdinData::IpcMessage& status)
                                     &output_frames);
   status.set_param(get_name() + "/dropped_packets", dropped_packets);
   status.set_param(get_name() + "/invalid_packets", invalid_packets);
+  status.set_param(get_name() + "/timestamp_mismatches", timestamp_mismatches);
   status.set_param(get_name() + "/processed_jobs", processed_jobs);
   status.set_param(get_name() + "/job_queue", job_q_size);
   status.set_param(get_name() + "/results_queue", result_q_size);

@@ -7,13 +7,13 @@
 #include "DebugLevelLogger.h"
 
 namespace FrameProcessor {
-static int no_of_job = 0;
     LATRDProcessCoordinator::LATRDProcessCoordinator() :
     rank_(0),
     current_ts_wrap_(0),
     current_ts_buffer_(0),
     dropped_packets_(0),
     invalid_packets_(0),
+    timestamp_mismatches_(0),
     processed_jobs_(0),
     processed_frames_(0),
     output_frames_(0),
@@ -55,6 +55,7 @@ static int no_of_job = 0;
 
     void LATRDProcessCoordinator::get_statistics(uint32_t *dropped_packets,
                                                  uint32_t *invalid_packets,
+                                                 uint32_t *timestamp_mismatches,
                                                  uint32_t *processed_jobs,
                                                  uint32_t *job_q_size,
                                                  uint32_t *result_q_size,
@@ -63,6 +64,7 @@ static int no_of_job = 0;
     {
         *dropped_packets = dropped_packets_;
         *invalid_packets = invalid_packets_;
+        *timestamp_mismatches = timestamp_mismatches_;
         *processed_jobs = processed_jobs_;
         *job_q_size = jobQueue_->size();
         *result_q_size = resultsQueue_->size();
@@ -84,6 +86,7 @@ static int no_of_job = 0;
     {
         dropped_packets_ = 0;
         invalid_packets_ = 0;
+        timestamp_mismatches_ = 0;
         processed_jobs_ = 0;
         processed_frames_ = 0;
         output_frames_ = 0;
@@ -303,51 +306,82 @@ static int no_of_job = 0;
                     job->time_slice_wrap = LATRD::get_time_slice_modulo(packet_header.headerWord1);
                     job->time_slice_buffer = LATRD::get_time_slice_number(packet_header.headerWord2);
                     job->words_to_process = words_to_process;
+                    LOG4CXX_DEBUG_LEVEL(3, logger_, "Job number [" << job->job_id
+                            << "] TS Wrap [" << job->time_slice_wrap
+                            << "] TS Buffer[ " << job->time_slice_buffer
+                            << "]: Adding job to processing queue");
                     jobQueue_->add(job, true);
                 } else {
+                    // Increment the dropped packets counter as we cannot process this invalid packet
                     dropped_packets += 1;
                     // Record the invalid packet as a statistic
                     invalid_packets_ += 1;
-                    LOG4CXX_ERROR(logger_, "Invalid packet mode detected! Packet marked as count mode");
+                    // Log the invalid packet as an error
+                    LOG4CXX_ERROR(logger_, "Invalid packet mode detected. Packet number [" << LATRD::get_packet_number(packet_header.headerWord2)
+                            << "] TS Wrap [" << LATRD::get_time_slice_modulo(packet_header.headerWord1)
+                            << "] TS Buffer [" << LATRD::get_time_slice_number(packet_header.headerWord2)
+                            << "]: Packet marked as a count mode packet");
                 }
             }
             payload_ptr += LATRD::primary_packet_size;
         }
 
-        // Now we need to reconstruct the full dataset from the individual processing jobs
+        std::vector<boost::shared_ptr <LATRDProcessJob> > completed_jobs(LATRD::num_primary_packets);
+
+        // Place the jobs in order in a vector
         size_t processed_jobs = 0;
-        while (processed_jobs + dropped_packets < LATRD::num_primary_packets) {
-            boost::shared_ptr<LATRDProcessJob> job = resultsQueue_->remove();
-            // Add the job to the correct time slice wrap object
+        while (processed_jobs + dropped_packets < LATRD::num_primary_packets){
+            boost::shared_ptr <LATRDProcessJob> job = resultsQueue_->remove();
+            completed_jobs[job->job_id] = job;
             processed_jobs++;
-            if (ts_store_.count(job->time_slice_wrap) > 0){
-                ts_store_[job->time_slice_wrap]->add_job(job->time_slice_buffer, job);
-                if (job->time_slice_wrap == current_ts_wrap_ && job->time_slice_buffer > current_ts_buffer_){
-                    current_ts_buffer_ = job->time_slice_buffer;
-                }
-            } else {
-                // Is this the first packet of a new time slice wrap or the current or previous?
-                uint32_t previous_ts_wrap = current_ts_wrap_;
-                if (previous_ts_wrap > 0){
-                    previous_ts_wrap--;
-                }
-                if (job->time_slice_wrap >= previous_ts_wrap){
-                    // Reset the current time slice buffer to be whatever this job is
-                    current_ts_buffer_ = job->time_slice_buffer;
-                    // Create the new wrap object and add it to the store
-                    boost::shared_ptr<LATRDTimeSliceWrap> wrap = boost::shared_ptr<LATRDTimeSliceWrap>(new LATRDTimeSliceWrap(LATRD::number_of_time_slice_buffers));
-                    ts_store_[job->time_slice_wrap] = wrap;
-                    current_ts_wrap_ = job->time_slice_wrap;
-                    // Add the packet to the wrap object
-                    wrap->add_job(job->time_slice_buffer, job);
+        }
+
+        // Now we need to reconstruct the full dataset from the individual processing jobs
+        std::vector<boost::shared_ptr <LATRDProcessJob> >::iterator iter;
+        for (iter = completed_jobs.begin(); iter != completed_jobs.end(); ++iter){
+            boost::shared_ptr<LATRDProcessJob> job = *iter;
+            if (job) {
+                // Record any timestamp mismatches
+                timestamp_mismatches_ += job->timestamp_mismatches;
+
+                // Add the job to the correct time slice wrap object
+                if (ts_store_.count(job->time_slice_wrap) > 0) {
+                    ts_store_[job->time_slice_wrap]->add_job(job->time_slice_buffer, job);
+                    if (job->time_slice_wrap == current_ts_wrap_ && job->time_slice_buffer > current_ts_buffer_) {
+                        current_ts_buffer_ = job->time_slice_buffer;
+                    }
                 } else {
-                    // This is a fault condition, we have got a packet from more than 1 wrap in the past
-                    LOG4CXX_ERROR(logger_, "Stale packet received ts_wrap[" << job->time_slice_wrap <<
-                                           "] ts_buffer[" << job->time_slice_buffer << "], dropping");
-                    // TODO: Log the fault into the plugin stats
+                    // Is this the first packet of a new time slice wrap or the current or previous?
+                    uint32_t previous_ts_wrap = current_ts_wrap_;
+                    if (previous_ts_wrap > 0) {
+                        previous_ts_wrap--;
+                    }
+                    if (job->time_slice_wrap >= previous_ts_wrap) {
+                        // Reset the current time slice buffer to be whatever this job is
+                        current_ts_buffer_ = job->time_slice_buffer;
+                        // Create the new wrap object and add it to the store
+                        boost::shared_ptr <LATRDTimeSliceWrap> wrap = boost::shared_ptr<LATRDTimeSliceWrap>(
+                                new LATRDTimeSliceWrap(LATRD::number_of_time_slice_buffers));
+                        ts_store_[job->time_slice_wrap] = wrap;
+                        current_ts_wrap_ = job->time_slice_wrap;
+                        // Add the packet to the wrap object
+                        wrap->add_job(job->time_slice_buffer, job);
+                    } else {
+                        // This is a fault condition, we have got a packet from more than 1 wrap in the past
+                        // Mark the job as invalid
+                        job->invalid = 1;
+                        // Log the error
+                        LOG4CXX_ERROR(logger_, "Stale packet received TS Wrap[" << job->time_slice_wrap
+                                << "] TS Buffer [" << job->time_slice_buffer
+                                << "]: Dropping");
+                    }
+                }
+                processed_jobs_++;
+                // If the job is marked as invalid then increment the total number of invalid packets
+                if (job->invalid > 0){
+                    invalid_packets_ += 1;
                 }
             }
-            processed_jobs_++;
         }
     }
 
@@ -488,6 +522,7 @@ static int no_of_job = 0;
   {
       LOG4CXX_TRACE(logger_, "Starting processing task with ID [" << boost::this_thread::get_id() << "]");
       bool executing = true;
+      uint16_t max_number_of_words = (LATRD::primary_packet_size / sizeof(uint64_t));
       while (executing){
           boost::shared_ptr<LATRDProcessJob> job = jobQueue_->remove();
           job->valid_results = 0;
@@ -495,9 +530,6 @@ static int no_of_job = 0;
           job->timestamp_mismatches = 0;
           uint64_t previous_course_timestamp = 0;
           uint64_t current_course_timestamp = 0;
-//	    LOG4CXX_DEBUG(logger_, "Processing job [" << job->job_id
-//	    		<< "] on task [" << boost::this_thread::get_id()
-//	    		<< "] : Data pointer [" << job->data_ptr << "]");
           uint64_t *data_word_ptr = job->data_ptr;
           uint64_t *event_ts_ptr = job->event_ts_ptr;
           uint32_t *event_id_ptr = job->event_id_ptr;
@@ -505,14 +537,19 @@ static int no_of_job = 0;
           uint64_t *ctrl_word_ts_ptr = job->ctrl_word_ts_ptr;
           uint16_t *ctrl_word_id_ptr = job->ctrl_word_id_ptr;
           uint32_t *ctrl_index_ptr = job->ctrl_index_ptr;
-//          LOG4CXX_DEBUG(logger_, "*** Processing packet ID [" << job->packet_number << "] with time slice wrap [" << job->time_slice_wrap << "] and buffer [" << job->time_slice_buffer << "]");
           // Verify the first word is an extended timestamp word
           if (LATRD::get_control_type(*data_word_ptr) != LATRD::ExtendedTimestamp){
-              LOG4CXX_ERROR(logger_, "*** ERROR in job [" << job->job_id << "].  The first word is not an extended timestamp");
+              // Mark the job as invalid
+              job->invalid = 1;
+              // Log the error
+              LOG4CXX_ERROR(logger_, "Error in job [" << job->job_id
+                      << "] TS Wrap [" << job->time_slice_wrap
+                      << "] TS Buffer [" << job->time_slice_buffer
+                      << "]: The first word is not an extended timestamp");
           }
-          for (uint16_t index = 0; index < job->words_to_process; index++){
-              try
-              {
+          if (job->words_to_process <= max_number_of_words) {
+              for (uint16_t index = 0; index < job->words_to_process; index++) {
+                  uint32_t mismatch = 0;
                   if (processDataWord(*data_word_ptr,
                                       &previous_course_timestamp,
                                       &current_course_timestamp,
@@ -521,46 +558,49 @@ static int no_of_job = 0;
                                       job->time_slice_buffer,
                                       event_ts_ptr,
                                       event_id_ptr,
-                                      event_energy_ptr)){
-                      // Increment the event ptrs and the valid result count
-                      event_ts_ptr++;
-                      event_id_ptr++;
-                      event_energy_ptr++;
-                      job->valid_results++;
-                  } else if (LATRD::is_control_word(*data_word_ptr)){
+                                      event_energy_ptr,
+                                      &mismatch)) {
+                      // Check for a timestamp mismatch
+                      if (mismatch == 1) {
+                          // Record the mismatch, do not increase event pointers
+                          job->timestamp_mismatches++;
+                      } else {
+                          // Increment the event ptrs and the valid result count
+                          event_ts_ptr++;
+                          event_id_ptr++;
+                          event_energy_ptr++;
+                          job->valid_results++;
+                      }
+                  } else if (LATRD::is_control_word(*data_word_ptr)) {
                       // Set the control word timestamp value
                       *ctrl_word_ts_ptr = *data_word_ptr & LATRD::course_timestamp_mask;
                       // Set the control word id value
                       *ctrl_word_id_ptr = (uint16_t)((*data_word_ptr & LATRD::control_word_full_mask) >> 52);
                       // Set the index value for the control word
                       *ctrl_index_ptr = job->valid_results;
-//				    LOG4CXX_DEBUG(logger_, "Control word processed: [" << *ctrl_word_ptr
-//				    		<< "] index [" << *ctrl_index_ptr << "]");
                       // Increment the control pointers and the valid result count
                       ctrl_word_ts_ptr++;
                       ctrl_word_id_ptr++;
                       ctrl_index_ptr++;
                       job->valid_control_words++;
-//				    LOG4CXX_DEBUG(logger_, "Valid control words [" << job->valid_control_words << "]");
                   } else {
                       LOG4CXX_ERROR(logger_, "Unknown word type [" << *data_word_ptr << "]");
                   }
+                  data_word_ptr++;
               }
-              catch (LATRDTimestampMismatchException& ex)
-              {
-                  //printf("Timestamp mismatch: Word index [%d] Buffer Wrap [%d] Buffer ID [%d] Packet ID: %d\n", index, job->time_slice_wrap, job->time_slice_buffer, job->packet_number);
-                  //printf(" => Current course timestamp: %lX\n", current_course_timestamp);
-                  //printf(" => Previous course timestamp: %lX\n", previous_course_timestamp);
-                  //printf(" => Data word: %lX\n", *data_word_ptr);
-                  //printf(" => Fine Timestamp: %lX\n", getFineTimestamp(*data_word_ptr));
-                  job->timestamp_mismatches++;
-              }
-              data_word_ptr++;
+          } else {
+              // Mark the job as invalid
+              job->invalid = 1;
+              // Log the issue
+              LOG4CXX_ERROR(logger_, "Could not process job [" << job->job_id
+                      << "] TS Wrap [" << job->time_slice_wrap
+                      << "] TS Buffer [" << job->time_slice_buffer
+                      << "]: Invalid number of words to process => " << job->words_to_process);
           }
-	    LOG4CXX_DEBUG_LEVEL(2, logger_, "Processing complete for job [" << job->job_id
-	    		<< "] on task [" << boost::this_thread::get_id()
-		<< "] : Number of valid results [" << job->valid_results
-		<< "] : Number of mismatches [" << job->timestamp_mismatches << "]");
+          LOG4CXX_DEBUG_LEVEL(2, logger_, "Processing complete for job [" << job->job_id
+                  << "] on task [" << boost::this_thread::get_id()
+                  << "] : Number of valid results [" << job->valid_results
+                  << "] : Number of mismatches [" << job->timestamp_mismatches << "]");
           resultsQueue_->add(job, true);
       }
   }
@@ -595,7 +635,8 @@ static int no_of_job = 0;
                                                 uint32_t time_slice_buffer,
                                                 uint64_t *event_ts,
                                                 uint32_t *event_id,
-                                                uint32_t *event_energy)
+                                                uint32_t *event_energy,
+                                                uint32_t *mismatch)
   {
       bool event_word = false;
       //LOG4CXX_DEBUG(logger_, "Data Word: 0x" << std::hex << data_word);
@@ -616,7 +657,7 @@ static int no_of_job = 0;
 //			LOG4CXX_DEBUG(logger_, "New extended timestamp [" << std::dec << *current_course_timestamp << "]");
           }
       } else {
-          *event_ts = getFullTimestmap(data_word, *previous_course_timestamp, *current_course_timestamp);
+          *event_ts = getFullTimestamp(data_word, *previous_course_timestamp, *current_course_timestamp, mismatch);
           *event_energy = getEnergy(data_word);
           *event_id = getPositionID(data_word);
 //          *event_ts = packet_number;
@@ -659,10 +700,11 @@ static int no_of_job = 0;
       return (data_word >> 37) & LATRD::position_mask;
   }
 
-  uint64_t LATRDProcessCoordinator::getFullTimestmap(uint64_t data_word, uint64_t prev_course, uint64_t course)
+  uint64_t LATRDProcessCoordinator::getFullTimestamp(uint64_t data_word, uint64_t prev_course, uint64_t course, uint32_t *mismatch)
   {
       uint64_t full_ts = 0;
       uint64_t fine_ts = 0;
+      *mismatch = 0;
       if (LATRD::is_control_word(data_word)){
           throw LATRDProcessingException("Data word is a control word, not an event");
       }
@@ -674,29 +716,9 @@ static int no_of_job = 0;
           full_ts = (prev_course & LATRD::timestamp_match_mask) + fine_ts;
           //LOG4CXX_DEBUG(logger_, "Full timestamp generated 2");
       } else {
-          throw LATRDTimestampMismatchException("Timestamp mismatch");
-          //LOG4CXX_DEBUG(logger_, "Timestamp mismatch");
+          // This is a timestamp mismatch, set the mismatch flag to notify the caller
+          *mismatch = 1;
       }
-/*    if (full_ts == 5877939652317L){
-        LOG4CXX_ERROR(logger_, "Correct TS calculation:");
-        LOG4CXX_ERROR(logger_, "    Course: " << course);
-        LOG4CXX_ERROR(logger_, "    Prev:   " << prev_course);
-        LOG4CXX_ERROR(logger_, "    Fine:   " << fine_ts);
-        LOG4CXX_ERROR(logger_, "    Match c: " << (uint32_t)findTimestampMatch(course));
-        LOG4CXX_ERROR(logger_, "    Match f: " << (uint32_t)findTimestampMatch(fine_ts));
-        LOG4CXX_ERROR(logger_, "    Match p: " << (uint32_t)findTimestampMatch(prev_course));
-        LOG4CXX_ERROR(logger_, "----------------------------");
-    }
-    if (full_ts < 999999){
-        LOG4CXX_ERROR(logger_, "ERROR In TS calculation:");
-        LOG4CXX_ERROR(logger_, "    Course:  " << course);
-        LOG4CXX_ERROR(logger_, "    Prev:    " << prev_course);
-        LOG4CXX_ERROR(logger_, "    Fine:    " << fine_ts);
-        LOG4CXX_ERROR(logger_, "    Match c: " << (uint32_t)findTimestampMatch(course));
-        LOG4CXX_ERROR(logger_, "    Match f: " << (uint32_t)findTimestampMatch(fine_ts));
-        LOG4CXX_ERROR(logger_, "    Match p: " << (uint32_t)findTimestampMatch(prev_course));
-        LOG4CXX_ERROR(logger_, "----------------------------");
-    }*/
       return full_ts;
   }
 

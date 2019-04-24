@@ -44,6 +44,7 @@ namespace FrameProcessor {
 
     void get_statistics(uint32_t *dropped_packets,
                         uint32_t *invalid_packets,
+                        uint32_t *timestamp_mismatches,
                         uint32_t *processed_jobs,
                         uint32_t *job_q_size,
                         uint32_t *result_q_size,
@@ -86,7 +87,8 @@ namespace FrameProcessor {
                          uint32_t time_slice_buffer,
                          uint64_t *event_ts,
                          uint32_t *event_id,
-                         uint32_t *event_energy);
+                         uint32_t *event_energy,
+                         uint32_t *mismatch);
 
     uint64_t getCourseTimestamp(uint64_t data_word);
 
@@ -96,7 +98,7 @@ namespace FrameProcessor {
 
     uint32_t getPositionID(uint64_t data_word);
 
-    uint64_t getFullTimestmap(uint64_t data_word, uint64_t prev_course, uint64_t course);
+    uint64_t getFullTimestamp(uint64_t data_word, uint64_t prev_course, uint64_t course, uint32_t *mismatch);
 
     uint8_t findTimestampMatch(uint64_t time_stamp);
 
@@ -149,6 +151,7 @@ namespace FrameProcessor {
     /** Status information */
     uint32_t dropped_packets_;
     uint32_t invalid_packets_;
+    uint32_t timestamp_mismatches_;
     uint32_t processed_jobs_;
     uint32_t processed_frames_;
     uint32_t output_frames_;
