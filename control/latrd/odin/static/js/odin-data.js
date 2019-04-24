@@ -820,6 +820,7 @@ function update_fp_data(index, data){
 
 function update_fp_latrd(index, data){
     $('#fp-invalid-pkt-'+index).html('' + data.invalid_packets);
+    $('#fp-ts-mm-'+index).html('' + data.timestamp_mismatches);
     $('#fp-pkts-processed-'+index).html('' + data.processed_jobs);
     $('#fp-job-q-'+index).html('' + data.job_queue);
     $('#fp-result-q-'+index).html('' + data.results_queue);
