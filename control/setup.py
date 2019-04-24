@@ -7,6 +7,7 @@ from setuptools import setup, find_packages
 # To use a consistent encoding
 from codecs import open
 from os import path
+import versioneer
 
 rootdir = path.abspath(path.dirname(__file__))
 
@@ -17,7 +18,7 @@ with open(path.join(rootdir, '../README.md'), encoding='utf-8') as f:
 setup(
     name='tristan-detector',
 
-    version='0.1.1',
+    version=versioneer.get_version(),
 
     description='A Python based odin-control interface library to the Tristan detector',
     long_description=long_description,
