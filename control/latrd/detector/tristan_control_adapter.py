@@ -311,7 +311,10 @@ class TristanControlAdapter(ApiAdapter):
                                           [e.name for e in TriggerOutType])
             }
         }
-        self._parameters = {'status':{'connected':False}}
+        self._parameters = {'status':{'connected':False,
+                                      'detector': {
+                                          'version_check':False
+                                      }}}
         self._endpoint = None
         self._firmware = None
         self._detector = None
@@ -580,23 +583,24 @@ class TristanControlAdapter(ApiAdapter):
         :param msg:
         :return:
         """
-        logging.error("Message Request: %s", msg)
+        logging.debug("Message Request: %s", msg)
         reply = None
         with self._comms_lock:
-            self._detector.send(msg)
+            status = self._detector.send(msg)
 
-            pollevts = self._detector.poll(TristanControlAdapter.DETECTOR_TIMEOUT)
-            if pollevts == LATRDChannel.POLLIN:
-                reply = LATRDMessage.parse_json(self._detector.recv())
-
-            # Continue to attempt to get the correct reply until we timeout (or get the correct reply)
-            while reply and reply.msg_id != msg.msg_id:
-                reply = None
+            if status > -1:
                 pollevts = self._detector.poll(TristanControlAdapter.DETECTOR_TIMEOUT)
                 if pollevts == LATRDChannel.POLLIN:
                     reply = LATRDMessage.parse_json(self._detector.recv())
 
-        logging.error("Reply: %s", reply)
+                # Continue to attempt to get the correct reply until we timeout (or get the correct reply)
+                while reply and reply.msg_id != msg.msg_id:
+                    reply = None
+                    pollevts = self._detector.poll(TristanControlAdapter.DETECTOR_TIMEOUT)
+                    if pollevts == LATRDChannel.POLLIN:
+                        reply = LATRDMessage.parse_json(self._detector.recv())
+
+        logging.debug("Reply: %s", reply)
         return reply
 
     def update_loop(self):
@@ -619,7 +623,7 @@ class TristanControlAdapter(ApiAdapter):
                         msg.set_param('status', TristanControlAdapter.STATUS_ITEM_LIST)
                         reply = self.send_recv(msg)
 
-                        if reply:
+                        if reply is not None:
                             logging.debug("Raw reply: %s", reply)
                             if LATRDMessage.MSG_TYPE_RESPONSE in reply.msg_type:
                                 data = reply.data
@@ -672,7 +676,7 @@ class TristanControlAdapter(ApiAdapter):
                         msg.set_param('config', config_dict)
                         reply = self.send_recv(msg)
 
-                        if reply:
+                        if reply is not None:
                             logging.debug("Raw reply: %s", reply)
                             logging.debug("TESTING: %s", reply)
                             if LATRDMessage.MSG_TYPE_RESPONSE in reply.msg_type:

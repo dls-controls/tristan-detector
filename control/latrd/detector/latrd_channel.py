@@ -1,5 +1,6 @@
 import random
 import zmq
+from zmq import ZMQError
 from zmq.utils.strtypes import unicode, cast_bytes
 
 from latrd_message import LATRDMessage
@@ -15,7 +16,8 @@ class LATRDChannelException(Exception):
     
 
 class LATRDChannel(object):
-    
+
+    CHANNEL_HWM = 2
     CHANNEL_TYPE_PAIR = zmq.PAIR
     CHANNEL_TYPE_REQ  = zmq.REQ
     CHANNEL_TYPE_SUB  = zmq.SUB
@@ -32,6 +34,9 @@ class LATRDChannel(object):
         
         if endpoint:
             self.endpoint = endpoint
+
+        # Set the high water mark
+        self.socket.set_hwm(self.CHANNEL_HWM)
 
         # If the socket type is DEALER, set the identity, chosing a random
         # UUID4 value if not specified
@@ -62,9 +67,15 @@ class LATRDChannel(object):
         self.socket.close()
 
     def send(self, data):
+        status = 0
         if isinstance(data, LATRDMessage):
             data = data.encode()
-        self.socket.send_string(data)
+        try:
+            self.socket.send_string(data, zmq.NOBLOCK)
+        except ZMQError:
+            # We will get a ZMQError if the detector is not available because we are in NOBLOCK mode
+            status = -1
+        return status
 
     def send_multi(self, data):
         send_list = []
