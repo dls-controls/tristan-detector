@@ -704,6 +704,7 @@ namespace FrameProcessor {
   {
       uint64_t full_ts = 0;
       uint64_t fine_ts = 0;
+      uint64_t next_ts = course + LATRD::course_timestamp_rollover;
       *mismatch = 0;
       if (LATRD::is_control_word(data_word)){
           throw LATRDProcessingException("Data word is a control word, not an event");
@@ -711,10 +712,10 @@ namespace FrameProcessor {
       fine_ts = getFineTimestamp(data_word);
       if ((findTimestampMatch(course) == findTimestampMatch(fine_ts)) || (findTimestampMatch(course)+1 == findTimestampMatch(fine_ts))){
           full_ts = (course & LATRD::timestamp_match_mask) + fine_ts;
-          //LOG4CXX_DEBUG(logger_, "Full timestamp generated 1");
       } else if ((findTimestampMatch(prev_course) == findTimestampMatch(fine_ts)) || (findTimestampMatch(prev_course)+1 == findTimestampMatch(fine_ts))){
           full_ts = (prev_course & LATRD::timestamp_match_mask) + fine_ts;
-          //LOG4CXX_DEBUG(logger_, "Full timestamp generated 2");
+      } else if ((findTimestampMatch(next_ts) == findTimestampMatch(fine_ts)) || (findTimestampMatch(next_ts)+1 == findTimestampMatch(fine_ts))){
+          full_ts = (next_ts & LATRD::timestamp_match_mask) + fine_ts;
       } else {
           // This is a timestamp mismatch, set the mismatch flag to notify the caller
           *mismatch = 1;
