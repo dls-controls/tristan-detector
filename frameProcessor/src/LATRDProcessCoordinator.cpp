@@ -406,7 +406,7 @@ namespace FrameProcessor {
                 }
             }
             // Return the jobs for the same buffer from the previous wrap
-            if (ts_store_.count(current_ts_wrap_ - 1) > 0) {
+            /*if (ts_store_.count(current_ts_wrap_ - 1) > 0) {
                 this->update_time_slice_meta_data((current_ts_wrap_ - 1), ts_store_[current_ts_wrap_ - 1]->get_all_event_data_counts());
 
                 std::vector<boost::shared_ptr<LATRDProcessJob> > wrap_jobs = ts_store_[current_ts_wrap_ -
@@ -414,7 +414,7 @@ namespace FrameProcessor {
                         current_ts_buffer_);
                 jobs.insert(jobs.end(), wrap_jobs.begin(), wrap_jobs.end());
                 ts_store_.erase(current_ts_wrap_ - 1);
-            }
+            }*/
         }
         return jobs;
     }
