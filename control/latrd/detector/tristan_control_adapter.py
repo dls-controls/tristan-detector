@@ -478,6 +478,13 @@ class TristanControlAdapter(ApiAdapter):
                     self._parameters['status']['acquisition_complete'] = False
                 response['reply'] = str(reply)
 
+            elif 'stop_acquisition' == config_items[1]:
+                # Send a stop command
+                msg = PostMessage()
+                msg.set_param('command', 'stop')
+                reply = self.send_recv(msg)
+                response['reply'] = str(reply)
+
             else:
                 msg = PostMessage()
                 msg.set_param('command', config_items[1])
