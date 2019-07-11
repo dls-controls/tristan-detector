@@ -34,7 +34,7 @@ class TristanMetaWriter(MetaWriter):
         """
         super(TristanMetaWriter, self).__init__(logger, directory, acquisitionID)
 
-        self._number_of_processors = 4
+        self._number_of_processors = 8
         self._expected_index = []
         self._time_slices = []
         self._time_slice_data_index = []
