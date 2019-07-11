@@ -114,8 +114,8 @@ class TristanMetaWriter(MetaWriter):
             self._logger.info('Creating meta file for acqID ' + self._acquisition_id)
             self.create_file()
             # Create the top level VDS file
-            self._logger.info('Creating top level VDS file for acqID ' + self._acquisition_id)
-            self.create_top_level_vds_file(self.BLOCKSIZE)
+            #self._logger.info('Creating top level VDS file for acqID ' + self._acquisition_id)
+            #self.create_top_level_vds_file(self.BLOCKSIZE)
 
         if self._num_frames_to_write == -1:
             self._num_frames_to_write = userHeader['totalFrames']
@@ -137,8 +137,9 @@ class TristanMetaWriter(MetaWriter):
         if self.number_processes_running == 0:
             self._logger.info('Last processor ended for acqID ' + str(self._acquisition_id))
             # Force a write of the VDS out
-            self.create_vds_file(self.BLOCKSIZE)
+            #self.create_vds_file(self.BLOCKSIZE)
             self.close_file()
+            self.create_vds_file()
         else:
             self._logger.info('Processor ended, but not the last for acqID ' + str(self._acquisition_id))
 
@@ -196,7 +197,7 @@ class TristanMetaWriter(MetaWriter):
             self._time_slices[rank][self._expected_index[rank]:self._expected_index[rank]+array_size] = array
             self.write_ts_data(rank, self._expected_index[rank], array, array_size)
             self._expected_index[rank] += array_size
-            self.update_vds_blocks()
+            #self.update_vds_blocks()
 
     def write_ts_data(self, rank, offset, array, array_size):
         """Write the frame data to the arrays and flush if necessary.
@@ -217,6 +218,124 @@ class TristanMetaWriter(MetaWriter):
 
         return
 
+    def create_vds_file(self):
+        # Now test the contents of the top level VDS data file against the contents of the single raw data file
+        # Open both files for reading
+        file_prefix = self._acquisition_id
+        file_directory = self.directory
+
+        meta_filename = os.path.join(file_directory, file_prefix + "_meta.h5")
+        meta_file = h5py.File(meta_filename, 'r', libver='latest', swmr=True)
+
+        dset_names = meta_file.keys()
+        raw_files = {}
+        raw_index = {}
+        ts_size = {}
+
+        longest_meta_dset = 0
+        meta_dset_ordered_list = []
+        total_events = 0
+        # Now generate the raw data filenames, there should be 1 for each dset_name value
+        for index in range(0, len(dset_names)):
+            raw_filename = os.path.join(file_directory, file_prefix + "_{:06}.h5".format(index+1))
+            dset_name = "ts_rank_{}".format(index)
+            meta_dset_ordered_list.append(dset_name)
+
+            if len(meta_file[dset_name]) > longest_meta_dset:
+                longest_meta_dset = len(meta_file[dset_name])
+
+            raw_files[dset_name] = raw_filename
+            ts_size[dset_name] = meta_file[dset_name][:]
+            total_events += sum(ts_size[dset_name])
+        self._logger.info("Total number of events to reconstruct: {}".format(total_events))
+
+        vds_filename = os.path.join(file_directory, file_prefix + "_vds.h5")
+        vds_file = h5py.File(vds_filename, 'w', libver='latest')
+
+        self.create_vds(total_events, longest_meta_dset, meta_dset_ordered_list, ts_size, raw_files, vds_file, h5py.h5t.NATIVE_UINT32, "event_id")
+        self.create_vds(total_events, longest_meta_dset, meta_dset_ordered_list, ts_size, raw_files, vds_file, h5py.h5t.NATIVE_UINT32, "event_energy")
+        self.create_vds(total_events, longest_meta_dset, meta_dset_ordered_list, ts_size, raw_files, vds_file, h5py.h5t.NATIVE_UINT64, "event_time_offset")
+
+        vds_file.close()
+
+    def create_vds(self, total_events, longest_meta_dset, meta_dset_ordered_list, ts_size, raw_files, event_group, dset_type, vds_dset_name):
+        raw_index = {}
+        for dset_name in meta_dset_ordered_list:
+            raw_index[dset_name] = 0
+
+        # Create the virtual dataset dataspace
+        virt_dspace = h5py.h5s.create_simple((total_events,), (total_events,))
+
+        # Create the virtual dataset property list
+        dcpl = h5py.h5p.create(h5py.h5p.DATASET_CREATE)
+
+        dset_ptr = 0
+
+        # Loop over the ts_rank dataset elements, creating a mapping for each
+        # Check for the longest list
+        self._logger.info("Processing up to {} time slice entries for {}".format(longest_meta_dset, vds_dset_name))
+        for dset_index in range(0, longest_meta_dset):
+            for dset_name in meta_dset_ordered_list:
+                # If the element exists and is greater than 0 then create the mapping
+                try:
+                    event_count = ts_size[dset_name][dset_index]
+                    if event_count > 0:
+                        src_dspace = h5py.h5s.create_simple((event_count,), (event_count,))
+
+                        # Select the source dataset hyperslab
+                        src_dspace.select_hyperslab(start=(raw_index[dset_name],), count=(1,), block=(event_count,))
+
+                        # Select the virtual dataset first hyperslab (for the first source dataset)
+                        virt_dspace.select_hyperslab(start=(dset_ptr,), count=(1,), block=(event_count,))
+
+                        dset_ptr += event_count
+                        raw_index[dset_name] += event_count
+
+                        # Set the virtual dataset hyperslab to point to the real dataset
+                        dcpl.set_virtual(virt_dspace, raw_files[dset_name], "/" + vds_dset_name, src_dspace)
+
+                        #print("Mapping {} qty: {}".format(dset_name, event_count))
+                except IndexError:
+                    pass
+        # Create the virtual dataset
+        h5py.h5d.create(event_group.id, name=vds_dset_name, tid=dset_type, space=virt_dspace, dcpl=dcpl)
+
+    def process_message(self, message, userheader, receiver):
+        """Process a meta message.
+
+        :param message: The message
+        :param userheader: The user header
+        :param receiver: The ZeroMQ socket the data was received on
+        """
+        self._logger.debug('Tristan Meta Writer Handling message')
+
+        if message['parameter'] == "createfile":
+            fileName = receiver.recv()
+            self.handle_frame_writer_create_file(userheader, fileName)
+        elif message['parameter'] == "closefile":
+            receiver.recv()
+            self.handle_frame_writer_close_file()
+        elif message['parameter'] == "startacquisition":
+            receiver.recv()
+            self.handle_frame_writer_start_acquisition(userheader)
+        elif message['parameter'] == "stopacquisition":
+            receiver.recv()
+            self.handle_frame_writer_stop_acquisition(userheader)
+        elif message['parameter'] == "writeframe":
+            value = receiver.recv_json()
+            self.handle_frame_writer_write_frame(value)
+        elif message['parameter'] == "time_slice":
+            value = receiver.recv()
+            self.handle_time_slice(userheader, value)
+        else:
+            self._logger.error('unknown parameter: ' + str(message))
+            value = receiver.recv()
+            self._logger.error('value: ' + str(value))
+
+        return
+
+
+    """
     def update_vds_blocks(self):
         processing = True
         while processing is True:
@@ -470,37 +589,4 @@ class TristanMetaWriter(MetaWriter):
 
         # Close the file
         f.close()
-
-    def process_message(self, message, userheader, receiver):
-        """Process a meta message.
-
-        :param message: The message
-        :param userheader: The user header
-        :param receiver: The ZeroMQ socket the data was received on
-        """
-        self._logger.debug('Tristan Meta Writer Handling message')
-
-        if message['parameter'] == "createfile":
-            fileName = receiver.recv()
-            self.handle_frame_writer_create_file(userheader, fileName)
-        elif message['parameter'] == "closefile":
-            receiver.recv()
-            self.handle_frame_writer_close_file()
-        elif message['parameter'] == "startacquisition":
-            receiver.recv()
-            self.handle_frame_writer_start_acquisition(userheader)
-        elif message['parameter'] == "stopacquisition":
-            receiver.recv()
-            self.handle_frame_writer_stop_acquisition(userheader)
-        elif message['parameter'] == "writeframe":
-            value = receiver.recv_json()
-            self.handle_frame_writer_write_frame(value)
-        elif message['parameter'] == "time_slice":
-            value = receiver.recv()
-            self.handle_time_slice(userheader, value)
-        else:
-            self._logger.error('unknown parameter: ' + str(message))
-            value = receiver.recv()
-            self._logger.error('value: ' + str(value))
-
-        return
+     """
