@@ -113,7 +113,7 @@ namespace FrameProcessor {
     {
         LOG4CXX_DEBUG_LEVEL(2, logger_, "Adding frame " << frame->get_frame_number() << " to coordinator");
         std::vector<boost::shared_ptr<Frame> > frames;
-        const LATRD::FrameHeader* hdrPtr = static_cast<const LATRD::FrameHeader*>(frame->get_data());
+        const LATRD::FrameHeader* hdrPtr = static_cast<const LATRD::FrameHeader*>(frame->get_data_ptr());
         if (hdrPtr->idle_frame == 0) {
             // This is a standard frame so process the packets as normal
             this->frame_to_jobs(frame);
@@ -158,50 +158,50 @@ namespace FrameProcessor {
             processedFrame = timeStampBuffer_->appendData(job->event_ts_ptr, job->valid_results);
             if (processedFrame) {
                 LOG4CXX_DEBUG_LEVEL(2, logger_, "Pushing timestamp data frame.");
-                std::vector<dimsize_t> dims(0);
-                processedFrame->set_dataset_name("event_time_offset");
-                processedFrame->set_data_type(3);
-                processedFrame->set_dimensions(dims);
+//                std::vector<dimsize_t> dims(0);
+//                processedFrame->set_dataset_name("event_time_offset");
+//                processedFrame->set_data_type(3);
+//                processedFrame->set_dimensions(dims);
                 frames.push_back(processedFrame);
             }
 
             processedFrame = idBuffer_->appendData(job->event_id_ptr, job->valid_results);
             if (processedFrame) {
                 LOG4CXX_DEBUG_LEVEL(2, logger_, "Pushing ID data frame.");
-                std::vector<dimsize_t> dims(0);
-                processedFrame->set_dataset_name("event_id");
-                processedFrame->set_data_type(2);
-                processedFrame->set_dimensions(dims);
+//                std::vector<dimsize_t> dims(0);
+//                processedFrame->set_dataset_name("event_id");
+//                processedFrame->set_data_type(2);
+//                processedFrame->set_dimensions(dims);
                 frames.push_back(processedFrame);
             }
 
             processedFrame = energyBuffer_->appendData(job->event_energy_ptr, job->valid_results);
             if (processedFrame) {
                 LOG4CXX_DEBUG_LEVEL(2, logger_, "Pushing energy data frame.");
-                std::vector<dimsize_t> dims(0);
-                processedFrame->set_dataset_name("event_energy");
-                processedFrame->set_data_type(2);
-                processedFrame->set_dimensions(dims);
+//                std::vector<dimsize_t> dims(0);
+//                processedFrame->set_dataset_name("event_energy");
+//                processedFrame->set_data_type(2);
+//                processedFrame->set_dimensions(dims);
                 frames.push_back(processedFrame);
             }
 
             processedFrame = ctrlTimeStampBuffer_->appendData(job->ctrl_word_ts_ptr, job->valid_control_words);
             if (processedFrame) {
                 LOG4CXX_DEBUG_LEVEL(2, logger_, "Pushing control word timestamps.");
-                std::vector<dimsize_t> dims(0);
-                processedFrame->set_dataset_name("cue_timestamp_zero");
-                processedFrame->set_data_type(3);
-                processedFrame->set_dimensions(dims);
+//                std::vector<dimsize_t> dims(0);
+//                processedFrame->set_dataset_name("cue_timestamp_zero");
+//                processedFrame->set_data_type(3);
+//                processedFrame->set_dimensions(dims);
                 frames.push_back(processedFrame);
             }
 
             processedFrame = ctrlWordBuffer_->appendData(job->ctrl_word_id_ptr, job->valid_control_words);
             if (processedFrame) {
                 LOG4CXX_DEBUG_LEVEL(2, logger_, "Pushing control word IDs.");
-                std::vector<dimsize_t> dims(0);
-                processedFrame->set_dataset_name("cue_id");
-                processedFrame->set_data_type(1);
-                processedFrame->set_dimensions(dims);
+//                std::vector<dimsize_t> dims(0);
+//                processedFrame->set_dataset_name("cue_id");
+//                processedFrame->set_data_type(1);
+//                processedFrame->set_dimensions(dims);
                 frames.push_back(processedFrame);
             }
 
@@ -219,50 +219,50 @@ namespace FrameProcessor {
         processedFrame = timeStampBuffer_->retrieveCurrentFrame();
         if (processedFrame) {
             LOG4CXX_DEBUG_LEVEL(2, logger_, "Pushing timestamp data frame.");
-            std::vector<dimsize_t> dims(0);
-            processedFrame->set_dataset_name("event_time_offset");
-            processedFrame->set_data_type(3);
-            processedFrame->set_dimensions(dims);
+//            std::vector<dimsize_t> dims(0);
+//            processedFrame->set_dataset_name("event_time_offset");
+//            processedFrame->set_data_type(3);
+//            processedFrame->set_dimensions(dims);
             frames.push_back(processedFrame);
         }
 
         processedFrame = idBuffer_->retrieveCurrentFrame();
         if (processedFrame) {
             LOG4CXX_DEBUG_LEVEL(2, logger_, "Pushing ID data frame.");
-            std::vector<dimsize_t> dims(0);
-            processedFrame->set_dataset_name("event_id");
-            processedFrame->set_data_type(2);
-            processedFrame->set_dimensions(dims);
+//            std::vector<dimsize_t> dims(0);
+//            processedFrame->set_dataset_name("event_id");
+//            processedFrame->set_data_type(2);
+//            processedFrame->set_dimensions(dims);
             frames.push_back(processedFrame);
         }
 
         processedFrame = energyBuffer_->retrieveCurrentFrame();
         if (processedFrame) {
             LOG4CXX_DEBUG_LEVEL(2, logger_, "Pushing energy data frame.");
-            std::vector<dimsize_t> dims(0);
-            processedFrame->set_dataset_name("event_energy");
-            processedFrame->set_data_type(2);
-            processedFrame->set_dimensions(dims);
+//            std::vector<dimsize_t> dims(0);
+//            processedFrame->set_dataset_name("event_energy");
+//            processedFrame->set_data_type(2);
+//            processedFrame->set_dimensions(dims);
             frames.push_back(processedFrame);
         }
 
         processedFrame = ctrlTimeStampBuffer_->retrieveCurrentFrame();
         if (processedFrame) {
             LOG4CXX_DEBUG_LEVEL(2, logger_, "Pushing control word timestamps.");
-            std::vector<dimsize_t> dims(0);
-            processedFrame->set_dataset_name("cue_timestamp_zero");
-            processedFrame->set_data_type(3);
-            processedFrame->set_dimensions(dims);
+//            std::vector<dimsize_t> dims(0);
+//            processedFrame->set_dataset_name("cue_timestamp_zero");
+//            processedFrame->set_data_type(3);
+//            processedFrame->set_dimensions(dims);
             frames.push_back(processedFrame);
         }
 
         processedFrame = ctrlWordBuffer_->retrieveCurrentFrame();
         if (processedFrame) {
             LOG4CXX_DEBUG_LEVEL(2, logger_, "Pushing control word IDs.");
-            std::vector<dimsize_t> dims(0);
-            processedFrame->set_dataset_name("cue_id");
-            processedFrame->set_data_type(1);
-            processedFrame->set_dimensions(dims);
+//            std::vector<dimsize_t> dims(0);
+//            processedFrame->set_dataset_name("cue_id");
+//            processedFrame->set_data_type(1);
+//            processedFrame->set_dimensions(dims);
             frames.push_back(processedFrame);
         }
 
@@ -272,9 +272,9 @@ namespace FrameProcessor {
     void LATRDProcessCoordinator::frame_to_jobs(boost::shared_ptr<Frame> frame)
     {
         LATRD::PacketHeader packet_header = {};
-        const LATRD::FrameHeader* hdrPtr = static_cast<const LATRD::FrameHeader*>(frame->get_data());
+        const LATRD::FrameHeader* hdrPtr = static_cast<const LATRD::FrameHeader*>(frame->get_data_ptr());
         // Extract the header words from each packet
-        const char *payload_ptr = static_cast<const char*>(frame->get_data());
+        const char *payload_ptr = static_cast<const char*>(frame->get_data_ptr());
         payload_ptr += sizeof(LATRD::FrameHeader);
         // Number of packet header 64bit words
         uint16_t packet_header_count = (LATRD::packet_header_size / sizeof(uint64_t)) - 1;

@@ -6,6 +6,8 @@
  */
 
 #include "LATRDBuffer.h"
+#include "FrameMetaData.h"
+#include "DataBlockFrame.h"
 
 namespace FrameProcessor {
 
@@ -79,9 +81,31 @@ boost::shared_ptr<Frame> LATRDBuffer::appendData(void *data_ptr, size_t qty_pts)
 
 		// The buffer should now be full so create the frame and copy the buffer in
 	    LOG4CXX_DEBUG(logger_, "Creating a new frame for [" << frameName_ << "]");
-		frame = boost::shared_ptr<Frame>(new Frame(frameName_));
+//		frame = boost::shared_ptr<Frame>(new Frame(frameName_));
+
+		FrameProcessor::FrameMetaData frame_meta;
+        std::vector<dimsize_t> dims(0);
+        frame_meta.set_dataset_name(frameName_);
+		switch (type_)
+		{
+		case UINT64_TYPE:
+            frame_meta.set_data_type(FrameProcessor::raw_64bit);
+			break;
+		case UINT32_TYPE:
+	        frame_meta.set_data_type(FrameProcessor::raw_32bit);
+			break;
+		case UINT16_TYPE:
+	        frame_meta.set_data_type(FrameProcessor::raw_16bit);
+			break;
+		default:
+			throw LATRDProcessingException("Unknown datatype specified");
+		}
+        frame_meta.set_dimensions(dims);
+        frame_meta.set_compression_type(FrameProcessor::no_compression);
+
 	    LOG4CXX_DEBUG(logger_, "Copying data [" << numberOfPoints_ << " points] into " << frameName_);
-		frame->copy_data(rawDataPtr_, numberOfPoints_ * dataSize_);
+		frame = boost::shared_ptr<Frame>(new DataBlockFrame(frame_meta, rawDataPtr_, numberOfPoints_ * dataSize_));
+//		frame->copy_data(rawDataPtr_, numberOfPoints_ * dataSize_);
 		frame->set_frame_number(concurrent_rank_ + (frameNumber_ * concurrent_processes_));
 		frameNumber_++;
 
@@ -107,9 +131,30 @@ boost::shared_ptr<Frame> LATRDBuffer::retrieveCurrentFrame()
 	if (currentPoint_ > 0) {
 		// The buffer should now be full so create the frame and copy the buffer in
 		LOG4CXX_DEBUG(logger_, "Creating a new frame for [" << frameName_ << "]");
-		frame = boost::shared_ptr<Frame>(new Frame(frameName_));
+		// Create and populate metadata for the re-ordered frame
+		FrameMetaData frame_meta;
+        std::vector<dimsize_t> dims(0);
+        frame_meta.set_dataset_name(frameName_);
+		switch (type_)
+		{
+		case UINT64_TYPE:
+            frame_meta.set_data_type(FrameProcessor::raw_64bit);
+			break;
+		case UINT32_TYPE:
+	        frame_meta.set_data_type(FrameProcessor::raw_32bit);
+			break;
+		case UINT16_TYPE:
+	        frame_meta.set_data_type(FrameProcessor::raw_16bit);
+			break;
+		default:
+			throw LATRDProcessingException("Unknown datatype specified");
+		}
+        frame_meta.set_dimensions(dims);
+        frame_meta.set_compression_type(FrameProcessor::no_compression);
+//		frame = boost::shared_ptr<Frame>(new Frame(frameName_));
 		LOG4CXX_DEBUG(logger_, "Copying data [" << currentPoint_ << " points] into " << frameName_);
-		frame->copy_data(rawDataPtr_, numberOfPoints_ * dataSize_);
+		frame = boost::shared_ptr<Frame>(new DataBlockFrame(frame_meta, rawDataPtr_, numberOfPoints_ * dataSize_));
+//		frame->copy_data(rawDataPtr_, numberOfPoints_ * dataSize_);
 		frame->set_frame_number(concurrent_rank_ + (frameNumber_ * concurrent_processes_));
 		frameNumber_++;
     // Reset the buffer

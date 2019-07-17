@@ -14,7 +14,7 @@ file(GLOB LIB_SOURCES ${FRAMEPROCESSOR_DIR}/src/*Lib.cpp)
 list(REMOVE_ITEM APP_SOURCES ${LIB_SOURCES})
 
 # Add test source files to executable
-add_executable(LATRDProcessorTest ${TEST_SOURCES} ${APP_SOURCES})
+add_executable(LATRDProcessorTest ${TEST_SOURCES}) # ${APP_SOURCES})
 
 if ( ${CMAKE_SYSTEM_NAME} MATCHES Linux )
   # librt required for timing functions
@@ -25,6 +25,7 @@ endif()
 
 # Define libraries to link against
 target_link_libraries(LATRDProcessorTest
+        LATRDProcessPlugin
         ${ODINDATA_LIBRARIES}
         ${FRAMEPROCESSOR_LIBRARY}
         ${Boost_LIBRARIES}

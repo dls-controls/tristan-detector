@@ -48,7 +48,7 @@ namespace FrameProcessor {
     std::vector<boost::shared_ptr<Frame> > image_frames;
 
     // Extract the header from the buffer and print the details
-    const LATRD::FrameHeader *hdrPtr = static_cast<const LATRD::FrameHeader *>(frame->get_data());
+    const LATRD::FrameHeader *hdrPtr = static_cast<const LATRD::FrameHeader *>(frame->get_data_ptr());
 
     // Test for idle frames.
     if (hdrPtr->idle_frame == 1){
@@ -88,10 +88,10 @@ namespace FrameProcessor {
     std::vector<boost::shared_ptr<Frame> > image_frames;
     LATRD::PacketHeader packet_header;
     // Extract the header from the buffer and print the details
-    const LATRD::FrameHeader *hdrPtr = static_cast<const LATRD::FrameHeader *>(frame->get_data());
+    const LATRD::FrameHeader *hdrPtr = static_cast<const LATRD::FrameHeader *>(frame->get_data_ptr());
 
     // Extract the header words from each packet
-    uint8_t *payload_ptr = (uint8_t *)(frame->get_data()) + sizeof(LATRD::FrameHeader);
+    uint8_t *payload_ptr = (uint8_t *)(frame->get_data_ptr()) + sizeof(LATRD::FrameHeader);
     // Number of packet header 64bit words
     uint16_t packet_header_count = (LATRD::packet_header_size / sizeof(uint64_t)) - 1;
 

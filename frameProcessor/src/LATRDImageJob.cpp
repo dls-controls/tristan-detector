@@ -2,6 +2,8 @@
 // Created by gnx91527 on 27/09/18.
 //
 #include "LATRDImageJob.h"
+#include "FrameMetaData.h"
+#include "DataBlockFrame.h"
 
 namespace FrameProcessor {
 
@@ -67,15 +69,26 @@ namespace FrameProcessor {
     boost::shared_ptr<Frame> LATRDImageJob::to_frame()
     {
       // Create the frame object to wrap the image
-      boost::shared_ptr<Frame> out_frame = boost::shared_ptr<Frame>(new Frame("image"));
-      out_frame->copy_data(image_ptr_, width_ * height_ * sizeof(uint16_t));
-      out_frame->set_frame_number(frame_number_);
+  		// Create and populate metadata for the re-ordered frame
+      FrameMetaData frame_meta;
       std::vector<dimsize_t> dims(0);
       dims.push_back(height_);
       dims.push_back(width_);
-      out_frame->set_dataset_name("image");
-      out_frame->set_data_type(1);
-      out_frame->set_dimensions(dims);
+      frame_meta.set_dimensions(dims);
+      frame_meta.set_dataset_name("image");
+      frame_meta.set_data_type(FrameProcessor::raw_16bit);
+      frame_meta.set_compression_type(FrameProcessor::no_compression);
+      boost::shared_ptr<Frame> out_frame = boost::shared_ptr<Frame>(new DataBlockFrame(frame_meta, image_ptr_, width_ * height_ * sizeof(uint16_t)));
+
+//      boost::shared_ptr<Frame> out_frame = boost::shared_ptr<Frame>(new Frame("image"));
+//      out_frame->copy_data(image_ptr_, width_ * height_ * sizeof(uint16_t));
+      out_frame->set_frame_number(frame_number_);
+//      std::vector<dimsize_t> dims(0);
+//      dims.push_back(height_);
+//      dims.push_back(width_);
+//      out_frame->set_dataset_name("image");
+//      out_frame->set_data_type(1);
+//      out_frame->set_dimensions(dims);
       return out_frame;
     }
 

@@ -17,6 +17,8 @@ using namespace log4cxx::xml;
 #include "LATRDBuffer.h"
 #include "LATRDProcessCoordinator.h"
 #include "LATRDTimestampManager.h"
+#include "FrameMetaData.h"
+#include "DataBlockFrame.h"
 
 class GlobalConfig {
 public:
@@ -97,7 +99,14 @@ BOOST_AUTO_TEST_CASE(CoordinatorTest)
 
   boost::shared_ptr<FrameProcessor::Frame> frames[26];
   for (int index = 0; index < 26; index++){
-    frames[index] = boost::shared_ptr<FrameProcessor::Frame>(new FrameProcessor::Frame("test"));
+ 		FrameProcessor::FrameMetaData frame_meta;
+    std::vector<dimsize_t> dims(0);
+    frame_meta.set_dataset_name("test");
+    frame_meta.set_data_type(FrameProcessor::raw_16bit);
+    frame_meta.set_dimensions(dims);
+    frame_meta.set_compression_type(FrameProcessor::no_compression);
+		frames[index] = boost::shared_ptr<FrameProcessor::DataBlockFrame>(new FrameProcessor::DataBlockFrame(frame_meta, 10));
+//    frames[index] = boost::shared_ptr<FrameProcessor::Frame>(new FrameProcessor::Frame("test"));
     frames[index]->set_frame_number(ids[index]);
   }
 

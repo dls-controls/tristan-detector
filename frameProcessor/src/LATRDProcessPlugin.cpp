@@ -263,7 +263,7 @@ void LATRDProcessPlugin::releaseJob(boost::shared_ptr<LATRDProcessJob> job)
 
 void LATRDProcessPlugin::dump_frame(boost::shared_ptr<Frame> frame)
 {
-    const LATRD::FrameHeader* hdrPtr = static_cast<const LATRD::FrameHeader*>(frame->get_data());
+    const LATRD::FrameHeader* hdrPtr = static_cast<const LATRD::FrameHeader*>(frame->get_data_ptr());
 
     // Print a full report of the incoming frame to log
     LOG4CXX_DEBUG_LEVEL(2, logger_, "\n==============================================\n"
@@ -308,7 +308,7 @@ void LATRDProcessPlugin::process_raw(boost::shared_ptr<Frame> frame)
   boost::shared_ptr<Frame> processedFrame;
 
   // Extract the header from the buffer and print the details
-  const LATRD::FrameHeader* hdrPtr = static_cast<const LATRD::FrameHeader*>(frame->get_data());
+  const LATRD::FrameHeader* hdrPtr = static_cast<const LATRD::FrameHeader*>(frame->get_data_ptr());
   LOG4CXX_TRACE(logger_, "Raw Frame Number: " << hdrPtr->frame_number);
   LOG4CXX_TRACE(logger_, "Frame State: " << hdrPtr->frame_state);
   LOG4CXX_TRACE(logger_, "Packets Received: " << hdrPtr->packets_received);
@@ -318,15 +318,21 @@ void LATRDProcessPlugin::process_raw(boost::shared_ptr<Frame> frame)
     processedFrame = rawBuffer_->retrieveCurrentFrame();
     if (processedFrame) {
       LOG4CXX_TRACE(logger_, "Pushing a raw data frame due to an idle flag.");
+      FrameProcessor::FrameMetaData frame_meta;
       std::vector<dimsize_t> dims(0);
-      processedFrame->set_dataset_name("raw_data");
-      processedFrame->set_data_type(3);
-      processedFrame->set_dimensions(dims);
+      frame_meta.set_dataset_name("raw_data");
+      frame_meta.set_data_type(FrameProcessor::raw_64bit);
+      frame_meta.set_dimensions(dims);
+      frame_meta.set_compression_type(FrameProcessor::no_compression);
+      processedFrame->set_meta_data(frame_meta);
+//      processedFrame->set_dataset_name("raw_data");
+//      processedFrame->set_data_type(3);
+//      processedFrame->set_dimensions(dims);
       this->push(processedFrame);
     }
   } else {
     // Extract the header words from each packet
-    uint8_t *payload_ptr = (uint8_t *) (frame->get_data()) + sizeof(LATRD::FrameHeader);
+    uint8_t *payload_ptr = (uint8_t *) (frame->get_data_ptr()) + sizeof(LATRD::FrameHeader);
 
     // Number of packet header 64bit words
     uint16_t packet_header_count = (LATRD::packet_header_size / sizeof(uint64_t)) - 1;
@@ -351,10 +357,16 @@ void LATRDProcessPlugin::process_raw(boost::shared_ptr<Frame> frame)
         // Check if a full frame was returned by the append.  If it was then push it on to the next plugin.
         if (processedFrame) {
           LOG4CXX_TRACE(logger_, "Pushing a raw data frame.");
+          FrameProcessor::FrameMetaData frame_meta;
           std::vector<dimsize_t> dims(0);
-          processedFrame->set_dataset_name("raw_data");
-          processedFrame->set_data_type(3);
-          processedFrame->set_dimensions(dims);
+          frame_meta.set_dataset_name("raw_data");
+          frame_meta.set_data_type(FrameProcessor::raw_64bit);
+          frame_meta.set_dimensions(dims);
+          frame_meta.set_compression_type(FrameProcessor::no_compression);
+          processedFrame->set_meta_data(frame_meta);
+//          processedFrame->set_dataset_name("raw_data");
+//          processedFrame->set_data_type(3);
+//          processedFrame->set_dimensions(dims);
           this->push(processedFrame);
         }
       }
