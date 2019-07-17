@@ -464,8 +464,8 @@ function fp_stop_command() {
 function update_api_version() {
 
     $.getJSON('/api', function(response) {
-        $('#api-version').html(response.api_version);
-        odin_data.api_version = response.api_version;
+        $('#api-version').html(response.api);
+        odin_data.api_version = response.api;
     });
 }
 
