@@ -256,7 +256,57 @@ class TristanMetaWriter(MetaWriter):
         self.create_vds(total_events, longest_meta_dset, meta_dset_ordered_list, ts_size, raw_files, vds_file, h5py.h5t.NATIVE_UINT32, "event_energy")
         self.create_vds(total_events, longest_meta_dset, meta_dset_ordered_list, ts_size, raw_files, vds_file, h5py.h5t.NATIVE_UINT64, "event_time_offset")
 
+        # Now open the dataset for cue_id and timestamp
+        ctrl_size = []
+        for raw_index in raw_files:
+            raw_file = h5py.File(raw_files[raw_index], 'r', libver='latest', swmr=True)
+            cue_dset = np.array(raw_file['cue_id'][:])
+            self._logger.info("Cue ID length: {}".format(len(cue_dset)))
+            self._logger.info("Index: {}".format(np.argmin(cue_dset)))
+            ctrl_size.append(np.argmin(cue_dset))
+            
+        self.create_ctrl_vds(meta_dset_ordered_list, raw_files, ctrl_size, vds_file, h5py.h5t.NATIVE_UINT16, "cue_id")
+        self.create_ctrl_vds(meta_dset_ordered_list, raw_files, ctrl_size, vds_file, h5py.h5t.NATIVE_UINT64, "cue_timestamp_zero")
+
         vds_file.close()
+
+    def create_ctrl_vds(self, meta_dset_ordered_list, raw_files, ctrl_sizes, event_group, dset_type, vds_dset_name):
+
+        total_ctrl = sum(ctrl_sizes)
+        self._logger.info("Total ctrl words: {}".format(total_ctrl))
+
+        # Create the virtual dataset dataspace
+        virt_dspace = h5py.h5s.create_simple((total_ctrl,), (total_ctrl,))
+
+        # Create the virtual dataset property list
+        dcpl = h5py.h5p.create(h5py.h5p.DATASET_CREATE)
+
+        dset_ptr = 0
+
+        # Loop over the ts_rank dataset elements, creating a mapping for each
+        # Check for the longest list
+
+        # Loop over the ordered dset_names
+        for dset_name, ctrl_size in zip(meta_dset_ordered_list, ctrl_sizes):
+            # If the element exists and is greater than 0 then create the mapping
+            try:
+                src_dspace = h5py.h5s.create_simple((ctrl_size,), (ctrl_size,))
+
+                # Select the source dataset hyperslab
+                src_dspace.select_hyperslab(start=(0,), count=(1,), block=(ctrl_size,))
+
+                # Select the virtual dataset first hyperslab (for the first source dataset)
+                virt_dspace.select_hyperslab(start=(dset_ptr,), count=(1,), block=(ctrl_size,))
+
+                dset_ptr += ctrl_size
+
+                # Set the virtual dataset hyperslab to point to the real dataset
+                dcpl.set_virtual(virt_dspace, raw_files[dset_name], "/" + vds_dset_name, src_dspace)
+
+            except IndexError:
+                pass
+        # Create the virtual dataset
+        h5py.h5d.create(event_group.id, name=vds_dset_name, tid=dset_type, space=virt_dspace, dcpl=dcpl)
 
     def create_vds(self, total_events, longest_meta_dset, meta_dset_ordered_list, ts_size, raw_files, event_group, dset_type, vds_dset_name):
         raw_index = {}
