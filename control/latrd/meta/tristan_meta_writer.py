@@ -10,6 +10,7 @@ import os
 import re
 import struct
 import h5py
+from collections import OrderedDict
 
 from odin_data.meta_writer.meta_writer import MetaWriter
 import _version as versioneer
@@ -228,7 +229,7 @@ class TristanMetaWriter(MetaWriter):
         meta_file = h5py.File(meta_filename, 'r', libver='latest', swmr=True)
 
         dset_names = meta_file.keys()
-        raw_files = {}
+        raw_files = OrderedDict()
         raw_index = {}
         ts_size = {}
 
