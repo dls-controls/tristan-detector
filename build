@@ -25,7 +25,7 @@ build()
     # Removing pesky dist dir just in case a previous build is left over
     rm -rf $BUILD_SCRIPT_DIR/control/dist 
 
-    python_depends NUMPY DATEUTIL CONFIGPARSER ODINCONTROL ODINDATA
+    python_depends NUMPY DATEUTIL CONFIGPARSER ODINCONTROL ODINDATA DPKT
     
     export SRC=$BUILD_SCRIPT_DIR/control
     setuptools_build # Defined in Python/CONFIG

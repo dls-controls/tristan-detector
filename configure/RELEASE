@@ -9,4 +9,5 @@ NUMPY  = $(TOOLS_SUPPORT)/numpy/1-13-1
 ENUM  = $(TOOLS_SUPPORT)/enum34/1-1-6
 DATEUTIL = $(TOOLS_SUPPORT)/python-dateutil/2-6-1
 CONFIGPARSER = $(TOOLS_SUPPORT)/configparser/3-5-0
+DPKT = $(TOOLS_SUPPORT)/dpkt/1-9-2dls1
 

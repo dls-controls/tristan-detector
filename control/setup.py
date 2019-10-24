@@ -57,7 +57,7 @@ setup(
     # run-time dependencies here. These will be installed by pip when the project is installed.
     #install_requires=['numpy==1.11.1', 'h5py==2.6.0', 'future==0.15.2', 'enum34==1.1.6', 'npyscreen==4.10.5',
     # 'pyzmq==15.3.0'],
-    install_requires=['odin-control', 'odin-data', 'configparser', 'python-dateutil', 'enum34'],
+    install_requires=['odin-control', 'odin-data', 'configparser', 'python-dateutil', 'enum34', 'dpkt'],
 
     # Additional groups of dependencies (e.g. development dependencies). 
     # You can install these using the following syntax, for example:
@@ -83,6 +83,7 @@ setup(
         'console_scripts': [
             'tristan_odin=odin.server:main',
             'tristan_simulator=latrd.detector.control_simulator:main',
+            'tristan_event_replay=latrd.tools.tristan_event_pcap_replay:main',
             'test-control-interface=latrd.detector.test_control_interface:main',
         ],
     },
