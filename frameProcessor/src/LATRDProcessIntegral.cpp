@@ -140,19 +140,21 @@ namespace FrameProcessor {
 
           if (!bad_packet) {
             LOG4CXX_DEBUG(logger_,
-                          "Pkt [" << packet_id << "] timestamp [" << packet_timestamp << "] word count " << word_count);
+                          "Image [" << image_number << "] Pkt [" << packet_id << "] timestamp [" << packet_timestamp << "] word count " << word_count);
             data_word_ptr++;
 
-            // Check if we have an image job for this packet's timestamp
+            // Check if we have an image job for this packet's image number
             boost::shared_ptr <LATRDImageJob> image_job_ptr;
-            if (image_store_.count(packet_timestamp) > 0) {
-              image_job_ptr = image_store_[packet_timestamp];
+            if (image_store_.count(image_number) > 0) {
+              LOG4CXX_DEBUG(logger_, "Image [" << image_number << "] found in store");
+              image_job_ptr = image_store_[image_number];
             } else {
               // We need to create a new image job for this packet
+              LOG4CXX_DEBUG(logger_, "First packet for image job [" << image_number << "] creating ImageJob object");
               // TODO: Check this is not an old packet
               image_job_ptr = boost::shared_ptr<LATRDImageJob>(new LATRDImageJob(width_, height_, image_number));
               // Store the image job in the store, index by timestamp
-              image_store_[packet_timestamp] = image_job_ptr;
+              image_store_[image_number] = image_job_ptr;
             }
 
             // Start from index 3 as we can ignore the header words and extended timestamp
