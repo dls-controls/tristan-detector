@@ -44,7 +44,8 @@ class LATRDControlSimulator(object):
                             'y_pixel_size': '55 um',
                             'x_pixels_in_detector': 2048,
                             'y_pixels_in_detector': 512,
-                            'timeslice_number': 4
+                            'timeslice_number': 4,
+                            'udp_packets_sent': [189272]
                         },
                     'housekeeping':
                         {

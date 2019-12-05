@@ -249,7 +249,8 @@ class TristanControlAdapter(ApiAdapter):
                 "y_pixel_size": None,
                 "x_pixels_in_detector": None,
                 "y_pixels_in_detector": None,
-                "timeslice_number": None
+                "timeslice_number": None,
+                "udp_packets_sent": None
             }
         }
     ]

@@ -530,6 +530,11 @@ function update_detector_status() {
             $('#detector-hw-description').html(response['value']);
         }
     });
+    $.getJSON('/api/' + odin_data.api_version + '/' + odin_data.ctrl_name + '/status/detector/udp_packets_sent', function(response) {
+        if (odin_data.ctrl_connected){
+            $('#detector-pkts-sent').html(response['value'][0]);
+        }
+    });
     $.getJSON('/api/' + odin_data.api_version + '/' + odin_data.ctrl_name + '/config/exposure', function(response) {
         //alert(JSON.stringify(response));
         if (odin_data.ctrl_connected){
@@ -850,6 +855,15 @@ function update_fr_status() {
         $('#fr-packets-6').html(response['value'][5]);
         $('#fr-packets-7').html(response['value'][6]);
         $('#fr-packets-8').html(response['value'][7]);
+        total_pkts = parseInt(response['value'][0]) +
+                     parseInt(response['value'][1]) +
+                     parseInt(response['value'][2]) +
+                     parseInt(response['value'][3]) +
+                     parseInt(response['value'][4]) +
+                     parseInt(response['value'][5]) +
+                     parseInt(response['value'][6]) +
+                     parseInt(response['value'][7]);
+        $('#fr-pkts-received').html(''+total_pkts);
     });
     $.getJSON('/api/' + odin_data.api_version + '/fr/status/connected', function(response) {
         //alert(response['value']);
