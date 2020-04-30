@@ -58,14 +58,14 @@ class TriggerTimestampType(Enum):
 class TriggerInTerminationType(Enum):
     """Enumeration of trigger out types
     """
-    term_50_ohm = 0
+    term_50ohm = 0
     hi_z = 1
 
 
 class TriggerOutTerminationType(Enum):
     """Enumeration of trigger out types
     """
-    term_50_ohm = 0
+    term_50ohm = 0
     lo_z = 1
 
 
@@ -212,6 +212,10 @@ class TristanControlAdapter(ApiAdapter):
     This class provides the adapter interface between the ODIN server and the Tristan detector system,
     transforming the REST-like API HTTP verbs into the appropriate Tristan ZeroMQ control messages
     """
+    TEMP_ASICS_COUNT = 16
+    TEMP_PCB_COUNT = 2
+    HUMIDITY_COUNT = 2
+
     ADODIN_MAPPING = {
         'config/exposure_time': 'config/exposure',
         'config/num_images': 'config/frames',
@@ -289,14 +293,28 @@ class TristanControlAdapter(ApiAdapter):
                 'stop': EnumParameter('stop',
                                       TriggerInType.internal.name,
                                       [e.name for e in TriggerInType]),
-                'timestamp': EnumParameter('timestamp',
-                                           TriggerTimestampType.none.name,
-                                           [e.name for e in TriggerTimestampType]),
+                'timestamp': {
+                    'fem': EnumParameter('fem',
+                                  TriggerTimestampType.none.name,
+                                  [e.name for e in TriggerTimestampType]),
+                    'lvds': EnumParameter('lvds',
+                                  TriggerTimestampType.none.name,
+                                  [e.name for e in TriggerTimestampType]),
+                    'sync': EnumParameter('sync',
+                                  TriggerTimestampType.none.name,
+                                  [e.name for e in TriggerTimestampType]),
+                    'ttl': EnumParameter('ttl',
+                                  TriggerTimestampType.none.name,
+                                  [e.name for e in TriggerTimestampType]),
+                    'tzero': EnumParameter('tzero',
+                                  TriggerTimestampType.none.name,
+                                  [e.name for e in TriggerTimestampType])
+                },
                 'ttl_in_term': EnumParameter('ttl_in_term',
-                                             TriggerInTerminationType.term_50_ohm.name,
+                                             TriggerInTerminationType.term_50ohm.name,
                                              [e.name for e in TriggerInTerminationType]),
                 'ttl_out_term': EnumParameter('ttl_out_term',
-                                              TriggerOutTerminationType.term_50_ohm.name,
+                                              TriggerOutTerminationType.term_50ohm.name,
                                               [e.name for e in TriggerOutTerminationType]),
                 'primary_clock_source': EnumParameter('primary_clock_source',
                                                       TriggerClockSourceType.internal.name,
@@ -660,15 +678,26 @@ class TristanControlAdapter(ApiAdapter):
                                     self._parameters['status']['detector']['version_check'] = False
 
                                 if 'sensor' in self._parameters['status']:
-                                    if 'temp' in self._parameters['status']['sensor']:
-                                        # temp is supplied as a 2D array, we need to split that out for monitoring
-                                        temp_0 = []
-                                        temp_1 = []
-                                        for temp in self._parameters['status']['sensor']['temp']:
-                                            temp_0.append(temp[0])
-                                            temp_1.append(temp[1])
-                                        self._parameters['status']['sensor']['temp_0'] = temp_0
-                                        self._parameters['status']['sensor']['temp_1'] = temp_1
+                                    if 'temp_asics' in self._parameters['status']['sensor']:
+                                        # temp_asics is supplied as a 2D array, we need to split that out for monitoring
+                                        for index in range(self.TEMP_ASICS_COUNT):
+                                            self._parameters['status']['sensor']['temp_asics_{}'.format(index)] = []
+                                            for temp in self._parameters['status']['sensor']['temp_asics']:
+                                                self._parameters['status']['sensor']['temp_asics_{}'.format(index)].append(temp[index])
+
+                                    if 'temp_pcb' in self._parameters['status']['sensor']:
+                                        # temp_pcb is supplied as a 2D array, we need to split that out for monitoring
+                                        for index in range(self.TEMP_PCB_COUNT):
+                                            self._parameters['status']['sensor']['temp_pcb_{}'.format(index)] = []
+                                            for temp in self._parameters['status']['sensor']['temp_pcb']:
+                                                self._parameters['status']['sensor']['temp_pcb_{}'.format(index)].append(temp[index])
+
+                                    if 'humidity' in self._parameters['status']['sensor']:
+                                        # humidity is supplied as a 2D array, we need to split that out for monitoring
+                                        for index in range(self.HUMIDITY_COUNT):
+                                            self._parameters['status']['sensor']['humidity_{}'.format(index)] = []
+                                            for temp in self._parameters['status']['sensor']['humidity']:
+                                                self._parameters['status']['sensor']['humidity_{}'.format(index)].append(temp[index])
 
                                 # Set the acquisition state item
                                 if data['status']['state'] == 'idle':

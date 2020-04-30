@@ -18,6 +18,7 @@ from tristan_control_adapter import TriggerInType, TriggerOutType, TriggerTimest
 
 class LATRDControlSimulator(object):
     DETECTOR_1M  = 1
+    DETECTOR_2M  = 2
     DETECTOR_10M = 10
 
     def __init__(self, type=DETECTOR_1M):
@@ -70,8 +71,12 @@ class LATRDControlSimulator(object):
                         },
                     'sensor':
                         {
-                            'temp': [[65.8, 62.6]] * self._type,
-                            'humidity': [47.8] * self._type
+                            'temp_asics': [[50.0, 50.1, 50.2, 50.3, 50.4, 50.5, 50.6, 50.7,
+                                            50.8, 50.9, 51.0, 51.1, 51.2, 51.3, 51.4, 51.5]] * self._type,
+                            'temp_pcb': [[60.0, 60.1]] * self._type,
+                            'humidity': [[47.8, 48.1]] * self._type,
+                            'voltage': [[2.5, 2.6]] * self._type,
+                            'current': [[1.1, 1.2]] * self._type
                         },
                     'fem':
                         {
@@ -103,9 +108,15 @@ class LATRDControlSimulator(object):
                         {
                             'start': TriggerInType.internal.name,
                             'stop': TriggerInType.internal.name,
-                            'timestamp': TriggerTimestampType.none.name,
-                            'ttl_in_term': TriggerInTerminationType.term_50_ohm.name,
-                            'ttl_out_term': TriggerOutTerminationType.term_50_ohm.name,
+                            'timestamp': {
+                                'fem': TriggerTimestampType.none.name,
+                                'lvds': TriggerTimestampType.none.name,
+                                'sync': TriggerTimestampType.none.name,
+                                'ttl': TriggerTimestampType.none.name,
+                                'tzero': TriggerTimestampType.none.name
+                            },
+                            'ttl_in_term': TriggerInTerminationType.term_50ohm.name,
+                            'ttl_out_term': TriggerOutTerminationType.term_50ohm.name,
                             'primary_clock_source': TriggerClockSourceType.internal.name,
                             'tzero': TriggerTZeroType.internal.name,
                             'ttl_out': TriggerOutType.follow_shutter.name,
@@ -205,6 +216,7 @@ class LATRDControlSimulator(object):
 def options():
     parser = argparse.ArgumentParser()
     parser.add_argument("-c", "--control", default="tcp://127.0.0.1:7001", help="Control endpoint")
+    parser.add_argument("-m", "--sensor", default=1, help="Sensor module count (1 - 10)")
     parser.add_argument("-s", "--script", default="/home/gnx91527/work/tristan/bin/run_decode_mode_replay")
     args = parser.parse_args()
     return args
@@ -213,7 +225,7 @@ def options():
 def main():
     args = options()
 
-    simulator = LATRDControlSimulator()
+    simulator = LATRDControlSimulator(args.sensor)
     simulator.setup_control_channel(args.control)
     simulator.register_script(args.script)
     simulator.start_reactor()
