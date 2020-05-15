@@ -417,7 +417,7 @@ function fr_debug_command() {
 }
 
 function fp_mode_command(mode) {
-    send_fp_command('latrd', JSON.stringify({
+    send_fp_command('tristan', JSON.stringify({
         "mode": mode.toLowerCase()
     }));
 }
@@ -444,13 +444,13 @@ function fp_start_command() {
 }
 
 function fp_raw_mode_command() {
-    send_fp_command('latrd', JSON.stringify({
+    send_fp_command('tristan', JSON.stringify({
         "raw_mode": 1
     }));
 }
 
 function fp_process_mode_command() {
-    send_fp_command('latrd', JSON.stringify({
+    send_fp_command('tristan', JSON.stringify({
         "raw_mode": 0
     }));
 }
@@ -682,7 +682,7 @@ function update_fp_status() {
 //            }
 //        }
     });
-    $.getJSON('/api/' + odin_data.api_version + '/fp/status/latrd', function(response) {
+    $.getJSON('/api/' + odin_data.api_version + '/fp/status/tristan', function(response) {
 //        alert(response['value']);
 
         if (odin_data.fp_connected[0] == true){
@@ -710,7 +710,7 @@ function update_fp_status() {
             update_fp_latrd(8, response['value'][7]);
         }
     });
-    $.getJSON('/api/' + odin_data.api_version + '/fp/config/latrd', function(response) {
+    $.getJSON('/api/' + odin_data.api_version + '/fp/config/tristan', function(response) {
         //alert(response['value']);
         if (odin_data.fp_connected[0]){
             if (response['value'][0] == ""){
