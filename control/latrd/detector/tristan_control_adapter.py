@@ -743,6 +743,10 @@ class TristanControlAdapter(ApiAdapter):
                 if item in params:
                     self.update_config(params[item], data[item])
             else:
-                if item in params:
-                    logging.debug("Setting value to: %s", str(data[item]))
-                    params[item].set_value(data[item])
+                try:
+                    if item in params:
+                        logging.debug("Setting value to: %s", str(data[item]))
+                        params[item].set_value(data[item])
+                except Exception as ex:
+                    logging.error("Couldn't set param {} to {}".format(item, data[item]))
+                    logging.error("Exception thrown: %s", ex)
