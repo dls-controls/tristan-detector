@@ -248,6 +248,7 @@ class TristanControlAdapter(ApiAdapter):
                 "serial_number": None,
                 "software_version": None,
                 "sensor_material": None,
+                "frames_acquired": None,
                 "sensor_thickness": None,
                 "x_pixel_size": None,
                 "y_pixel_size": None,
@@ -676,6 +677,13 @@ class TristanControlAdapter(ApiAdapter):
                                     self._parameters['status']['detector']['version_check'] = True
                                 else:
                                     self._parameters['status']['detector']['version_check'] = False
+
+                                if 'clock' in self._parameters['status']:
+                                    if 'dpll_lol' in self._parameters['status']['clock']:
+                                        self._parameters['status']['clock']['dpll_lol'] = self._parameters['status']['clock']['dpll_lol'][0]
+                                    if 'dpll_hold' in self._parameters['status']['clock']:
+                                        self._parameters['status']['clock']['dpll_hold'] = self._parameters['status']['clock']['dpll_hold'][0]
+
 
                                 if 'sensor' in self._parameters['status']:
                                     if 'temp_asics' in self._parameters['status']['sensor']:
