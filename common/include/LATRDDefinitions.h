@@ -73,6 +73,7 @@ namespace LATRD
   static const uint64_t header_packet_producer_mask     = 0x03FC000000000000;
   static const uint64_t header_packet_count_mask        = 0x00000000FFFFFFFF;
   static const uint64_t header_packet_ts_number_mask    = 0x000000FF00000000;
+  static const uint64_t header_packet_format_version    = 0x03FC000000000000;
   static const uint64_t header_packet_image_number_mask = 0x00FFFFFF00000000;
   static const uint64_t control_word_count_mask         = 0x00000000000007FF;
   static const uint64_t control_word_idle_mask          = 0xFC00000000000000;
@@ -109,6 +110,12 @@ namespace LATRD
   {
     // Extract relevant bits to obtain the time slice ID
     return (uint32_t )((headerWord1 & control_word_time_slice_mask) >> 18);
+  }
+
+  static uint8_t get_data_format_version(uint64_t headerWord2)
+  {
+    // Extract relevant bits to obtain the producer ID
+    return (uint8_t)((headerWord2 & header_packet_format_version) >> 50);
   }
 
   static uint8_t get_time_slice_number(uint64_t headerWord2)

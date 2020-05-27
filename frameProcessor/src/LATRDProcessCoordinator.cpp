@@ -9,6 +9,7 @@
 namespace FrameProcessor {
     LATRDProcessCoordinator::LATRDProcessCoordinator() :
     rank_(0),
+    daq_version_(-1),
     current_ts_wrap_(0),
     current_ts_buffer_(0),
     dropped_packets_(0),
@@ -141,6 +142,8 @@ namespace FrameProcessor {
             // Reset the time slice array and counter
             last_written_ts_index_ = 0;
             ts_index_array_.assign(LATRD::time_slice_write_size * LATRD::number_of_time_slice_buffers, 0);
+            // Reset the DAQ format version
+            daq_version_ = -1;
         }
         LOG4CXX_DEBUG_LEVEL(2, logger_, "Job stack size: " << jobStack_.size());
         return frames;
@@ -158,50 +161,30 @@ namespace FrameProcessor {
             processedFrame = timeStampBuffer_->appendData(job->event_ts_ptr, job->valid_results);
             if (processedFrame) {
                 LOG4CXX_DEBUG_LEVEL(2, logger_, "Pushing timestamp data frame.");
-//                std::vector<dimsize_t> dims(0);
-//                processedFrame->set_dataset_name("event_time_offset");
-//                processedFrame->set_data_type(3);
-//                processedFrame->set_dimensions(dims);
                 frames.push_back(processedFrame);
             }
 
             processedFrame = idBuffer_->appendData(job->event_id_ptr, job->valid_results);
             if (processedFrame) {
                 LOG4CXX_DEBUG_LEVEL(2, logger_, "Pushing ID data frame.");
-//                std::vector<dimsize_t> dims(0);
-//                processedFrame->set_dataset_name("event_id");
-//                processedFrame->set_data_type(2);
-//                processedFrame->set_dimensions(dims);
                 frames.push_back(processedFrame);
             }
 
             processedFrame = energyBuffer_->appendData(job->event_energy_ptr, job->valid_results);
             if (processedFrame) {
                 LOG4CXX_DEBUG_LEVEL(2, logger_, "Pushing energy data frame.");
-//                std::vector<dimsize_t> dims(0);
-//                processedFrame->set_dataset_name("event_energy");
-//                processedFrame->set_data_type(2);
-//                processedFrame->set_dimensions(dims);
                 frames.push_back(processedFrame);
             }
 
             processedFrame = ctrlTimeStampBuffer_->appendData(job->ctrl_word_ts_ptr, job->valid_control_words);
             if (processedFrame) {
                 LOG4CXX_DEBUG_LEVEL(2, logger_, "Pushing control word timestamps.");
-//                std::vector<dimsize_t> dims(0);
-//                processedFrame->set_dataset_name("cue_timestamp_zero");
-//                processedFrame->set_data_type(3);
-//                processedFrame->set_dimensions(dims);
                 frames.push_back(processedFrame);
             }
 
             processedFrame = ctrlWordBuffer_->appendData(job->ctrl_word_id_ptr, job->valid_control_words);
             if (processedFrame) {
                 LOG4CXX_DEBUG_LEVEL(2, logger_, "Pushing control word IDs.");
-//                std::vector<dimsize_t> dims(0);
-//                processedFrame->set_dataset_name("cue_id");
-//                processedFrame->set_data_type(1);
-//                processedFrame->set_dimensions(dims);
                 frames.push_back(processedFrame);
             }
 
@@ -219,50 +202,30 @@ namespace FrameProcessor {
         processedFrame = timeStampBuffer_->retrieveCurrentFrame();
         if (processedFrame) {
             LOG4CXX_DEBUG_LEVEL(2, logger_, "Pushing timestamp data frame.");
-//            std::vector<dimsize_t> dims(0);
-//            processedFrame->set_dataset_name("event_time_offset");
-//            processedFrame->set_data_type(3);
-//            processedFrame->set_dimensions(dims);
             frames.push_back(processedFrame);
         }
 
         processedFrame = idBuffer_->retrieveCurrentFrame();
         if (processedFrame) {
             LOG4CXX_DEBUG_LEVEL(2, logger_, "Pushing ID data frame.");
-//            std::vector<dimsize_t> dims(0);
-//            processedFrame->set_dataset_name("event_id");
-//            processedFrame->set_data_type(2);
-//            processedFrame->set_dimensions(dims);
             frames.push_back(processedFrame);
         }
 
         processedFrame = energyBuffer_->retrieveCurrentFrame();
         if (processedFrame) {
             LOG4CXX_DEBUG_LEVEL(2, logger_, "Pushing energy data frame.");
-//            std::vector<dimsize_t> dims(0);
-//            processedFrame->set_dataset_name("event_energy");
-//            processedFrame->set_data_type(2);
-//            processedFrame->set_dimensions(dims);
             frames.push_back(processedFrame);
         }
 
         processedFrame = ctrlTimeStampBuffer_->retrieveCurrentFrame();
         if (processedFrame) {
             LOG4CXX_DEBUG_LEVEL(2, logger_, "Pushing control word timestamps.");
-//            std::vector<dimsize_t> dims(0);
-//            processedFrame->set_dataset_name("cue_timestamp_zero");
-//            processedFrame->set_data_type(3);
-//            processedFrame->set_dimensions(dims);
             frames.push_back(processedFrame);
         }
 
         processedFrame = ctrlWordBuffer_->retrieveCurrentFrame();
         if (processedFrame) {
             LOG4CXX_DEBUG_LEVEL(2, logger_, "Pushing control word IDs.");
-//            std::vector<dimsize_t> dims(0);
-//            processedFrame->set_dataset_name("cue_id");
-//            processedFrame->set_data_type(1);
-//            processedFrame->set_dimensions(dims);
             frames.push_back(processedFrame);
         }
 
@@ -295,6 +258,14 @@ namespace FrameProcessor {
                     uint32_t time_slice = LATRD::get_time_slice_id(packet_header.headerWord1,
                                                                    packet_header.headerWord2);
                     uint16_t words_to_process = word_count - packet_header_count;
+
+                    // Check the data version and record it if changed
+                    uint8_t data_version = LATRD::get_data_format_version(packet_header.headerWord2);
+                    if (data_version != daq_version_){
+                        daq_version_ = (int32_t)data_version;
+                        LOG4CXX_ERROR(logger_, "Publishing data version: " << daq_version_);
+                        publish_daq_format_version_meta_data(acq_id_, daq_version_);
+                    }
 
                     uint64_t *data_ptr = (((uint64_t *) payload_ptr) + 1);
                     data_ptr += packet_header_count;
@@ -405,16 +376,6 @@ namespace FrameProcessor {
                     ++iter;
                 }
             }
-            // Return the jobs for the same buffer from the previous wrap
-            /*if (ts_store_.count(current_ts_wrap_ - 1) > 0) {
-                this->update_time_slice_meta_data((current_ts_wrap_ - 1), ts_store_[current_ts_wrap_ - 1]->get_all_event_data_counts());
-
-                std::vector<boost::shared_ptr<LATRDProcessJob> > wrap_jobs = ts_store_[current_ts_wrap_ -
-                                                                                       1]->empty_buffer(
-                        current_ts_buffer_);
-                jobs.insert(jobs.end(), wrap_jobs.begin(), wrap_jobs.end());
-                ts_store_.erase(current_ts_wrap_ - 1);
-            }*/
         }
         return jobs;
     }
@@ -467,6 +428,35 @@ namespace FrameProcessor {
                 this->publish_time_slice_meta_data(acq_id_, ts_index_array_.size());
                 ts_index_array_.assign(LATRD::time_slice_write_size * LATRD::number_of_time_slice_buffers, 0);
             }
+        }
+    }
+
+    void LATRDProcessCoordinator::publish_daq_format_version_meta_data(const std::string& acq_id, int32_t version)
+    {
+        if (metaPtr_){
+            rapidjson::Document meta_document;
+            meta_document.SetObject();
+
+            // Add Acquisition ID
+            rapidjson::Value key_acq_id("acqID", meta_document.GetAllocator());
+            rapidjson::Value value_acq_id;
+            value_acq_id.SetString(acq_id.c_str(), acq_id.size(), meta_document.GetAllocator());
+            meta_document.AddMember(key_acq_id, value_acq_id, meta_document.GetAllocator());
+            // Add rank
+            rapidjson::Value key_rank("rank", meta_document.GetAllocator());
+            rapidjson::Value value_rank;
+            value_rank.SetInt(rank_);
+            meta_document.AddMember(key_rank, value_rank, meta_document.GetAllocator());
+
+            rapidjson::StringBuffer buffer;
+            rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+            meta_document.Accept(writer);
+
+            LOG4CXX_ERROR(logger_, "Publishing daq format version meta data");
+            metaPtr_->publish_meta("latrd",
+                                   "daq_version",
+                                   version,
+                                   buffer.GetString());
         }
     }
 

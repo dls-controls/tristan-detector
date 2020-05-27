@@ -69,6 +69,8 @@ namespace FrameProcessor {
 
     void purge_time_slice_meta_data();
 
+    void publish_daq_format_version_meta_data(const std::string& acq_id, int32_t version);
+
     void publish_time_slice_meta_data(const std::string& acq_id, uint32_t qty_of_ts);
 
     std::vector<boost::shared_ptr<LATRDProcessJob> > purge_remaining_jobs();
@@ -109,6 +111,9 @@ namespace FrameProcessor {
 
     /** Rank of this process coordinator */
     size_t rank_;
+
+    /** DAQ data format version number */
+    int32_t daq_version_;
 
     /** Pointer to worker queue thread */
     boost::thread *thread_[LATRD::number_of_processing_threads];
