@@ -422,7 +422,7 @@ function update_detector_status() {
     });
     $.getJSON('/api/' + odin_data.api_version + '/' + odin_data.ctrl_name + '/status/detector/udp_packets_sent', function(response) {
         if (odin_data.ctrl_connected){
-            $('#detector-pkts-sent').html(response['value'][0]);
+            $('#detector-pkts-sent').html(response['value']);
         }
     });
     $.getJSON('/api/' + odin_data.api_version + '/' + odin_data.ctrl_name + '/config/exposure', function(response) {

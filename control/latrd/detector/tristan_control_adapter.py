@@ -332,6 +332,7 @@ class TristanControlAdapter(ApiAdapter):
             }
         }
         self._parameters = {'status':{'connected':False,
+                                      'acquisition_complete':True,
                                       'detector': {
                                           'version_check':False
                                       }}}
@@ -664,6 +665,11 @@ class TristanControlAdapter(ApiAdapter):
                                         x_pixels = self._parameters['status']['detector']['x_pixels_in_detector']
                                         y_pixels = self._parameters['status']['detector']['y_pixels_in_detector']
                                         self._parameters['status']['detector']['bytes'] = x_pixels * y_pixels * 2
+                                    # Sum the packets sent from the detector (by module) into a singe total
+                                    if 'udp_packets_sent' in self._parameters['status']['detector']:
+                                        pckts = self._parameters['status']['detector']['udp_packets_sent']
+                                        if isinstance(pckts, list):
+                                            self._parameters['status']['detector']['udp_packets_sent'] = sum(pckts)
                                 # Check if we have just reconnected
                                 if not currently_connected:
                                     # Reconnection event so send down the time stamp config item
@@ -678,12 +684,15 @@ class TristanControlAdapter(ApiAdapter):
                                 else:
                                     self._parameters['status']['detector']['version_check'] = False
 
-                                if 'clock' in self._parameters['status']:
-                                    if 'dpll_lol' in self._parameters['status']['clock']:
-                                        self._parameters['status']['clock']['dpll_lol'] = self._parameters['status']['clock']['dpll_lol'][0]
-                                    if 'dpll_hold' in self._parameters['status']['clock']:
-                                        self._parameters['status']['clock']['dpll_hold'] = self._parameters['status']['clock']['dpll_hold'][0]
-
+                                try:
+                                    if 'clock' in self._parameters['status']:
+                                        if 'dpll_lol' in self._parameters['status']['clock']:
+                                            self._parameters['status']['clock']['dpll_lol'] = self._parameters['status']['clock']['dpll_lol'][0]
+                                        if 'dpll_hold' in self._parameters['status']['clock']:
+                                            self._parameters['status']['clock']['dpll_hold'] = self._parameters['status']['clock']['dpll_hold'][0]
+                                except Exception as ex:
+                                    logging.error("Error reading clock status items [dpll_lol, dpll_hold]")
+                                    logging.error("Exception: %s", ex)
 
                                 if 'sensor' in self._parameters['status']:
                                     if 'temp_asics' in self._parameters['status']['sensor']:
