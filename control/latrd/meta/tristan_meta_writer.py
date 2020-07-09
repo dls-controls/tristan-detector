@@ -49,6 +49,9 @@ class TristanMetaWriter(MetaWriter):
         #self._directory = directory
         self._acquisition_id = acquisitionID
 
+        # Add data format version dataset
+        self.add_dataset_definition('data_version', (0,), maxshape=(None,), dtype='int32', fillvalue=-1)
+        
         for index in range(self._number_of_processors):
             self.add_dataset_definition('ts_rank_{}'.format(index), (0,), maxshape=(None,), dtype='int32', fillvalue=-1)
             self._expected_index.append(0)
@@ -172,6 +175,17 @@ class TristanMetaWriter(MetaWriter):
         # arbitrary blocks of data to be written out
         return
 
+    def handle_data_version(self, user_header, value):
+        self._logger.info('Handling data version information for acqID ' + self._acquisition_id)
+        self._logger.info(user_header)
+        self._logger.info(len(value))
+
+        array = struct.unpack('i', value)
+        self._hdf5_datasets['data_version'].resize(1, axis=0)
+        self._hdf5_datasets['data_version'][0:1] = array
+        self._hdf5_datasets['data_version'].flush()
+
+
     def handle_time_slice(self, user_header, value):
         """Handle a time slice message.  Write the time slice information
         to disk and generate any required VDS files
@@ -225,6 +239,8 @@ class TristanMetaWriter(MetaWriter):
         file_prefix = self._acquisition_id
         file_directory = self.directory
 
+        self._logger.info("Creating VDS")
+
         meta_filename = os.path.join(file_directory, file_prefix + "_meta.h5")
         meta_file = h5py.File(meta_filename, 'r', libver='latest', swmr=True)
 
@@ -237,9 +253,10 @@ class TristanMetaWriter(MetaWriter):
         meta_dset_ordered_list = []
         total_events = 0
         # Now generate the raw data filenames, there should be 1 for each dset_name value
-        for index in range(0, len(dset_names)):
+        for index in range(0, len(dset_names)-1):
             raw_filename = os.path.join(file_directory, file_prefix + "_{:06}.h5".format(index+1))
             dset_name = "ts_rank_{}".format(index)
+            self._logger.info("Adding data from dataset {}".format(dset_name))
             meta_dset_ordered_list.append(dset_name)
 
             if len(meta_file[dset_name]) > longest_meta_dset:
@@ -378,6 +395,9 @@ class TristanMetaWriter(MetaWriter):
         elif message['parameter'] == "time_slice":
             value = receiver.recv()
             self.handle_time_slice(userheader, value)
+        elif message['parameter'] == "daq_version":
+            value = receiver.recv()
+            self.handle_data_version(userheader, value)
         else:
             self._logger.error('unknown parameter: ' + str(message))
             value = receiver.recv()
