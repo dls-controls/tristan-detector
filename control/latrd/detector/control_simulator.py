@@ -31,6 +31,7 @@ class LATRDControlSimulator(object):
         self._sensor = sensor
         self._reactor = LATRDReactor()
         self._daq = TristanEventProducer()
+        self._daq.init(5000000)
         self._store = {
             'status':
                 {
@@ -145,15 +146,15 @@ class LATRDControlSimulator(object):
 
         self._store['status']['detector']['udp_packets_sent'] = [self._daq._sent_packets]
 
-        self._log.debug("Received message ID[%s]: %s", id, msg)
+        #self._log.debug("Received message ID[%s]: %s", id, msg)
         if isinstance(msg, GetMessage):
-            self._log.debug("Received GetMessage, parsing...")
+            #self._log.debug("Received GetMessage, parsing...")
             self.parse_get_msg(msg, id)
         elif isinstance(msg, PutMessage):
-            self._log.debug("Received PutMessage, parsing...")
+            #self._log.debug("Received PutMessage, parsing...")
             self.parse_put_msg(msg, id)
         elif isinstance(msg, PostMessage):
-            self._log.debug("Received PostMessage, parsing...")
+            #self._log.debug("Received PostMessage, parsing...")
             self.parse_post_msg(msg, id)
         else:
             raise LATRDMessageException("Unknown message type received")
@@ -162,7 +163,7 @@ class LATRDControlSimulator(object):
         # Check the parameter keys and retrieve the values from the store
         values = {}
         self.read_parameters(self._store, msg.params, values)
-        self._log.debug("Return value object: %s", values)
+        #self._log.debug("Return value object: %s", values)
         reply = ResponseMessage(msg.msg_id, values, ResponseMessage.RESPONSE_OK)
         self._ctrl_channel.send_multi([send_id, reply])
 
@@ -195,12 +196,14 @@ class LATRDControlSimulator(object):
         self._ctrl_channel.send_multi([send_id, reply])
 
     def execute_arm(self):
-        self._daq.arm(5000000)
+        self._daq.arm()
         self._store['status']['state'] = 'armed'
 
     def execute_script(self):
         self._daq.run()
-        while self._daq.running():
+        time.sleep(2.0)
+        while self._daq.running() == True:
+            print("self._daq_running() = {}".format(self._daq.running()))
             time.sleep(0.5)
         self._store['status']['state'] = 'idle'
 
@@ -215,7 +218,7 @@ class LATRDControlSimulator(object):
                 store[key] = param
 
     def read_parameters(self, store, param, values):
-        self._log.debug("Params: %s", param)
+        #self._log.debug("Params: %s", param)
         for key in param:
             if isinstance(param[key], dict):
                 values[key] = {}

@@ -210,10 +210,13 @@ class TristanEventProducer(object):
         self._sent_packets = 0
         self._packets_to_send = 0
 
-    def arm(self, num_events):
+    def init(self, num_events):
         self._time_slices = []
-        self._sent_packets = 0
         self.create_packets(num_events, 500000)
+
+    def arm(self):
+        self._sent_packets = 0
+        time.sleep(1.0)
 
     def run(self):
         """
@@ -222,6 +225,7 @@ class TristanEventProducer(object):
         self.send_packets()
 
     def running(self):
+        print("PACKETS SENT : {}    TO SEND : {}".format(self._sent_packets, self._packets_to_send))
         return self._sent_packets != self._packets_to_send
 
     def create_packets(self, total_events, per_slice):
@@ -231,6 +235,7 @@ class TristanEventProducer(object):
         # First create the idle packet
         self._idle_packet = TristanIdlePacket().to_packet()
 
+        self._pkt_number = 0
         # Now create enough packets for the number of words
         generated_events = 0
         time_slice = 0
@@ -255,6 +260,10 @@ class TristanEventProducer(object):
             time_slice += 1
             TristanData.PACKET_NUMBER=0
             self._packets_to_send = self._pkt_number
+            print("****** PACKETS TO SEND: {}".format(self._packets_to_send))
+            print("****** PACKETS TO SEND: {}".format(self._packets_to_send))
+            print("****** PACKETS TO SEND: {}".format(self._packets_to_send))
+            print("****** PACKETS TO SEND: {}".format(self._packets_to_send))
 
     def send_packets(self):
 
