@@ -37,7 +37,7 @@
                         class="glyphicon glyphicon-home"></span> <strong>Engineering</strong><span
                         class="label"></span></a></li>
 
-            </ul>
+							</ul>
         </div>
       </div>
     </nav>
@@ -112,181 +112,16 @@
 						</div>
 						<div class="row sidebar-row vertical-align">
 							<div class="col-xs-2">DAQ Connection:</div>
+							<div class="col-xs-7" id="tristan-daq-container"></div>
+
 							<div class="col-xs-5 status vertical-align">
 								<table>
-									<tr><td width="180px" colspan="2">FrameReceiver:</td>
-									<td width="200px" align="center" id="fr-connected-1"></td>
-									<td width="200px" align="center" id="fr-connected-2"></td>
-									<td width="200px" align="center" id="fr-connected-3"></td>
-									<td width="200px" align="center" id="fr-connected-4"></td>
-									<td width="200px" align="center" id="fr-connected-5"></td>
-									<td width="200px" align="center" id="fr-connected-6"></td>
-									<td width="200px" align="center" id="fr-connected-7"></td>
-									<td width="200px" align="center" id="fr-connected-8"></td>
-									</tr>
-									<tr><td width="180px" colspan="2">FrameProcessor:</td>
-									<td width="200px" align="center" id="fp-connected-1"></td>
-									<td width="200px" align="center" id="fp-connected-2"></td>
-									<td width="200px" align="center" id="fp-connected-3"></td>
-									<td width="200px" align="center" id="fp-connected-4"></td>
-									<td width="200px" align="center" id="fp-connected-5"></td>
-									<td width="200px" align="center" id="fp-connected-6"></td>
-									<td width="200px" align="center" id="fp-connected-7"></td>
-									<td width="200px" align="center" id="fp-connected-8"></td>
-									</tr><!--<td colspan="2"><span><button id="fp-config-cmd">Initialise DAQ</button></span></td></tr>-->
-									<!--<tr><td colspan="2">Debug Level:</td><td align="center"><span><input type="text" id="fp-debug-level" size="3"></input></span></td></tr>-->
-									<tr><td colspan="2">Packets Received:</td>
-									<td align="center" id="fr-packets-1"></td>
-									<td align="center" id="fr-packets-2"></td>
-									<td align="center" id="fr-packets-3"></td>
-									<td align="center" id="fr-packets-4"></td>
-									<td align="center" id="fr-packets-5"></td>
-									<td align="center" id="fr-packets-6"></td>
-									<td align="center" id="fr-packets-7"></td>
-									<td align="center" id="fr-packets-8"></td>
-									<td align="center"><span><button id="fr-reset-cmd">Reset</button></span></td>
-									</tr>
-									<tr><td colspan="2">Empty Buffers:</td>
-									<td align="center" id="fr-empty-buffers-1"></td>
-									<td align="center" id="fr-empty-buffers-2"></td>
-									<td align="center" id="fr-empty-buffers-3"></td>
-									<td align="center" id="fr-empty-buffers-4"></td>
-									<td align="center" id="fr-empty-buffers-5"></td>
-									<td align="center" id="fr-empty-buffers-6"></td>
-									<td align="center" id="fr-empty-buffers-7"></td>
-									<td align="center" id="fr-empty-buffers-8"></td>
-									</tr>
-									<tr><td colspan="2">Processes:</td>
-									<td align="center" id="fp-processes-1"></td>
-									<td align="center" id="fp-processes-2"></td>
-									<td align="center" id="fp-processes-3"></td>
-									<td align="center" id="fp-processes-4"></td>
-									<td align="center" id="fp-processes-5"></td>
-									<td align="center" id="fp-processes-6"></td>
-									<td align="center" id="fp-processes-7"></td>
-									<td align="center" id="fp-processes-8"></td>
-									</tr>
-									<tr><td colspan="2">Rank:</td>
-									<td align="center" id="fp-rank-1"></td>
-									<td align="center" id="fp-rank-2"></td>
-									<td align="center" id="fp-rank-3"></td>
-									<td align="center" id="fp-rank-4"></td>
-									<td align="center" id="fp-rank-5"></td>
-									<td align="center" id="fp-rank-6"></td>
-									<td align="center" id="fp-rank-7"></td>
-									<td align="center" id="fp-rank-8"></td>
-									</tr>
-									<tr><td colspan="2">Packets processed:</td>
-										<td align="center" id="fp-pkts-processed-1"></td>
-										<td align="center" id="fp-pkts-processed-2"></td>
-										<td align="center" id="fp-pkts-processed-3"></td>
-										<td align="center" id="fp-pkts-processed-4"></td>
-										<td align="center" id="fp-pkts-processed-5"></td>
-										<td align="center" id="fp-pkts-processed-6"></td>
-										<td align="center" id="fp-pkts-processed-7"></td>
-										<td align="center" id="fp-pkts-processed-8"></td>
-									</tr>
-									<tr><td colspan="2">Job Queue Size:</td>
-										<td align="center" id="fp-job-q-1"></td>
-										<td align="center" id="fp-job-q-2"></td>
-										<td align="center" id="fp-job-q-3"></td>
-										<td align="center" id="fp-job-q-4"></td>
-										<td align="center" id="fp-job-q-5"></td>
-										<td align="center" id="fp-job-q-6"></td>
-										<td align="center" id="fp-job-q-7"></td>
-										<td align="center" id="fp-job-q-8"></td>
-									</tr>
-									<tr><td colspan="2">Results Queue Size:</td>
-										<td align="center" id="fp-result-q-1"></td>
-										<td align="center" id="fp-result-q-2"></td>
-										<td align="center" id="fp-result-q-3"></td>
-										<td align="center" id="fp-result-q-4"></td>
-										<td align="center" id="fp-result-q-5"></td>
-										<td align="center" id="fp-result-q-6"></td>
-										<td align="center" id="fp-result-q-7"></td>
-										<td align="center" id="fp-result-q-8"></td>
-									</tr>
-									<tr><td colspan="2">Invalid Packets:</td>
-										<td align="center" id="fp-invalid-pkt-1"></td>
-										<td align="center" id="fp-invalid-pkt-2"></td>
-										<td align="center" id="fp-invalid-pkt-3"></td>
-										<td align="center" id="fp-invalid-pkt-4"></td>
-										<td align="center" id="fp-invalid-pkt-5"></td>
-										<td align="center" id="fp-invalid-pkt-6"></td>
-										<td align="center" id="fp-invalid-pkt-7"></td>
-										<td align="center" id="fp-invalid-pkt-8"></td>
-									</tr>
-									<tr><td colspan="2">Timestamp Mismatches:</td>
-										<td align="center" id="fp-ts-mm-1"></td>
-										<td align="center" id="fp-ts-mm-2"></td>
-										<td align="center" id="fp-ts-mm-3"></td>
-										<td align="center" id="fp-ts-mm-4"></td>
-										<td align="center" id="fp-ts-mm-5"></td>
-										<td align="center" id="fp-ts-mm-6"></td>
-										<td align="center" id="fp-ts-mm-7"></td>
-										<td align="center" id="fp-ts-mm-8"></td>
-									</tr>
-									<tr><td colspan="2">Processed Frames:</td>
-										<td align="center" id="fp-proc-frames-1"></td>
-										<td align="center" id="fp-proc-frames-2"></td>
-										<td align="center" id="fp-proc-frames-3"></td>
-										<td align="center" id="fp-proc-frames-4"></td>
-										<td align="center" id="fp-proc-frames-5"></td>
-										<td align="center" id="fp-proc-frames-6"></td>
-										<td align="center" id="fp-proc-frames-7"></td>
-										<td align="center" id="fp-proc-frames-8"></td>
-									</tr>
-									<tr><td colspan="2">Output Frames:</td>
-										<td align="center" id="fp-out-frames-1"></td>
-										<td align="center" id="fp-out-frames-2"></td>
-										<td align="center" id="fp-out-frames-3"></td>
-										<td align="center" id="fp-out-frames-4"></td>
-										<td align="center" id="fp-out-frames-5"></td>
-										<td align="center" id="fp-out-frames-6"></td>
-										<td align="center" id="fp-out-frames-7"></td>
-										<td align="center" id="fp-out-frames-8"></td>
-									</tr>
-									<tr><td colspan="2">Writing:</td>
-									<td align="center" id="fp-writing-1"></td>
-									<td align="center" id="fp-writing-2"></td>
-									<td align="center" id="fp-writing-3"></td>
-									<td align="center" id="fp-writing-4"></td>
-									<td align="center" id="fp-writing-5"></td>
-									<td align="center" id="fp-writing-6"></td>
-									<td align="center" id="fp-writing-7"></td>
-									<td align="center" id="fp-writing-8"></td>
-									</tr>
-									<tr><td colspan="2">Values Written:</td>
-									<td align="center" id="fp-written-1"></td>
-									<td align="center" id="fp-written-2"></td>
-									<td align="center" id="fp-written-3"></td>
-									<td align="center" id="fp-written-4"></td>
-									<td align="center" id="fp-written-5"></td>
-									<td align="center" id="fp-written-6"></td>
-									<td align="center" id="fp-written-7"></td>
-									<td align="center" id="fp-written-8"></td>
+									<tr><td width="180px" colspan="2">Statistics:</td>
+										<td><span><button id="fr-reset-cmd">Reset</button></span></td>
 									</tr>
 									<tr id="fp-raw-row"><td width="180px" colspan="2">Decode Mode:</td>
-									<td width="200px" align="center" id="fp-raw-mode-1"></td>
-									<td width="200px" align="center" id="fp-raw-mode-2"></td>
-									<td width="200px" align="center" id="fp-raw-mode-3"></td>
-									<td width="200px" align="center" id="fp-raw-mode-4"></td>
-									<td width="200px" align="center" id="fp-raw-mode-5"></td>
-									<td width="200px" align="center" id="fp-raw-mode-6"></td>
-									<td width="200px" align="center" id="fp-raw-mode-7"></td>
-									<td width="200px" align="center" id="fp-raw-mode-8"></td>
   								<td colspan="1"><span><button id="fp-config-raw-mode-on">Raw</button></span></td>
 									<td colspan="1"><span><button id="fp-config-raw-mode-off">Process</button></span></td>
-									</tr>
-									<tr id="fp-mode-row"><td width="180px" colspan="2">Operational Mode:</td>
-									<td width="200px" align="center" id="fp-op-mode-1"></td>
-									<td width="200px" align="center" id="fp-op-mode-2"></td>
-									<td width="200px" align="center" id="fp-op-mode-3"></td>
-									<td width="200px" align="center" id="fp-op-mode-4"></td>
-									<td width="200px" align="center" id="fp-op-mode-5"></td>
-									<td width="200px" align="center" id="fp-op-mode-6"></td>
-									<td width="200px" align="center" id="fp-op-mode-7"></td>
-									<td width="200px" align="center" id="fp-op-mode-8"></td>
 									</tr>
 									<!--
 									<tr><td>HDF Plugin:</td><td>Writing</td><td align="center" id="fp-hdf-writing"></td></tr>
@@ -298,8 +133,8 @@
 									<tr><td></td><td>Processes</td><td align="center" id="fp-hdf-processes"></td><td colspan="2">
 									-->
 									<tr><td colspan="2">Write</td>
-									<td align="center"><span><button id="fp-start-cmd">Start</button></span></td>
-									<td align="center"><span><button id="fp-stop-cmd">Stop</button></span></td></tr>
+									<td><span><button id="fp-start-cmd">Start</button></span></td>
+									<td><span><button id="fp-stop-cmd">Stop</button></span></td></tr>
 									<!--
 									<tr><td></td><td>Rank</td><td align="center" id="fp-hdf-rank"></td></tr>
 									<tr><td></td><td>Values Written</td><td align="center" id="fp-hdf-written"></td></tr>-->

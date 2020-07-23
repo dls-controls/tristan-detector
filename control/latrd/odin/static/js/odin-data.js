@@ -7,7 +7,8 @@ odin_data = {
   adapter_objects: {},
   ctrl_connected: false,
   fp_connected: [false,false,false,false],
-  acq_id: ''
+  acq_id: '',
+  daq: null
   };
 
 
@@ -313,9 +314,10 @@ function fp_mode_command(mode) {
 }
 
 function meta_start_command() {
-    send_fp_command('latrd', JSON.stringify({
+    send_fp_command('tristan', JSON.stringify({
         "acq_id": $('#set-fp-filename').val()
     }));
+    odin_data.acq_id = $('#set-fp-filename').val();
     send_meta_command("output_dir", $('#set-fp-path').val());
     send_meta_command("acquisition_id", $('#set-fp-filename').val());
 }
@@ -459,312 +461,81 @@ function update_detector_status() {
 }
 
 function update_fp_status() {
-    $.getJSON('/api/' + odin_data.api_version + '/fp/endpoint', function(response) {
-//        alert(response.endpoint);
-        $('#fp-endpoint').html(response.endpoint);
-    });
+    //$.getJSON('/api/' + odin_data.api_version + '/fp/endpoint', function(response) {
+    //    //alert(response.endpoint);
+    //    $('#fp-endpoint').html(response.endpoint);
+    //});
     $.getJSON('/api/' + odin_data.api_version + '/fp/status/connected', function(response) {
         //alert(response['value']);
-        $('#fp-connected-1').html(led_html(response['value'][0], 'green', 26));
-        $('#fp-connected-2').html(led_html(response['value'][1], 'green', 26));
-        $('#fp-connected-3').html(led_html(response['value'][2], 'green', 26));
-        $('#fp-connected-4').html(led_html(response['value'][3], 'green', 26));
-        $('#fp-connected-5').html(led_html(response['value'][4], 'green', 26));
-        $('#fp-connected-6').html(led_html(response['value'][5], 'green', 26));
-        $('#fp-connected-7').html(led_html(response['value'][6], 'green', 26));
-        $('#fp-connected-8').html(led_html(response['value'][7], 'green', 26));
-        if (response['value'][0] === false){
-            odin_data.fp_connected[0] = false;
-            $('#fp-hdf-writing').html('');
-            $('#fp-hdf-file-path').html('');
-            $('#fp-hdf-processes').html('');
-            $('#fp-hdf-rank').html('');
-            $('#set-fp-filename').val('');
-            $('#set-fp-path').val('');
+        var no_of_fps = response['value'].length;
+        if (odin_data.daq == null){
+            odin_data.daq = new DAQHolder('tristan-daq-container', no_of_fps);
+            odin_data.daq.init();
         } else {
-            odin_data.fp_connected[0] = true;
+            if (no_of_fps != odin_data.daq.get_no_of_fps()){
+                odin_data.daq = new DAQHolder('tristan-daq-container', no_of_fps);
+                odin_data.daq.init();
+            }
         }
-        if (response['value'][1] === false){
-            odin_data.fp_connected[1] = false;
-        } else {
-            odin_data.fp_connected[1] = true;
-        }
-        if (response['value'][2] === false){
-            odin_data.fp_connected[2] = false;
-        } else {
-            odin_data.fp_connected[2] = true;
-        }
-        if (response['value'][3] === false){
-            odin_data.fp_connected[3] = false;
-        } else {
-            odin_data.fp_connected[3] = true;
-        }
-        if (response['value'][4] === false){
-            odin_data.fp_connected[4] = false;
-        } else {
-            odin_data.fp_connected[4] = true;
-        }
-        if (response['value'][5] === false){
-            odin_data.fp_connected[5] = false;
-        } else {
-            odin_data.fp_connected[5] = true;
-        }
-        if (response['value'][6] === false){
-            odin_data.fp_connected[6] = false;
-        } else {
-            odin_data.fp_connected[6] = true;
-        }
-        if (response['value'][7] === false){
-            odin_data.fp_connected[7] = false;
-        } else {
-            odin_data.fp_connected[7] = true;
-        }
+        odin_data.daq.setFPConnected(response['value']);
     });
-    $.getJSON('/api/' + odin_data.api_version + '/fp/status/hdf', function(response) {
-//        alert(response['value']);
-        
-        if (odin_data.fp_connected[0] == true){
-          update_fp_data(1, response['value'][0]);
-        }
-        if (odin_data.fp_connected[1] == true){
-          update_fp_data(2, response['value'][1]);
-        }
-        if (odin_data.fp_connected[2] == true){
-          update_fp_data(3, response['value'][2]);
-        }
-        if (odin_data.fp_connected[3] == true){
-          update_fp_data(4, response['value'][3]);
-        }
-        if (odin_data.fp_connected[4] == true){
-          update_fp_data(5, response['value'][4]);
-        }
-        if (odin_data.fp_connected[5] == true){
-          update_fp_data(6, response['value'][5]);
-        }
-        if (odin_data.fp_connected[6] == true){
-          update_fp_data(7, response['value'][6]);
-        }
-        if (odin_data.fp_connected[7] == true){
-          update_fp_data(8, response['value'][7]);
-        }
-//        $('#fp-processes-1').html('' + response['value'][0].processes);
-//        $('#fp-processes-2').html('' + response['value'][1].processes);
-//        $('#fp-processes-3').html('' + response['value'][2].processes);
-//        $('#fp-processes-4').html('' + response['value'][3].processes);
-//        $('#fp-rank-1').html('' + response['value'][0].rank);
-//        $('#fp-rank-2').html('' + response['value'][1].rank);
-//        $('#fp-rank-3').html('' + response['value'][2].rank);
-//        $('#fp-rank-4').html('' + response['value'][3].rank);
-//        alert(response['value'][0].rank);
-//        if (odin_data.fp_connected){
-//            if (response['value'] == ""){
-//                $('#fp-hdf-writing').html('Not Loaded');
-//                $('#fp-hdf-file-path').html('Not Loaded');
-//                $('#fp-hdf-processes').html('Not Loaded');
-//                $('#fp-hdf-rank').html('Not Loaded');
-//            } else {
-//                //alert(response['value'][0]);
-//                $('#fp-hdf-writing').html(led_html(response['value'][0].writing, 'green', 26));
-//                $('#fp-hdf-file-path').html('' + response['value'][0].file_path + response['value'][0].file_name);
-//                $('#fp-hdf-processes').html('' + response['value'][0].processes);
-//                $('#fp-hdf-rank').html('' + response['value'][0].rank);
-//                $('#fp-hdf-written').html('' + response['value'][0].frames_written);
-//            }
-//        }
+    $.getJSON('/api/' + odin_data.api_version + '/fp/status/hdf/processes', function(response) {
+        odin_data.daq.setFPProcesses(response['value']);
     });
-    $.getJSON('/api/' + odin_data.api_version + '/fp/status/tristan', function(response) {
-//        alert(response['value']);
-
-        if (odin_data.fp_connected[0] == true){
-            update_fp_latrd(1, response['value'][0]);
-        }
-        if (odin_data.fp_connected[1] == true){
-            update_fp_latrd(2, response['value'][1]);
-        }
-        if (odin_data.fp_connected[2] == true){
-            update_fp_latrd(3, response['value'][2]);
-        }
-        if (odin_data.fp_connected[3] == true){
-            update_fp_latrd(4, response['value'][3]);
-        }
-        if (odin_data.fp_connected[4] == true){
-            update_fp_latrd(5, response['value'][4]);
-        }
-        if (odin_data.fp_connected[5] == true){
-            update_fp_latrd(6, response['value'][5]);
-        }
-        if (odin_data.fp_connected[6] == true){
-            update_fp_latrd(7, response['value'][6]);
-        }
-        if (odin_data.fp_connected[7] == true){
-            update_fp_latrd(8, response['value'][7]);
-        }
+    $.getJSON('/api/' + odin_data.api_version + '/fp/status/hdf/rank', function(response) {
+        odin_data.daq.setFPRank(response['value']);
     });
-    $.getJSON('/api/' + odin_data.api_version + '/fp/config/tristan', function(response) {
-        //alert(response['value']);
-        if (odin_data.fp_connected[0]){
-            if (response['value'][0] == ""){
-                $('#fp-raw-mode-1').html('Not Loaded');
-            } else {
-                $('#fp-op-mode-1').html(response['value'][0].mode);
-                if (response['value'][0].raw_mode == "0") {
-                    $('#fp-raw-mode-1').html('Process');
-                    $('#fp-mode-row').show();
-                } else {
-                    $('#fp-raw-mode-1').html('Raw');
-                    $('#fp-mode-row').hide();
-                }
-            }
-        }
-        if (odin_data.fp_connected[1]){
-            if (response['value'][1] == ""){
-                $('#fp-raw-mode-2').html('Not Loaded');
-            } else {
-                $('#fp-op-mode-2').html(response['value'][1].mode);
-                if (response['value'][1].raw_mode == "0") {
-                    $('#fp-raw-mode-2').html('Process');
-                } else {
-                    $('#fp-raw-mode-2').html('Raw');
-                }
-            }
-        }
-        if (odin_data.fp_connected[2]){
-            if (response['value'][2] == ""){
-                $('#fp-raw-mode-3').html('Not Loaded');
-            } else {
-                $('#fp-op-mode-3').html(response['value'][2].mode);
-                if (response['value'][2].raw_mode == "0") {
-                    $('#fp-raw-mode-3').html('Process');
-                } else {
-                    $('#fp-raw-mode-3').html('Raw');
-                }
-            }
-        }
-        if (odin_data.fp_connected[3]){
-            if (response['value'][3] == ""){
-                $('#fp-raw-mode-4').html('Not Loaded');
-            } else {
-                $('#fp-op-mode-4').html(response['value'][3].mode);
-                if (response['value'][3].raw_mode == "0") {
-                    $('#fp-raw-mode-4').html('Process');
-                } else {
-                    $('#fp-raw-mode-4').html('Raw');
-                }
-            }
-        }
-        if (odin_data.fp_connected[4]){
-            if (response['value'][4] == ""){
-                $('#fp-raw-mode-5').html('Not Loaded');
-            } else {
-                $('#fp-op-mode-5').html(response['value'][4].mode);
-                if (response['value'][4].raw_mode == "0") {
-                    $('#fp-raw-mode-5').html('Process');
-                } else {
-                    $('#fp-raw-mode-5').html('Raw');
-                }
-            }
-        }
-        if (odin_data.fp_connected[5]){
-            if (response['value'][5] == ""){
-                $('#fp-raw-mode-6').html('Not Loaded');
-            } else {
-                $('#fp-op-mode-6').html(response['value'][5].mode);
-                if (response['value'][5].raw_mode == "0") {
-                    $('#fp-raw-mode-6').html('Process');
-                } else {
-                    $('#fp-raw-mode-6').html('Raw');
-                }
-            }
-        }
-        if (odin_data.fp_connected[6]){
-            if (response['value'][6] == ""){
-                $('#fp-raw-mode-7').html('Not Loaded');
-            } else {
-                $('#fp-op-mode-7').html(response['value'][6].mode);
-                if (response['value'][6].raw_mode == "0") {
-                    $('#fp-raw-mode-7').html('Process');
-                } else {
-                    $('#fp-raw-mode-7').html('Raw');
-                }
-            }
-        }
-        if (odin_data.fp_connected[7]){
-            if (response['value'][7] == ""){
-                $('#fp-raw-mode-8').html('Not Loaded');
-            } else {
-                $('#fp-op-mode-8').html(response['value'][7].mode);
-                if (response['value'][7].raw_mode == "0") {
-                    $('#fp-raw-mode-8').html('Process');
-                } else {
-                    $('#fp-raw-mode-8').html('Raw');
-                }
-            }
-        }
+    $.getJSON('/api/' + odin_data.api_version + '/fp/status/hdf/writing', function(response) {
+        odin_data.daq.setFPWriting(response['value']);
     });
-}
-
-function update_fp_data(index, data){
-    $('#fp-processes-'+index).html('' + data.processes);
-    $('#fp-rank-'+index).html('' + data.rank);
-    $('#fp-writing-'+index).html(led_html(data.writing, 'green', 26));
-    $('#fp-written-'+index).html('' + data.frames_written);
-    if (index == 1){
-        odin_data.acq_id = data['acquisition_id'];
-    }
-}
-
-function update_fp_latrd(index, data){
-    $('#fp-invalid-pkt-'+index).html('' + data.invalid_packets);
-    $('#fp-ts-mm-'+index).html('' + data.timestamp_mismatches);
-    $('#fp-pkts-processed-'+index).html('' + data.processed_jobs);
-    $('#fp-job-q-'+index).html('' + data.job_queue);
-    $('#fp-result-q-'+index).html('' + data.results_queue);
-    $('#fp-proc-frames-'+index).html('' + data.processed_frames);
-    $('#fp-out-frames-'+index).html('' + data.output_frames);
+    $.getJSON('/api/' + odin_data.api_version + '/fp/status/hdf/frames_written', function(response) {
+        odin_data.daq.setFPValuesWritten(response['value']);
+    });
+    $.getJSON('/api/' + odin_data.api_version + '/fp/status/tristan/invalid_packets', function(response) {
+        odin_data.daq.setFPInvalidPackets(response['value']);
+    });
+    $.getJSON('/api/' + odin_data.api_version + '/fp/status/tristan/timestamp_mismatches', function(response) {
+        odin_data.daq.setFPTimestampMismatches(response['value']);
+    });
+    $.getJSON('/api/' + odin_data.api_version + '/fp/status/tristan/processed_jobs', function(response) {
+        odin_data.daq.setFPPacketsProcessed(response['value']);
+    });
+    $.getJSON('/api/' + odin_data.api_version + '/fp/status/tristan/job_queue', function(response) {
+        odin_data.daq.setFPJobQueueSize(response['value']);
+    });
+    $.getJSON('/api/' + odin_data.api_version + '/fp/status/tristan/results_queue', function(response) {
+        odin_data.daq.setFPResultsQueueSize(response['value']);
+    });
+    $.getJSON('/api/' + odin_data.api_version + '/fp/status/tristan/processed_frames', function(response) {
+        odin_data.daq.setFPProcessedFrames(response['value']);
+    });
+    $.getJSON('/api/' + odin_data.api_version + '/fp/status/tristan/output_frames', function(response) {
+        odin_data.daq.setFPOutputFrames(response['value']);
+    });
+    $.getJSON('/api/' + odin_data.api_version + '/fp/config/tristan/mode', function(response) {
+        odin_data.daq.setFPOperationalMode(response['value']);
+    });
+    $.getJSON('/api/' + odin_data.api_version + '/fp/config/tristan/raw_mode', function(response) {
+        odin_data.daq.setFPRawMode(response['value']);
+    });
 }
 
 function update_fr_status() {
-    $.getJSON('/api/' + odin_data.api_version + '/fr/status/buffers', function (response) {
-        //alert(response['value'][0].empty);
-        $('#fr-empty-buffers-1').html(response['value'][0].empty);
-        $('#fr-empty-buffers-2').html(response['value'][1].empty);
-        $('#fr-empty-buffers-3').html(response['value'][2].empty);
-        $('#fr-empty-buffers-4').html(response['value'][3].empty);
-        $('#fr-empty-buffers-5').html(response['value'][4].empty);
-        $('#fr-empty-buffers-6').html(response['value'][5].empty);
-        $('#fr-empty-buffers-7').html(response['value'][6].empty);
-        $('#fr-empty-buffers-8').html(response['value'][7].empty);
+    $.getJSON('/api/' + odin_data.api_version + '/fr/status/buffers/empty', function (response) {
+        //alert(JSON.stringify(response));
+        odin_data.daq.setFREmptyBuffers(response['value']);
     });
+
     $.getJSON('/api/' + odin_data.api_version + '/fr/status/decoder/packets', function (response) {
-        //alert(response['value']);
-        $('#fr-packets-1').html(response['value'][0]);
-        $('#fr-packets-2').html(response['value'][1]);
-        $('#fr-packets-3').html(response['value'][2]);
-        $('#fr-packets-4').html(response['value'][3]);
-        $('#fr-packets-5').html(response['value'][4]);
-        $('#fr-packets-6').html(response['value'][5]);
-        $('#fr-packets-7').html(response['value'][6]);
-        $('#fr-packets-8').html(response['value'][7]);
-        total_pkts = parseInt(response['value'][0]) +
-                     parseInt(response['value'][1]) +
-                     parseInt(response['value'][2]) +
-                     parseInt(response['value'][3]) +
-                     parseInt(response['value'][4]) +
-                     parseInt(response['value'][5]) +
-                     parseInt(response['value'][6]) +
-                     parseInt(response['value'][7]);
+        odin_data.daq.setFRPackets(response['value']);
+        total_pkts = 0;
+        for (var index = 0; index < response['value'].length; index++){
+            total_pkts += parseInt(response['value'][index]);
+        }
         $('#fr-pkts-received').html(''+total_pkts);
     });
     $.getJSON('/api/' + odin_data.api_version + '/fr/status/connected', function(response) {
-        //alert(response['value']);
-        $('#fr-connected-1').html(led_html(response['value'][0], 'green', 26));
-        $('#fr-connected-2').html(led_html(response['value'][1], 'green', 26));
-        $('#fr-connected-3').html(led_html(response['value'][2], 'green', 26));
-        $('#fr-connected-4').html(led_html(response['value'][3], 'green', 26));
-        $('#fr-connected-5').html(led_html(response['value'][4], 'green', 26));
-        $('#fr-connected-6').html(led_html(response['value'][5], 'green', 26));
-        $('#fr-connected-7').html(led_html(response['value'][6], 'green', 26));
-        $('#fr-connected-8').html(led_html(response['value'][7], 'green', 26));
+        odin_data.daq.setFRConnected(response['value']);
     });
 }
 
@@ -800,4 +571,644 @@ function led_html(value, colour, width)
   }
   html_text += ".png></img>";
   return html_text;
+}
+
+
+class DAQTab {
+    // This class holds all information relating to a single DAQ tab
+    // qty x FR status
+    // qty X FP status
+    constructor(owner, tab_number, qty){
+        // Create a table for 8 application sets
+        this.tab_number = tab_number;
+        this.qty = qty;
+        this.startfp = 1 + ((tab_number-1)*8);
+        this.endfp = 8 + ((tab_number-1)*8);
+        this.data_fr_connected = new Array();
+        this.data_fp_connected = new Array();
+        this.data_fr_packets = new Array();
+        this.data_fr_empty_buffers = new Array();
+        this.data_fp_processes = new Array();
+        this.data_fp_rank = new Array();
+        this.data_fp_pkts_processed = new Array();
+        this.data_fp_job_q = new Array();
+        this.data_fp_result_q = new Array();
+        this.data_fp_invalid_pkt = new Array();
+        this.data_fp_ts_mm = new Array();
+        this.data_fp_proc_frames = new Array();
+        this.data_fp_out_frames = new Array();
+        this.data_fp_writing = new Array();
+        this.data_fp_written = new Array();
+        this.data_fp_raw_mode = new Array();
+        this.data_fp_op_mode = new Array();
+        this.title = "DAQ (FRs and FPs) ["+this.startfp+" - "+this.endfp+"]<BR><BR>";
+        if (tab_number == 0){
+            this.title = "Overview<BR><BR>";
+        }
+        owner.html(this.title);
+        this.table = $('<table></table>');
+        this.rows = new Array();
+        this.desc = {
+            'fr-connected': 'Frame Receiver',
+            'fp-connected': 'Frame Processor',
+            'fr-packets': 'Packets Received',
+            'fr-empty-buffers': 'Empty Buffers',
+            'fp-processes': 'Processes',
+            'fp-rank': 'Rank',
+            'fp-pkts-processed': 'Packets Processed',
+            'fp-job-q': 'Job Queue Size',
+            'fp-result-q': 'Results Queue Size',
+            'fp-invalid-pkt': 'Invalid Packets',
+            'fp-ts-mm': 'Timestamp Mismatches',
+            'fp-proc-frames': 'Processed Frames',
+            'fp-out-frames': 'Output Frames',
+            'fp-writing': 'Writing',
+            'fp-written': 'Values Written',
+            'fp-raw-mode': 'Decode Mode',
+            'fp-op-mode': 'Operational Mode'
+        }
+        for (var index in this.desc){
+            var row = $('<tr></tr>');
+            var td = $('<td width="200px" align="left">' + this.desc[index] + '</td>');
+            row.append(td);
+            for (var apn = 0; apn < qty; apn++){
+                var td = $('<td width="200px" align="center" id="' + index + '-' + tab_number + '-' + apn + '"></td>');
+                row.append(td);
+            }
+            this.rows.push(row);
+            this.table.append(row);
+        }
+        owner.append(this.table);
+    }
+
+    init(){
+        for (var index = 0; index < this.qty; index++){
+            this.setFRConnected(index, false);
+            this.setFPConnected(index, false);
+            this.setFRPackets(index, 0);
+            this.setFREmptyBuffers(index, 0);
+            this.setFPProcesses(index, 0);
+            this.setFPRank(index, 0);
+            this.setFPPacketsProcessed(index, 0);
+            this.setFPJobQueueSize(index, 0);
+            this.setFPResultsQueueSize(index, 0);
+            this.setFPInvalidPackets(index, 0);
+            this.setFPTimestampMismatches(index, 0);
+            this.setFPProcessedFrames(index, 0);
+            this.setFPOutputFrames(index, 0);
+            this.setFPWriting(index, false);
+            this.setFPValuesWritten(index, 0);
+            this.setFPRawMode(index, 0);
+            this.setFPOperationalMode(index, 0);
+        }
+    }
+
+    fr_disconnected(index){
+        this.setFRPackets(index, 0);
+        this.setFREmptyBuffers(index, 0);
+    }
+
+    fp_disconnected(index){
+        this.setFPProcesses(index, 0);
+        this.setFPRank(index, 0);
+        this.setFPPacketsProcessed(index, 0);
+        this.setFPJobQueueSize(index, 0);
+        this.setFPResultsQueueSize(index, 0);
+        this.setFPInvalidPackets(index, 0);
+        this.setFPTimestampMismatches(index, 0);
+        this.setFPProcessedFrames(index, 0);
+        this.setFPOutputFrames(index, 0);
+        this.setFPWriting(index, false);
+        this.setFPValuesWritten(index, 0);
+        this.setFPRawMode(index, 0);
+        this.setFPOperationalMode(index, 0);
+    }
+
+    setFRConnected(id, connected){
+        this.data_fr_connected[id] = connected;
+        var ss = '#fr-connected-' + this.tab_number + '-' + id;
+        $(ss).html(led_html(connected, 'green', 26));
+        if (connected == 'true' || connected === true){
+        } else {
+            this.fr_disconnected();
+        }
+    }
+
+    getAllFRConnected(){
+        // Loop over each checking for any not connected
+        var connected = true;
+        for (var index = 0; index < this.data_fr_connected.length; index++){
+            if (this.data_fr_connected[index] == false){
+                connected = false;
+            }
+        }
+        return connected;
+    }
+
+    setFPConnected(id, connected){
+        this.data_fp_connected[id] = connected;
+        if (connected == 'false' || connected === false){
+            this.fp_disconnected();
+        }
+        var ss = '#fp-connected-' + this.tab_number + '-' + id;
+        $(ss).html(led_html(connected, 'green', 26));
+    }
+
+    getAllFPConnected(){
+        // Loop over each checking for any not connected
+        var connected = true;
+        for (var index = 0; index < this.data_fr_connected.length; index++){
+            if (this.data_fp_connected[index] == false){
+                connected = false;
+            }
+        }
+        return connected;
+    }
+
+    setFRPackets(id, packets){
+        this.data_fr_packets[id] = packets;
+        var ss = '#fr-packets-' + this.tab_number + '-' + id;
+        $(ss).html(''+packets);
+    }
+
+    getAllFRPackets(){
+        var packets = 0;
+        for (var index = 0; index < this.data_fr_packets.length; index++){
+            packets += this.data_fr_packets[index];
+        }
+        return packets;
+    }
+
+    setFREmptyBuffers(id, buffers){
+        this.data_fr_empty_buffers[id] = buffers;
+        var ss = '#fr-empty-buffers-' + this.tab_number + '-' + id;
+        $(ss).html(''+buffers);
+    }
+
+    getAllFREmptyBuffers(){
+        var buffers = 0;
+        for (var index = 0; index < this.data_fr_empty_buffers.length; index++){
+            buffers += this.data_fr_empty_buffers[index];
+        }
+        return buffers;
+    }
+
+    setFPProcesses(id, processes){
+        this.data_fp_processes[id] = processes;
+        var ss = '#fp-processes-' + this.tab_number + '-' + id;
+        $(ss).html(''+processes);
+    }
+
+    getAllFPProcesses(){
+        var processes = this.data_fp_processes[0];
+        for (var index = 0; index < this.data_fp_processes.length; index++){
+            if (processes != this.data_fp_processes[index]){
+                return "Inconsistent";
+            }
+        }
+        return processes;
+    }
+
+    setFPRank(id, rank){
+        this.data_fp_rank[id] = rank;
+        var ss = '#fp-rank-' + this.tab_number + '-' + id;
+        $(ss).html(''+rank);
+    }
+
+    getAllFPRank(){
+        var f_rank = this.data_fp_rank[0];
+        var l_rank = this.data_fp_rank[this.data_fp_rank.length - 1];
+        return f_rank + '-' + l_rank;
+    }
+
+    setFPPacketsProcessed(id, pkts){
+        this.data_fp_pkts_processed[id] = pkts;
+        var ss = '#fp-pkts-processed-' + this.tab_number + '-' + id;
+        $(ss).html(''+pkts);
+    }
+
+    getAllFPPacketsProcessed(){
+        var pkts = 0;
+        for (var index = 0; index < this.data_fp_pkts_processed.length; index++){
+            pkts += this.data_fp_pkts_processed[index];
+        }
+        return pkts;
+    }
+
+    setFPJobQueueSize(id, size){
+        this.data_fp_job_q[id] = size;
+        var ss = '#fp-job-q-' + this.tab_number + '-' + id;
+        $(ss).html(''+size);
+    }
+
+    getAllFPJobQueueSize(){
+        var queue = 0;
+        for (var index = 0; index < this.data_fp_job_q.length; index++){
+            queue += this.data_fp_job_q[index];
+        }
+        return queue;
+    }
+
+    setFPResultsQueueSize(id, size){
+        this.data_fp_result_q[id] = size;
+        var ss = '#fp-result-q-' + this.tab_number + '-' + id;
+        $(ss).html(''+size);
+    }
+
+    getAllFPResultsQueueSize(){
+        var queue = 0;
+        for (var index = 0; index < this.data_fp_result_q.length; index++){
+            queue += this.data_fp_result_q[index];
+        }
+        return queue;
+    }
+
+    setFPInvalidPackets(id, pkts){
+        this.data_fp_invalid_pkt[id] = pkts;
+        var ss = '#fp-invalid-pkt-' + this.tab_number + '-' + id;
+        $(ss).html(''+pkts);
+    }
+
+    getAllFPInvalidPackets(){
+        var pkts = 0;
+        for (var index = 0; index < this.data_fp_invalid_pkt.length; index++){
+            pkts += this.data_fp_invalid_pkt[index];
+        }
+        return pkts;
+    }
+
+    setFPTimestampMismatches(id, tsmm){
+        this.data_fp_ts_mm[id] = tsmm;
+        var ss = '#fp-ts-mm-' + this.tab_number + '-' + id;
+        $(ss).html(''+tsmm);
+    }
+
+    getAllFPTimestampMismatches(){
+        var tsmm = 0;
+        for (var index = 0; index < this.data_fp_ts_mm.length; index++){
+            tsmm += this.data_fp_ts_mm[index];
+        }
+        return tsmm;
+    }
+
+    setFPProcessedFrames(id, frames){
+        this.data_fp_proc_frames[id] = frames;
+        var ss = '#fp-proc-frames-' + this.tab_number + '-' + id;
+        $(ss).html(''+frames);
+    }
+
+    getAllFPProcessedFrames(){
+        var frames = 0;
+        for (var index = 0; index < this.data_fp_proc_frames.length; index++){
+            frames += this.data_fp_proc_frames[index];
+        }
+        return frames;
+    }
+
+    setFPOutputFrames(id, frames){
+        this.data_fp_out_frames[id] = frames;
+        var ss = '#fp-out-frames-' + this.tab_number + '-' + id;
+        $(ss).html(''+frames);
+    }
+
+    getAllFPOutputFrames(){
+        var frames = 0;
+        for (var index = 0; index < this.data_fp_out_frames.length; index++){
+            frames += this.data_fp_out_frames[index];
+        }
+        return frames;
+    }
+
+    setFPWriting(id, writing){
+        this.data_fp_writing[id] = writing;
+        var ss = '#fp-writing-' + this.tab_number + '-' + id;
+        $(ss).html(led_html(writing, 'green', 26));
+    }
+
+    getAllFPWriting(){
+        var writing = true;
+        for (var index = 0; index < this.data_fp_writing.length; index++){
+            if (this.data_fp_writing[index] == false){
+                writing = false;
+            }
+        }
+        return writing;
+    }
+
+    setFPValuesWritten(id, values){
+        this.data_fp_written[id] = values;
+        var ss = '#fp-written-' + this.tab_number + '-' + id;
+        $(ss).html(''+values);
+    }
+
+    getAllFPValuesWritten(){
+        var frames = 0;
+        for (var index = 0; index < this.data_fp_written.length; index++){
+            frames += this.data_fp_written[index];
+        }
+        return frames;
+    }
+
+    setFPRawMode(id, mode){
+        this.data_fp_raw_mode[id] = mode;
+        var ss = '#fp-raw-mode-' + this.tab_number + '-' + id;
+        $(ss).html(''+mode);
+    }
+
+    getAllFPRawMode(){
+        var mode = this.data_fp_raw_mode[0];
+        for (var index = 0; index < this.data_fp_raw_mode.length; index++){
+            if (mode != this.data_fp_raw_mode[index]){
+                return "Inconsistent";
+            }
+        }
+        return mode;
+    }
+
+    setFPOperationalMode(id, mode){
+        this.data_fp_op_mode[id] = mode;
+        var ss = '#fp-op-mode-' + this.tab_number + '-' + id;
+        $(ss).html(''+mode);
+    }
+
+    getAllFPOperationalMode(){
+        var mode = this.data_fp_op_mode[0];
+        for (var index = 0; index < this.data_fp_op_mode.length; index++){
+            if (mode != this.data_fp_op_mode[index]){
+                return "Inconsistent";
+            }
+        }
+        return mode;
+    }
+}
+
+class DAQHolder {
+    constructor(owner, no_of_fps){
+        // Number of tabs required = number of fps / 8 + 1
+        this.no_of_fps = no_of_fps;
+        this.daqtabs = new Array();
+        this.tab_count = Math.ceil(no_of_fps / 8) + 1;
+        this.tabs = $('<div id="tristan-daq-tabs"></div>');
+        this.list = $('<ul class="nav nav-tabs"></ul>');
+        this.bodies = $('<div class="tab-content"></div>');
+        this.tabs.append(this.list);
+        this.tabs.append(this.bodies);
+        for (var index = 0; index < this.tab_count; index++){
+            var startfp = 1 + ((index-1)*8);
+            var endfp = 8 + ((index-1)*8);
+            var tabtitle = "FR/FP [" + startfp + "-" + endfp + "]";
+            if (index == 0){
+                tabtitle = "Overview";
+            }
+            var tabheader = $('<li class="nav-item waves-effect waves-light"><a class="nav-link" href="#tristan-daq-tab-' + index + '" data-toggle="tab">' + tabtitle + '</a></li>');
+            this.list.append(tabheader);
+            var tabbody = $('<div class="tab-pane" id="tristan-daq-tab-' + index + '"></div>');
+            this.bodies.append(tabbody);
+            if (index == 0){
+                this.maintab = new DAQTab(tabbody, index, (this.tab_count-1));
+            } else {
+                var daqtab = new DAQTab(tabbody, index, 8);
+                this.daqtabs.push(daqtab);
+            }
+        }
+        $('#' + owner).html('');
+        $('#' + owner).append(this.tabs);
+    }
+
+    get_no_of_fps(){
+        return this.no_of_fps;
+    }
+
+    init(){
+        this.maintab.init();
+        for (var tab of this.daqtabs){
+            tab.init();
+        }
+        $('.nav-tabs a[href="#tristan-daq-tab-0"]').tab('show');
+    }
+
+    setFRConnected(connected){
+        // Loop over the array, calling the correct indexed tab item
+        for (var index = 0; index < connected.length; index++){
+            var tab_index = Math.floor(index / 8);
+            var id_index = index - (tab_index * 8);
+            this.daqtabs[tab_index].setFRConnected(id_index, connected[index]);
+        }
+        for (var index = 0; index < this.daqtabs.length; index++){
+            this.maintab.setFRConnected(index, this.daqtabs[index].getAllFRConnected());
+        }
+    }
+
+    setFPConnected(connected){
+        // Loop over the array, calling the correct indexed tab item
+        for (var index = 0; index < connected.length; index++){
+            var tab_index = Math.floor(index / 8);
+            var id_index = index - (tab_index * 8);
+            this.daqtabs[tab_index].setFPConnected(id_index, connected[index]);
+        }
+        for (var index = 0; index < this.daqtabs.length; index++){
+            this.maintab.setFPConnected(index, this.daqtabs[index].getAllFPConnected());
+        }
+    }
+
+    setFRPackets(packets){
+        // Loop over the array, calling the correct indexed tab item
+        for (var index = 0; index < packets.length; index++){
+            var tab_index = Math.floor(index / 8);
+            var id_index = index - (tab_index * 8);
+            this.daqtabs[tab_index].setFRPackets(id_index, packets[index]);
+        }
+        for (var index = 0; index < this.daqtabs.length; index++){
+            this.maintab.setFRPackets(index, this.daqtabs[index].getAllFRPackets());
+        }
+    }
+
+    setFREmptyBuffers(buffers){
+        // Loop over the array, calling the correct indexed tab item
+        for (var index = 0; index < buffers.length; index++){
+            var tab_index = Math.floor(index / 8);
+            var id_index = index - (tab_index * 8);
+            this.daqtabs[tab_index].setFREmptyBuffers(id_index, buffers[index]);
+        }
+        for (var index = 0; index < this.daqtabs.length; index++){
+            this.maintab.setFREmptyBuffers(index, this.daqtabs[index].getAllFREmptyBuffers());
+        }
+    }
+
+    setFPProcesses(processes){
+        // Loop over the array, calling the correct indexed tab item
+        for (var index = 0; index < processes.length; index++){
+            var tab_index = Math.floor(index / 8);
+            var id_index = index - (tab_index * 8);
+            this.daqtabs[tab_index].setFPProcesses(id_index, processes[index]);
+        }
+        for (var index = 0; index < this.daqtabs.length; index++){
+            this.maintab.setFPProcesses(index, this.daqtabs[index].getAllFPProcesses());
+        }
+    }
+
+    setFPRank(rank){
+        // Loop over the array, calling the correct indexed tab item
+        for (var index = 0; index < rank.length; index++){
+            var tab_index = Math.floor(index / 8);
+            var id_index = index - (tab_index * 8);
+            this.daqtabs[tab_index].setFPRank(id_index, rank[index]);
+        }
+        for (var index = 0; index < this.daqtabs.length; index++){
+            this.maintab.setFPRank(index, this.daqtabs[index].getAllFPRank());
+        }
+    }
+
+    setFPPacketsProcessed(pkts){
+        // Loop over the array, calling the correct indexed tab item
+        for (var index = 0; index < pkts.length; index++){
+            var tab_index = Math.floor(index / 8);
+            var id_index = index - (tab_index * 8);
+            this.daqtabs[tab_index].setFPPacketsProcessed(id_index, pkts[index]);
+        }
+        for (var index = 0; index < this.daqtabs.length; index++){
+            this.maintab.setFPPacketsProcessed(index, this.daqtabs[index].getAllFPPacketsProcessed());
+        }
+    }
+
+    setFPJobQueueSize(size){
+        // Loop over the array, calling the correct indexed tab item
+        for (var index = 0; index < size.length; index++){
+            var tab_index = Math.floor(index / 8);
+            var id_index = index - (tab_index * 8);
+            this.daqtabs[tab_index].setFPJobQueueSize(id_index, size[index]);
+        }
+        for (var index = 0; index < this.daqtabs.length; index++){
+            this.maintab.setFPJobQueueSize(index, this.daqtabs[index].getAllFPJobQueueSize());
+        }
+    }
+
+    setFPResultsQueueSize(size){
+        // Loop over the array, calling the correct indexed tab item
+        for (var index = 0; index < size.length; index++){
+            var tab_index = Math.floor(index / 8);
+            var id_index = index - (tab_index * 8);
+            this.daqtabs[tab_index].setFPResultsQueueSize(id_index, size[index]);
+        }
+        for (var index = 0; index < this.daqtabs.length; index++){
+            this.maintab.setFPResultsQueueSize(index, this.daqtabs[index].getAllFPResultsQueueSize());
+        }
+    }
+
+    setFPInvalidPackets(pkts){
+        // Loop over the array, calling the correct indexed tab item
+        for (var index = 0; index < pkts.length; index++){
+            var tab_index = Math.floor(index / 8);
+            var id_index = index - (tab_index * 8);
+            this.daqtabs[tab_index].setFPInvalidPackets(id_index, pkts[index]);
+        }
+        for (var index = 0; index < this.daqtabs.length; index++){
+            this.maintab.setFPInvalidPackets(index, this.daqtabs[index].getAllFPInvalidPackets());
+        }
+    }
+
+    setFPTimestampMismatches(tsmm){
+        // Loop over the array, calling the correct indexed tab item
+        for (var index = 0; index < tsmm.length; index++){
+            var tab_index = Math.floor(index / 8);
+            var id_index = index - (tab_index * 8);
+            this.daqtabs[tab_index].setFPTimestampMismatches(id_index, tsmm[index]);
+        }
+        for (var index = 0; index < this.daqtabs.length; index++){
+            this.maintab.setFPTimestampMismatches(index, this.daqtabs[index].getAllFPTimestampMismatches());
+        }
+    }
+
+    setFPProcessedFrames(frames){
+        // Loop over the array, calling the correct indexed tab item
+        for (var index = 0; index < frames.length; index++){
+            var tab_index = Math.floor(index / 8);
+            var id_index = index - (tab_index * 8);
+            this.daqtabs[tab_index].setFPProcessedFrames(id_index, frames[index]);
+        }
+        for (var index = 0; index < this.daqtabs.length; index++){
+            this.maintab.setFPProcessedFrames(index, this.daqtabs[index].getAllFPProcessedFrames());
+        }
+    }
+
+    setFPOutputFrames(frames){
+        // Loop over the array, calling the correct indexed tab item
+        for (var index = 0; index < frames.length; index++){
+            var tab_index = Math.floor(index / 8);
+            var id_index = index - (tab_index * 8);
+            this.daqtabs[tab_index].setFPOutputFrames(id_index, frames[index]);
+        }
+        for (var index = 0; index < this.daqtabs.length; index++){
+            this.maintab.setFPOutputFrames(index, this.daqtabs[index].getAllFPOutputFrames());
+        }
+    }
+
+    setFPWriting(writing){
+        // Loop over the array, calling the correct indexed tab item
+        for (var index = 0; index < writing.length; index++){
+            var tab_index = Math.floor(index / 8);
+            var id_index = index - (tab_index * 8);
+            this.daqtabs[tab_index].setFPWriting(id_index, writing[index]);
+        }
+        for (var index = 0; index < this.daqtabs.length; index++){
+            this.maintab.setFPWriting(index, this.daqtabs[index].getAllFPWriting());
+        }
+    }
+
+    setFPValuesWritten(values){
+        // Loop over the array, calling the correct indexed tab item
+        for (var index = 0; index < values.length; index++){
+            var tab_index = Math.floor(index / 8);
+            var id_index = index - (tab_index * 8);
+            this.daqtabs[tab_index].setFPValuesWritten(id_index, values[index]);
+        }
+        for (var index = 0; index < this.daqtabs.length; index++){
+            this.maintab.setFPValuesWritten(index, this.daqtabs[index].getAllFPValuesWritten());
+        }
+    }
+
+    setFPRawMode(mode){
+        // Loop over the array, calling the correct indexed tab item
+        for (var index = 0; index < mode.length; index++){
+            var tab_index = Math.floor(index / 8);
+            var id_index = index - (tab_index * 8);
+            this.daqtabs[tab_index].setFPRawMode(id_index, mode[index]);
+        }
+        for (var index = 0; index < this.daqtabs.length; index++){
+            this.maintab.setFPRawMode(index, this.daqtabs[index].getAllFPRawMode());
+        }
+    }
+
+    setFPOperationalMode(mode){
+        // Loop over the array, calling the correct indexed tab item
+        for (var index = 0; index < mode.length; index++){
+            var tab_index = Math.floor(index / 8);
+            var id_index = index - (tab_index * 8);
+            this.daqtabs[tab_index].setFPOperationalMode(id_index, mode[index]);
+        }
+        for (var index = 0; index < this.daqtabs.length; index++){
+            this.maintab.setFPOperationalMode(index, this.daqtabs[index].getAllFPOperationalMode());
+        }
+    }
+}
+
+function create_tabs(owner, no_of_fps)
+{
+    // Number of tabs required = number of fps / 8 + 1
+    tab_count = Math.ceil(no_of_fps / 8) + 1;
+    var tabs = $('<div id="tristan-daq-tabs"></div>');
+    var list = $('<ul class="nav nav-tabs"></ul>');
+    var bodies = $('<div class="tab-content"></div>');
+    tabs.append(list);
+    tabs.append(bodies);
+    for (index = 0; index < tab_count; index++){
+        var tabheader = $('<li class="nav-item waves-effect waves-light"><a class="nav-link" href="#tristan-daq-tab-' + index + '" data-toggle="tab">Tab ' + index + '</a></li>');
+        list.append(tabheader);
+        var tabbody = $('<div class="tab-pane" id="tristan-daq-tab-' + index + '">TEST TEST TEST '+index+'</div>');
+        bodies.append(tabbody);
+        var dqtab = new DAQTab(tabbody, index);
+    }
+    $('#' + owner).append(tabs);
+    dqtab.setFRConnected(0, false);
+    dqtab.setFRConnected(1, true);
 }
