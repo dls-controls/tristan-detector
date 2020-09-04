@@ -14,7 +14,7 @@ def create_event_vdset(vds_file, total_events, longest_meta_dset, meta_dset_name
     for dset_name in meta_dset_names_list:
         raw_index[dset_name] = 0
 
-    # Create the virtual dataset dataspace
+    # Create the virtual dataset dataspace (qty, max_qty)
     virt_dspace = h5py.h5s.create_simple((total_events,), (total_events,))
 
     # Create the virtual dataset property list
@@ -109,6 +109,7 @@ def create_vds_file(metafile_path, out_directory=None):
     if out_directory==None:
         out_directory = rawfile_directory;
 
+    # 8 is the length of _meta.h5
     file_prefix = os.path.basename(metafile_path)[0:-8];
 
     logging.info("Creating VDS in {}".format(out_directory));
@@ -141,7 +142,7 @@ def create_vds_file(metafile_path, out_directory=None):
 
     for idx in raw_files:
         if os.path.isfile(raw_files[idx]) == False:
-            logging.Error("can not find {}".format(raw_files[idx]));
+            logging.error("can not find {}".format(raw_files[idx]));
             return;
         
     logging.info("Total number of events: {}".format(total_events))
