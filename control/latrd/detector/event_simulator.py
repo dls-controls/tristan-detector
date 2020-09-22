@@ -169,8 +169,16 @@ class TristanProducerDefaults(object):
 
     def __init__(self):
 
-        self.ip_addr = 'localhost'
-        self.port_list = [61649, 61650, 61651, 61652, 61653, 61654, 61655, 61656]
+        self.endpoints = [
+            ('localhost', 61649),
+            ('localhost', 61650),
+            ('localhost', 61651),
+            ('localhost', 61652),
+            ('localhost', 61653),
+            ('localhost', 61654),
+            ('localhost', 61655),
+            ('localhost', 61656)
+        ]
         self.num_events = 50000000
         self.num_idle = 5
         self.duration = 6.0
@@ -183,7 +191,7 @@ class TristanEventProducer(object):
     Tristan event procducer.
     """
 
-    def __init__(self):
+    def __init__(self, endpoints=None):
         """
         Initialise the packet producer object, setting defaults and parsing command-line options.
         """
@@ -205,7 +213,12 @@ class TristanEventProducer(object):
         # Load default parameters
         self.defaults = TristanProducerDefaults()
 
-        self._no_of_ports = 8
+        if endpoints is not None:
+            self._endpoints = endpoints
+        else:
+            self._endpoints = self.defaults.endpoints
+
+        self._no_of_ports = len(self._endpoints)
 
         self._sent_packets = 0
         self._packets_to_send = 0
@@ -260,10 +273,6 @@ class TristanEventProducer(object):
             time_slice += 1
             TristanData.PACKET_NUMBER=0
             self._packets_to_send = self._pkt_number
-            print("****** PACKETS TO SEND: {}".format(self._packets_to_send))
-            print("****** PACKETS TO SEND: {}".format(self._packets_to_send))
-            print("****** PACKETS TO SEND: {}".format(self._packets_to_send))
-            print("****** PACKETS TO SEND: {}".format(self._packets_to_send))
 
     def send_packets(self):
 
@@ -273,13 +282,15 @@ class TristanEventProducer(object):
         ))
 
         index = 0
-        for port in self.defaults.port_list:
-            send_thread = threading.Thread(target=self._send_packets, args=(int(port),int(index),self))
+        for endpoint in self._endpoints:
+            addr = endpoint[0]
+            port = endpoint[1]
+            send_thread = threading.Thread(target=self._send_packets, args=(str(addr),int(port),int(index),self))
             send_threads.append(send_thread)
             send_thread.start()
             index += 1
 
-    def _send_packets(self, port, index, owner):
+    def _send_packets(self, addr, port, index, owner):
         """
         Send loaded packets over UDP socket.
         """
@@ -299,7 +310,7 @@ class TristanEventProducer(object):
         for packets in range(int(self.defaults.num_idle)):
             # Send the packet over the UDP socket
             try:
-                idle_bytes_sent += udp_socket.sendto(self._idle_packet, (self.defaults.ip_addr, port))
+                idle_bytes_sent += udp_socket.sendto(self._idle_packet, (addr, port))
                 idle_packets_sent += 1
                 # Add 1 second delay
                 time.sleep(1.0)
@@ -327,7 +338,7 @@ class TristanEventProducer(object):
                     try:
                     #logging.info("Checking port number for %d at index %d", ts_id, index)
                         #logging.info("Sending UDP packet")
-                        data_bytes_sent += udp_socket.sendto(packet, (self.defaults.ip_addr, port))
+                        data_bytes_sent += udp_socket.sendto(packet, (addr, port))
                         #logging.info("Sent UDP packet")
                         data_packets_sent += 1
                         owner._sent_packets += 1
@@ -347,7 +358,7 @@ class TristanEventProducer(object):
         for packets in range(int(self.defaults.num_idle)):
             # Send the packet over the UDP socket
             try:
-                idle_bytes_sent += udp_socket.sendto(self._idle_packet, (self.defaults.ip_addr, port))
+                idle_bytes_sent += udp_socket.sendto(self._idle_packet, (addr, port))
                 idle_packets_sent += 1
                 # Add 1 second delay
                 time.sleep(1.0)

@@ -21,17 +21,16 @@ class LATRDControlSimulator(object):
     DETECTOR_2M  = 2
     DETECTOR_10M = 10
 
-    def __init__(self, sensor=DETECTOR_1M):
+    def __init__(self, sensor=DETECTOR_1M, endpoints=None):
         logging.basicConfig(format='%(asctime)-15s %(message)s')
         self._log = logging.getLogger(".".join([__name__, self.__class__.__name__]))
         self._log.setLevel(logging.DEBUG)
         self._ctrl_channel = None
-        self._script = None
         self._script_thread = None
         self._sensor = sensor
         self._reactor = LATRDReactor()
-        self._daq = TristanEventProducer()
-        self._daq.init(5000000)
+        self._daq = TristanEventProducer(endpoints)
+        self._daq.init(10000000)
         self._store = {
             'status':
                 {
@@ -127,9 +126,6 @@ class LATRDControlSimulator(object):
                         }
                 }
         }
-
-    def register_script(self, script):
-        self._script = script
 
     def setup_control_channel(self, endpoint):
         self._ctrl_channel = LATRDChannel(LATRDChannel.CHANNEL_TYPE_ROUTER)
@@ -230,8 +226,8 @@ class LATRDControlSimulator(object):
 def options():
     parser = argparse.ArgumentParser()
     parser.add_argument("-c", "--control", default="tcp://127.0.0.1:7001", help="Control endpoint")
+    parser.add_argument("-d", "--endpoints", default=None, help="Data endpoints (eg 127.0.0.1:61649,127.0.0.1:61650")
     parser.add_argument("-m", "--sensor", default=1, help="Sensor module count (1 - 10)")
-    parser.add_argument("-s", "--script", default="/home/gnx91527/work/tristan/bin/run_decode_mode_replay")
     args = parser.parse_args()
     return args
 
@@ -239,14 +235,27 @@ def options():
 def main():
     args = options()
 
+    endpoints = args.endpoints
+    eps = None
+    if isinstance(endpoints, str):
+        eps = []
+        # Split the list of comma separated endpoints
+        endpoints = endpoints.split(',')
+        for endpoint in endpoints:
+            data = endpoint.strip().split(':')
+            ip = data[0]
+            port = int(data[1])
+            eps.append((ip, port))
+
+        print("Endpoints: {}".format(eps))
+
     sensor = 1
     if isinstance(args.sensor, str):
         sensor = int(''.join(filter(lambda i: i.isdigit(), args.sensor)))
     else:
         sensor = args.sensor
-    simulator = LATRDControlSimulator(sensor)
+    simulator = LATRDControlSimulator(sensor, eps)
     simulator.setup_control_channel(args.control)
-    simulator.register_script(args.script)
     simulator.start_reactor()
 
 
