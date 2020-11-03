@@ -318,8 +318,9 @@ function meta_start_command() {
         "acq_id": $('#set-fp-filename').val()
     }));
     odin_data.acq_id = $('#set-fp-filename').val();
-    send_meta_command("output_dir", $('#set-fp-path').val());
     send_meta_command("acquisition_id", $('#set-fp-filename').val());
+    send_meta_command("directory", $('#set-fp-path').val());
+    send_meta_command("file_prefix", $('#set-fp-filename').val());
 }
 
 function fp_start_command() {
