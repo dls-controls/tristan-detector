@@ -277,9 +277,7 @@ class TristanEventProducer(object):
     def send_packets(self):
 
         send_threads = []
-        logging.info("Launching threads to send packets to {} destination ports".format(
-            len(self.defaults.port_list)
-        ))
+        logging.info("Launching threads to send packets to endpoints: {}".format(self._endpoints))
 
         index = 0
         for endpoint in self._endpoints:
