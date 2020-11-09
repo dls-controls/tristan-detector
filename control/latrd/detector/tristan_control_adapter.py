@@ -470,10 +470,11 @@ class TristanControlAdapter(ApiAdapter):
         """
         status_code = 200
         response = {}
-        logging.error("PUT path: %s", path)
+        logging.info("HTTP PUT path: %s", path)
         logging.debug("PUT request: %s", request)
         logging.debug("PUT body: %s", request.body)
 
+        self.clear_error()
         request_command = path.strip('/')
         if request_command in self.ADODIN_MAPPING:
             request_command = self.ADODIN_MAPPING[request_command]
@@ -484,20 +485,49 @@ class TristanControlAdapter(ApiAdapter):
             # Intercept the start_acquisition command and send arm followed by run
             if 'start_acquisition' == config_items[1]:
                 # Send an arm command
+                logging.info("Starting acquisition sequence")
                 msg = PostMessage()
                 msg.set_param('command', 'arm')
                 reply = self.send_recv(msg)
+                counter = 0
                 # Wait for the status to become armed
-                while self._parameters['status']['state'] != 'armed':
+                logging.info("Arm command sent, waiting for armed response")
+                while self._parameters['status']['state'] != 'armed' and counter < 50:
                     time.sleep(0.2)
-                # Send a run command
-                msg = PostMessage()
-                msg.set_param('command', 'run')
-                with self._comms_lock:
-                    reply = self.send_recv(msg)
-                    # Once the reply has been received set the acquisition status to active
-                    self._parameters['status']['acquisition_complete'] = False
-                response['reply'] = str(reply)
+                    counter += 1
+                # Check for a timeout and if there is raise an error
+                if self._parameters['status']['state'] != 'armed':
+                    self.set_error('Time out waiting for detector armed state')
+                    status_code = 408
+                    response['reply'] = str('Time out waiting for detector armed state')
+                else:
+                    logging.info("Confirmed armed response")
+                    # Detector armed OK, now tell it to run
+                    # Send a run command
+                    msg = PostMessage()
+                    msg.set_param('command', 'run')
+                    with self._comms_lock:
+                        reply = self.send_recv(msg)
+
+                    counter = 0
+                    # Wait for the status to become running
+                    logging.info("Run command sent, waiting for running response")
+                    while self._parameters['status']['state'] != 'running' and counter < 50:
+                        time.sleep(0.2)
+                        counter += 1
+                    # Check for a timeout and if there is raise an error
+                    if self._parameters['status']['state'] != 'running':
+                        self.set_error('Time out waiting for detector running state')
+                        status_code = 408
+                        response['reply'] = str('Time out waiting for detector running state')
+
+                    else:
+                        logging.info("Confirmed running response")
+                        with self._comms_lock:
+                            # Once the reply has been received set the acquisition status to active
+                            self._parameters['status']['acquisition_complete'] = False
+                            logging.info("Acquisition confirmed, setting state to active")
+                        response['reply'] = str(reply)
 
             elif 'stop_acquisition' == config_items[1]:
                 # Send a stop command
@@ -767,3 +797,10 @@ class TristanControlAdapter(ApiAdapter):
                 except Exception as ex:
                     logging.error("Couldn't set param {} to {}".format(item, data[item]))
                     logging.error("Exception thrown: %s", ex)
+
+    def clear_error(self):
+        self.CORE_STATUS_LIST['error'] = ''
+
+    def set_error(self, err):
+        self.CORE_STATUS_LIST['error'] = err
+        logging.error(err)

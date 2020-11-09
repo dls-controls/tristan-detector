@@ -182,9 +182,12 @@ class LATRDControlSimulator(object):
                 self._script_thread.start()
             elif 'run' == msg.params['command']:
                 # Execute any run scripts
+                time.sleep(1.0)
                 self._store['status']['state'] = 'running'
                 self._script_thread = threading.Thread(target=self.execute_script)
                 self._script_thread.start()
+            elif 'stop' == msg.params['command']:
+                self._store['status']['state'] = 'idle'
             elif 'time_zero' == msg.params['command']:
                 self._log.error("Time Zero command has been issued")
 
@@ -192,6 +195,7 @@ class LATRDControlSimulator(object):
         self._ctrl_channel.send_multi([send_id, reply])
 
     def execute_arm(self):
+        time.sleep(1.0)
         self._daq.arm()
         self._store['status']['state'] = 'armed'
 
