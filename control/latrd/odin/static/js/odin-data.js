@@ -948,15 +948,20 @@ class DAQHolder {
         // Number of tabs required = number of fps / 8 + 1
         this.no_of_fps = no_of_fps;
         this.daqtabs = new Array();
-        this.tab_count = Math.ceil(no_of_fps / 8) + 1;
+        if (no_of_fps % 10 == 0){
+            this.fp_batch_count = 10;
+        } else {
+            this.fp_batch_count = 8;
+        }
+        this.tab_count = Math.ceil(no_of_fps / this.fp_batch_count) + 1;
         this.tabs = $('<div id="tristan-daq-tabs"></div>');
         this.list = $('<ul class="nav nav-tabs"></ul>');
         this.bodies = $('<div class="tab-content"></div>');
         this.tabs.append(this.list);
         this.tabs.append(this.bodies);
         for (var index = 0; index < this.tab_count; index++){
-            var startfp = 1 + ((index-1)*8);
-            var endfp = 8 + ((index-1)*8);
+            var startfp = 1 + ((index-1)*this.fp_batch_count);
+            var endfp = this.fp_batch_count + ((index-1)*this.fp_batch_count);
             var tabtitle = "FR/FP [" + startfp + "-" + endfp + "]";
             if (index == 0){
                 tabtitle = "Overview";
@@ -968,7 +973,7 @@ class DAQHolder {
             if (index == 0){
                 this.maintab = new DAQTab(tabbody, index, (this.tab_count-1));
             } else {
-                var daqtab = new DAQTab(tabbody, index, 8);
+                var daqtab = new DAQTab(tabbody, index, this.fp_batch_count);
                 this.daqtabs.push(daqtab);
             }
         }
@@ -991,8 +996,8 @@ class DAQHolder {
     setFRConnected(connected){
         // Loop over the array, calling the correct indexed tab item
         for (var index = 0; index < connected.length; index++){
-            var tab_index = Math.floor(index / 8);
-            var id_index = index - (tab_index * 8);
+            var tab_index = Math.floor(index / this.fp_batch_count);
+            var id_index = index - (tab_index * this.fp_batch_count);
             this.daqtabs[tab_index].setFRConnected(id_index, connected[index]);
         }
         for (var index = 0; index < this.daqtabs.length; index++){
@@ -1003,8 +1008,8 @@ class DAQHolder {
     setFPConnected(connected){
         // Loop over the array, calling the correct indexed tab item
         for (var index = 0; index < connected.length; index++){
-            var tab_index = Math.floor(index / 8);
-            var id_index = index - (tab_index * 8);
+            var tab_index = Math.floor(index / this.fp_batch_count);
+            var id_index = index - (tab_index * this.fp_batch_count);
             this.daqtabs[tab_index].setFPConnected(id_index, connected[index]);
         }
         for (var index = 0; index < this.daqtabs.length; index++){
@@ -1015,8 +1020,8 @@ class DAQHolder {
     setFRPackets(packets){
         // Loop over the array, calling the correct indexed tab item
         for (var index = 0; index < packets.length; index++){
-            var tab_index = Math.floor(index / 8);
-            var id_index = index - (tab_index * 8);
+            var tab_index = Math.floor(index / this.fp_batch_count);
+            var id_index = index - (tab_index * this.fp_batch_count);
             this.daqtabs[tab_index].setFRPackets(id_index, packets[index]);
         }
         for (var index = 0; index < this.daqtabs.length; index++){
@@ -1027,8 +1032,8 @@ class DAQHolder {
     setFREmptyBuffers(buffers){
         // Loop over the array, calling the correct indexed tab item
         for (var index = 0; index < buffers.length; index++){
-            var tab_index = Math.floor(index / 8);
-            var id_index = index - (tab_index * 8);
+            var tab_index = Math.floor(index / this.fp_batch_count);
+            var id_index = index - (tab_index * this.fp_batch_count);
             this.daqtabs[tab_index].setFREmptyBuffers(id_index, buffers[index]);
         }
         for (var index = 0; index < this.daqtabs.length; index++){
@@ -1039,8 +1044,8 @@ class DAQHolder {
     setFPProcesses(processes){
         // Loop over the array, calling the correct indexed tab item
         for (var index = 0; index < processes.length; index++){
-            var tab_index = Math.floor(index / 8);
-            var id_index = index - (tab_index * 8);
+            var tab_index = Math.floor(index / this.fp_batch_count);
+            var id_index = index - (tab_index * this.fp_batch_count);
             this.daqtabs[tab_index].setFPProcesses(id_index, processes[index]);
         }
         for (var index = 0; index < this.daqtabs.length; index++){
@@ -1051,8 +1056,8 @@ class DAQHolder {
     setFPRank(rank){
         // Loop over the array, calling the correct indexed tab item
         for (var index = 0; index < rank.length; index++){
-            var tab_index = Math.floor(index / 8);
-            var id_index = index - (tab_index * 8);
+            var tab_index = Math.floor(index / this.fp_batch_count);
+            var id_index = index - (tab_index * this.fp_batch_count);
             this.daqtabs[tab_index].setFPRank(id_index, rank[index]);
         }
         for (var index = 0; index < this.daqtabs.length; index++){
@@ -1063,8 +1068,8 @@ class DAQHolder {
     setFPPacketsProcessed(pkts){
         // Loop over the array, calling the correct indexed tab item
         for (var index = 0; index < pkts.length; index++){
-            var tab_index = Math.floor(index / 8);
-            var id_index = index - (tab_index * 8);
+            var tab_index = Math.floor(index / this.fp_batch_count);
+            var id_index = index - (tab_index * this.fp_batch_count);
             this.daqtabs[tab_index].setFPPacketsProcessed(id_index, pkts[index]);
         }
         for (var index = 0; index < this.daqtabs.length; index++){
@@ -1075,8 +1080,8 @@ class DAQHolder {
     setFPJobQueueSize(size){
         // Loop over the array, calling the correct indexed tab item
         for (var index = 0; index < size.length; index++){
-            var tab_index = Math.floor(index / 8);
-            var id_index = index - (tab_index * 8);
+            var tab_index = Math.floor(index / this.fp_batch_count);
+            var id_index = index - (tab_index * this.fp_batch_count);
             this.daqtabs[tab_index].setFPJobQueueSize(id_index, size[index]);
         }
         for (var index = 0; index < this.daqtabs.length; index++){
@@ -1087,8 +1092,8 @@ class DAQHolder {
     setFPResultsQueueSize(size){
         // Loop over the array, calling the correct indexed tab item
         for (var index = 0; index < size.length; index++){
-            var tab_index = Math.floor(index / 8);
-            var id_index = index - (tab_index * 8);
+            var tab_index = Math.floor(index / this.fp_batch_count);
+            var id_index = index - (tab_index * this.fp_batch_count);
             this.daqtabs[tab_index].setFPResultsQueueSize(id_index, size[index]);
         }
         for (var index = 0; index < this.daqtabs.length; index++){
@@ -1099,8 +1104,8 @@ class DAQHolder {
     setFPInvalidPackets(pkts){
         // Loop over the array, calling the correct indexed tab item
         for (var index = 0; index < pkts.length; index++){
-            var tab_index = Math.floor(index / 8);
-            var id_index = index - (tab_index * 8);
+            var tab_index = Math.floor(index / this.fp_batch_count);
+            var id_index = index - (tab_index * this.fp_batch_count);
             this.daqtabs[tab_index].setFPInvalidPackets(id_index, pkts[index]);
         }
         for (var index = 0; index < this.daqtabs.length; index++){
@@ -1111,8 +1116,8 @@ class DAQHolder {
     setFPTimestampMismatches(tsmm){
         // Loop over the array, calling the correct indexed tab item
         for (var index = 0; index < tsmm.length; index++){
-            var tab_index = Math.floor(index / 8);
-            var id_index = index - (tab_index * 8);
+            var tab_index = Math.floor(index / this.fp_batch_count);
+            var id_index = index - (tab_index * this.fp_batch_count);
             this.daqtabs[tab_index].setFPTimestampMismatches(id_index, tsmm[index]);
         }
         for (var index = 0; index < this.daqtabs.length; index++){
@@ -1123,8 +1128,8 @@ class DAQHolder {
     setFPProcessedFrames(frames){
         // Loop over the array, calling the correct indexed tab item
         for (var index = 0; index < frames.length; index++){
-            var tab_index = Math.floor(index / 8);
-            var id_index = index - (tab_index * 8);
+            var tab_index = Math.floor(index / this.fp_batch_count);
+            var id_index = index - (tab_index * this.fp_batch_count);
             this.daqtabs[tab_index].setFPProcessedFrames(id_index, frames[index]);
         }
         for (var index = 0; index < this.daqtabs.length; index++){
@@ -1135,8 +1140,8 @@ class DAQHolder {
     setFPOutputFrames(frames){
         // Loop over the array, calling the correct indexed tab item
         for (var index = 0; index < frames.length; index++){
-            var tab_index = Math.floor(index / 8);
-            var id_index = index - (tab_index * 8);
+            var tab_index = Math.floor(index / this.fp_batch_count);
+            var id_index = index - (tab_index * this.fp_batch_count);
             this.daqtabs[tab_index].setFPOutputFrames(id_index, frames[index]);
         }
         for (var index = 0; index < this.daqtabs.length; index++){
@@ -1147,8 +1152,8 @@ class DAQHolder {
     setFPWriting(writing){
         // Loop over the array, calling the correct indexed tab item
         for (var index = 0; index < writing.length; index++){
-            var tab_index = Math.floor(index / 8);
-            var id_index = index - (tab_index * 8);
+            var tab_index = Math.floor(index / this.fp_batch_count);
+            var id_index = index - (tab_index * this.fp_batch_count);
             this.daqtabs[tab_index].setFPWriting(id_index, writing[index]);
         }
         for (var index = 0; index < this.daqtabs.length; index++){
@@ -1159,8 +1164,8 @@ class DAQHolder {
     setFPValuesWritten(values){
         // Loop over the array, calling the correct indexed tab item
         for (var index = 0; index < values.length; index++){
-            var tab_index = Math.floor(index / 8);
-            var id_index = index - (tab_index * 8);
+            var tab_index = Math.floor(index / this.fp_batch_count);
+            var id_index = index - (tab_index * this.fp_batch_count);
             this.daqtabs[tab_index].setFPValuesWritten(id_index, values[index]);
         }
         for (var index = 0; index < this.daqtabs.length; index++){
@@ -1171,8 +1176,8 @@ class DAQHolder {
     setFPRawMode(mode){
         // Loop over the array, calling the correct indexed tab item
         for (var index = 0; index < mode.length; index++){
-            var tab_index = Math.floor(index / 8);
-            var id_index = index - (tab_index * 8);
+            var tab_index = Math.floor(index / this.fp_batch_count);
+            var id_index = index - (tab_index * this.fp_batch_count);
             this.daqtabs[tab_index].setFPRawMode(id_index, mode[index]);
         }
         for (var index = 0; index < this.daqtabs.length; index++){
@@ -1183,8 +1188,8 @@ class DAQHolder {
     setFPOperationalMode(mode){
         // Loop over the array, calling the correct indexed tab item
         for (var index = 0; index < mode.length; index++){
-            var tab_index = Math.floor(index / 8);
-            var id_index = index - (tab_index * 8);
+            var tab_index = Math.floor(index / this.fp_batch_count);
+            var id_index = index - (tab_index * this.fp_batch_count);
             this.daqtabs[tab_index].setFPOperationalMode(id_index, mode[index]);
         }
         for (var index = 0; index < this.daqtabs.length; index++){
@@ -1196,7 +1201,11 @@ class DAQHolder {
 function create_tabs(owner, no_of_fps)
 {
     // Number of tabs required = number of fps / 8 + 1
-    tab_count = Math.ceil(no_of_fps / 8) + 1;
+    fp_batch_count = 8;
+    if (no_of_fps % 10 == 0){
+        fp_batch_count = 10;
+    }
+    tab_count = Math.ceil(no_of_fps / fp_batch_count) + 1;
     var tabs = $('<div id="tristan-daq-tabs"></div>');
     var list = $('<ul class="nav nav-tabs"></ul>');
     var bodies = $('<div class="tab-content"></div>');
