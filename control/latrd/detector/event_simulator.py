@@ -257,7 +257,8 @@ class TristanEventProducer(object):
             time_slice_dict = {'id': time_slice, 'packets': [], 'ts': []}
             # Generate a new packet
             slice_events = 0
-            while slice_events < per_slice:
+            this_slice = int(((random.random() * 0.2) + 0.8) * per_slice)
+            while slice_events < this_slice:
                 pkt = TristanPacket(800, time_slice)
                 #print("Packet length bytes: {}".format(len(pkt.to_packet())))
                 generated_events += 800
