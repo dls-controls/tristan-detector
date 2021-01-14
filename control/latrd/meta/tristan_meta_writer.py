@@ -19,11 +19,21 @@ import _version as versioneer
 # Dataset names
 DATASET_TIME_SLICE = "ts_qty_module"
 DATASET_DAQ_VERSION = "data_version"
+DATASET_META_VERSION = "meta_version"
 DATASET_FP_PER_MODULE = "fp_per_module"
 
 # Data message parameters
 TIME_SLICE = "time_slice"
 DAQ_VERSION = "daq_version"
+
+# Meta file version
+# Version 1: First revision
+#            Table for each FP time slice count.
+#            No version information saved.
+#
+# Version 2: DAQ version and Meta file version saved.
+#            Table for each server with condensed time slice information.
+META_VERSION_NUMBER = 1
 
 class TristanMetaWriter(MetaWriter):
     """ Implementation of MetaWriter that also handles Tristan meta messages """
@@ -44,11 +54,11 @@ class TristanMetaWriter(MetaWriter):
 
         # Create the tristan specific datasets
         TristanMetaWriter.TRISTAN_DATASETS.append(Int32HDF5Dataset(DATASET_DAQ_VERSION))
+        TristanMetaWriter.TRISTAN_DATASETS.append(Int32HDF5Dataset(DATASET_META_VERSION))
         TristanMetaWriter.TRISTAN_DATASETS.append(Int32HDF5Dataset(DATASET_FP_PER_MODULE))
         
         for index in range(len(self._fp_mapping)):
             TristanMetaWriter.TRISTAN_DATASETS.append(Int32HDF5Dataset("{}{:02d}".format(DATASET_TIME_SLICE, index), fillvalue=0, cache=False))
-            TristanMetaWriter.TRISTAN_DATASETS.append(Int32HDF5Dataset("{}{:02d}".format(DATASET_TIME_SLICE, index)))
 
         # Now that we have defined the datasets we can call the base class constructor
         super(TristanMetaWriter, self).__init__(name, directory, process_count, endpoints)
@@ -75,6 +85,8 @@ class TristanMetaWriter(MetaWriter):
     def _create_datasets(self, dataset_size):
         super(TristanMetaWriter, self)._create_datasets(dataset_size)
         self._logger.info("Hooked into create datasets...")
+        # Save the Met File version
+        self._add_value(DATASET_META_VERSION, META_VERSION_NUMBER, offset=0)
         # Save the FP mapping values
         index = 0
         for ip in self._fp_mapping:
