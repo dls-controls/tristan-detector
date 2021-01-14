@@ -128,5 +128,7 @@ class TristanMetaWriter(MetaWriter):
 
         # Extract the rank information from the header
         rank = user_header['rank']
-        self._add_value(DATASET_DAQ_VERSION, data, offset=rank)
+        value = struct.unpack('i', data)
+        self._logger.debug("Rank: {}  Version: {}".format(rank, value))
+        self._add_value(DATASET_DAQ_VERSION, value, offset=rank)
 
