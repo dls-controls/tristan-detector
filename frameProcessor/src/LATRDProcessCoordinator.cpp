@@ -475,7 +475,8 @@ namespace FrameProcessor {
             LOG4CXX_ERROR(logger_, "Publishing daq format version meta data");
             metaPtr_->publish_meta("latrd",
                                    "daq_version",
-                                   version,
+                                   &version,
+                                   sizeof(int32_t),
                                    buffer.GetString());
         }
     }
