@@ -245,17 +245,44 @@ class TristanControlAdapter(ApiAdapter):
             "state": None,
             "detector": {
                 "description": None,
+                "detector_type": None,
                 "serial_number": None,
+                'module_dimensions': {
+                    "x_min": [
+                        None
+                    ],
+                    "y_min": [
+                        None
+                    ],
+                    "x_max": [
+                        None
+                    ],
+                    "y_max": [
+                        None
+                    ]
+                },
                 "software_version": None,
+                "software_build": None,
                 "sensor_material": None,
-                "frames_acquired": None,
                 "sensor_thickness": None,
                 "x_pixel_size": None,
                 "y_pixel_size": None,
                 "x_pixels_in_detector": None,
                 "y_pixels_in_detector": None,
+                "tick_ps": None,
+                "tick_hz": None,
                 "timeslice_number": None,
-                "udp_packets_sent": None
+                "timing_warning": None,
+                "timing_error": None,
+                "udp_packets_sent": None,
+                "data_overrun": None,
+                "frames_acquired": None,
+                "shutteropen": None,
+                "acquisition_busy": None,
+                "shutterbusy": None,
+                "fpga_busy": None,
+                "loopaction": None,
+                "crw": None
             }
         }
     ]
