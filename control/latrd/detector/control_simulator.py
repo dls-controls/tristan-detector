@@ -31,6 +31,54 @@ class LATRDControlSimulator(object):
         self._reactor = LATRDReactor()
         self._daq = TristanEventProducer(endpoints)
         self._daq.init(10000000)
+        variant = '10M'
+        module_dimensions = {
+            "x_min": [
+                0, 0, 0, 0, 0, 2144, 2144, 2144, 2144, 2144
+            ],
+            "y_min": [
+                0, 632, 1264, 1896, 2528, 0, 632, 1264, 1896, 2528
+            ],
+            "x_max": [
+                2068, 2068, 2068, 2068, 2068, 4212, 4212, 4212, 4212, 4212
+            ],
+            "y_max": [
+                514, 1146, 1778, 2410, 3042, 514, 1146, 1778, 2410, 3042
+            ]
+        }
+        if sensor == LATRDControlSimulator.DETECTOR_1M:
+            variant = '1M'
+            module_dimensions = {
+                "x_min": [
+                    0
+                ],
+                "y_min": [
+                    0
+                ],
+                "x_max": [
+                    2068
+                ],
+                "y_max": [
+                    514
+                ]
+            }
+        elif sensor == LATRDControlSimulator.DETECTOR_2M:
+            variant = '2M'
+            module_dimensions = {
+                "x_min": [
+                    0, 0
+                ],
+                "y_min": [
+                    0, 632
+                ],
+                "x_max": [
+                    2068, 2068
+                ],
+                "y_max": [
+                    514, 1146
+                ]
+            }
+
         self._store = {
             'status':
                 {
@@ -38,17 +86,32 @@ class LATRDControlSimulator(object):
                     'detector':
                         {
                             'description': 'TRISTAN control interface',
+                            'detector_type': 'TRISTAN',
+                            'detector_variant': variant,
+                            'module_dimensions': module_dimensions,
                             'serial_number': '0',
                             'software_version': '0.0.1',
+                            'software_build': 'Simulation',
                             'sensor_material': 'Silicon',
                             'sensor_thickness': '300 um',
-                            'frames_acquired': 0,
                             'x_pixel_size': '55 um',
                             'y_pixel_size': '55 um',
                             'x_pixels_in_detector': 2048,
                             'y_pixels_in_detector': 512,
+                            'tick_ps': 1562.5,
+                            'tick_hz': 640000000.0,
                             'timeslice_number': 4,
-                            'udp_packets_sent': [0]
+                            'timeslice_warning': [0],
+                            'timing_error': [0],
+                            'udp_packets_sent': [0],
+                            'data_overrun': [False],
+                            'frames_acquired': 0,
+                            'shutteropen': False,
+                            'acquisition_busy': False,
+                            'shutterbusy': False,
+                            'fpga_busy': False,
+                            'loopaction': 0,
+                            'crw': False
                         },
                     'housekeeping':
                         {
@@ -166,6 +229,7 @@ class LATRDControlSimulator(object):
     def parse_put_msg(self, msg, send_id):
         # Retrieve the parameters and merge them with the store
         params = msg.params
+        self._log.debug("Put params: %s", msg.params)
         for key in params:
             self.apply_parameters(self._store, key, params[key])
         self._log.debug("Updated parameter Store: %s", self._store)
