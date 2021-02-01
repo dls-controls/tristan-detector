@@ -30,7 +30,7 @@ class LATRDControlSimulator(object):
         self._sensor = sensor
         self._reactor = LATRDReactor()
         self._daq = TristanEventProducer(endpoints)
-        self._daq.init(10000000)
+        self._daq.init(800000)
         variant = '10M'
         module_dimensions = {
             "x_min": [
@@ -267,7 +267,7 @@ class LATRDControlSimulator(object):
         self._daq.run()
         time.sleep(2.0)
         while self._daq.running() == True:
-            print("self._daq_running() = {}".format(self._daq.running()))
+            #print("self._daq_running() = {}".format(self._daq.running()))
             time.sleep(0.5)
         self._store['status']['state'] = 'idle'
 
