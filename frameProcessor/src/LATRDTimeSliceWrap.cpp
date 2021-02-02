@@ -10,7 +10,6 @@ namespace FrameProcessor {
     LATRDTimeSliceWrap::LATRDTimeSliceWrap(uint32_t no_of_buffers) {
         // Setup logging for the class
         logger_ = Logger::getLogger("FP.LATRDTimeSliceWrap");
-        logger_->setLevel(Level::getAll());
         LOG4CXX_DEBUG_LEVEL(2, logger_, "LATRDTimeSliceWrap constructor.");
 
         // Initialise the time slice buffers for this wrap

@@ -16,7 +16,6 @@ namespace FrameProcessor {
   {
     // Setup logging for the class
     logger_ = Logger::getLogger("FP.LATRDProcessIntegral");
-    logger_->setLevel(Level::getAll());
     LOG4CXX_TRACE(logger_, "LATRDProcessIntegral constructor.");
 
   }
