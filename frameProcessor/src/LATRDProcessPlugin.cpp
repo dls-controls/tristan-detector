@@ -50,7 +50,6 @@ const std::string LATRDProcessPlugin::CONFIG_SENSOR_HEIGHT       = "height";
 {
     // Setup logging for the class
     logger_ = Logger::getLogger("FP.LATRDProcessPlugin");
-    logger_->setLevel(Level::getAll());
     LOG4CXX_TRACE(logger_, "LATRDProcessPlugin constructor.");
 
     integral_.init(sensor_width_, sensor_height_);

@@ -22,7 +22,6 @@ LATRDBuffer::LATRDBuffer(size_t numberOfDataPoints, const std::string& frame, LA
 {
     // Setup logging for the class
     logger_ = Logger::getLogger("FP.LATRDBuffer");
-    logger_->setLevel(Level::getError());
     LOG4CXX_TRACE(logger_, "LATRDBuffer constructor.");
 
     // Allocate the memory block required for the points
