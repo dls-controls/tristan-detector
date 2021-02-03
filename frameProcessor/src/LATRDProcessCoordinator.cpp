@@ -25,7 +25,6 @@ namespace FrameProcessor {
     {
         // Setup logging for the class
         logger_ = Logger::getLogger("FP.LATRDProcessCoordinator");
-        logger_->setLevel(Level::getDebug());
         LOG4CXX_TRACE(logger_, "LATRDProcessCoordinator constructor.");
 
         // Create the work queue for processing jobs
@@ -290,7 +289,7 @@ namespace FrameProcessor {
                     uint8_t data_version = LATRD::get_data_format_version(packet_header.headerWord2);
                     if (data_version != daq_version_){
                         daq_version_ = (int32_t)data_version;
-                        LOG4CXX_ERROR(logger_, "Publishing data version: " << daq_version_);
+                        LOG4CXX_DEBUG_LEVEL(3, logger_, "Publishing data version: " << daq_version_);
                         publish_daq_format_version_meta_data(acq_id_, daq_version_);
                     }
 
@@ -479,7 +478,7 @@ namespace FrameProcessor {
             rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
             meta_document.Accept(writer);
 
-            LOG4CXX_ERROR(logger_, "Publishing daq format version meta data");
+            LOG4CXX_DEBUG_LEVEL(3, logger_, "Publishing daq format version meta data");
             metaPtr_->publish_meta("latrd",
                                    "daq_version",
                                    &version,
@@ -519,7 +518,7 @@ namespace FrameProcessor {
             rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
             meta_document.Accept(writer);
 
-            LOG4CXX_ERROR(logger_, "Publishing time slice meta data");
+            LOG4CXX_DEBUG_LEVEL(3, logger_, "Publishing time slice meta data");
             metaPtr_->publish_meta("latrd",
                                    "time_slice",
                                    ts_index_array_.data(),
