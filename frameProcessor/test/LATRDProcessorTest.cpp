@@ -185,59 +185,149 @@ BOOST_AUTO_TEST_CASE(CoordinatorTest)
 
 BOOST_AUTO_TEST_SUITE_END(); //CoordinatorUnitTest
 
+BOOST_AUTO_TEST_SUITE(TimeSliceWrapUnitTest);
 
-// Unit tests for the LATRDTimestampManager class
-BOOST_AUTO_TEST_SUITE(TimestampUnitTest);
-
-BOOST_AUTO_TEST_CASE(TimestampTest)
+BOOST_AUTO_TEST_CASE(TimeSliceWrapTest)
 {
-  //Create a timestamp manager class instance
-  FrameProcessor::LATRDTimestampManager tm;
+  // Create a test process job
+  boost::shared_ptr<FrameProcessor::LATRDProcessJob> job;
+  job = boost::shared_ptr<FrameProcessor::LATRDProcessJob>(new FrameProcessor::LATRDProcessJob(1));
+  // Create a time slice wrap with 8 buffers
+  FrameProcessor::LATRDTimeSliceWrap wrap(8);
 
-  //Add 3 timestamps with the same delta
-  BOOST_CHECK_NO_THROW(tm.add_timestamp(0, 0, 1, 100));
-  BOOST_CHECK_NO_THROW(tm.add_timestamp(0, 0, 2, 150));
-  BOOST_CHECK_NO_THROW(tm.add_timestamp(0, 0, 3, 200));
-  // Verify the delta is reported as 50
-  BOOST_CHECK_EQUAL(tm.read_delta(), 50);
+  // Add a process job with an incorrect wrap
+  wrap.add_job(10, job);
 
-  // Clear the timestamps and verify the delta is 0
-  BOOST_CHECK_NO_THROW(tm.clear());
-  BOOST_CHECK_EQUAL(tm.read_delta(), 0);
+  // Now empty out the buffers and verify there were none saved into the wrap
+  std::vector<boost::shared_ptr<FrameProcessor::LATRDProcessJob> > jobs = wrap.empty_all_buffers();
+  BOOST_CHECK_EQUAL(jobs.size(), 0);
 
-  // Add timestamps and verify the delta in each case
-  // Try multiple timestamps within the same packet
-  BOOST_CHECK_NO_THROW(tm.add_timestamp(0, 0, 1, 100));
-  BOOST_CHECK_NO_THROW(tm.add_timestamp(0, 0, 2, 150));
-  BOOST_CHECK_NO_THROW(tm.add_timestamp(0, 0, 3, 200));
-  // Verify the delta is reported as 50
-  BOOST_CHECK_EQUAL(tm.read_delta(), 50);
-  BOOST_CHECK_NO_THROW(tm.add_timestamp(0, 0, 3, 250));
-  // Verify the delta is reported as 50
-  BOOST_CHECK_EQUAL(tm.read_delta(), 50);
-  BOOST_CHECK_NO_THROW(tm.add_timestamp(0, 0, 4, 300));
-  // Verify the delta is reported as 50
-  BOOST_CHECK_EQUAL(tm.read_delta(), 50);
-  BOOST_CHECK_NO_THROW(tm.add_timestamp(0, 0, 6, 450));
-  // Verify the delta is reported as 50
-  BOOST_CHECK_EQUAL(tm.read_delta(), 50);
-  BOOST_CHECK_NO_THROW(tm.add_timestamp(0, 0, 5, 350));
-  // Verify the delta is reported as 50
-  BOOST_CHECK_EQUAL(tm.read_delta(), 50);
-  BOOST_CHECK_NO_THROW(tm.add_timestamp(0, 0, 5, 400));
-  // Verify the delta is reported as 50
-  BOOST_CHECK_EQUAL(tm.read_delta(), 50);
+  // Now add jobs into valid buffers
+  job->packet_number = 0;
+  wrap.add_job(1, job);
+  job->packet_number = 1;
+  wrap.add_job(1, job);
+  job->packet_number = 0;
+  wrap.add_job(2, job);
+  job->packet_number = 1;
+  wrap.add_job(2, job);
+  job->packet_number = 2;
+  wrap.add_job(2, job);
+  job->packet_number = 0;
+  wrap.add_job(3, job);
+  job->packet_number = 1;
+  wrap.add_job(3, job);
+  job->packet_number = 2;
+  wrap.add_job(3, job);
+  job->packet_number = 3;
+  wrap.add_job(3, job);
 
-  // Clear the timestamps and verify the delta is 0
-  BOOST_CHECK_NO_THROW(tm.clear());
-  BOOST_CHECK_EQUAL(tm.read_delta(), 0);
+  // Check there are 2 jobs in buffer 1
+  jobs = wrap.empty_buffer(1);
+  BOOST_CHECK_EQUAL(jobs.size(), 2);
+  // Check there are 3 jobs in buffer 2
+  jobs = wrap.empty_buffer(2);
+  BOOST_CHECK_EQUAL(jobs.size(), 3);
+  // Check there are 4 jobs in buffer 3
+  jobs = wrap.empty_buffer(3);
+  BOOST_CHECK_EQUAL(jobs.size(), 4);
 
-  // Now add timestamps with inconsistent deltas and check an error is thrown
-  BOOST_CHECK_NO_THROW(tm.add_timestamp(0, 0, 1, 100));
-  BOOST_CHECK_NO_THROW(tm.add_timestamp(0, 0, 2, 150));
-  BOOST_CHECK_THROW(tm.add_timestamp(0, 0, 3, 300), FrameProcessor::LATRDTimestampException);
+  // Now add the jobs back into valid buffers
+  job->packet_number = 0;
+  wrap.add_job(1, job);
+  job->packet_number = 1;
+  wrap.add_job(1, job);
+  job->packet_number = 0;
+  wrap.add_job(2, job);
+  job->packet_number = 1;
+  wrap.add_job(2, job);
+  job->packet_number = 2;
+  wrap.add_job(2, job);
+  job->packet_number = 0;
+  wrap.add_job(3, job);
+  job->packet_number = 1;
+  wrap.add_job(3, job);
+  job->packet_number = 2;
+  wrap.add_job(3, job);
+  job->packet_number = 3;
+  wrap.add_job(3, job);
+
+  // Check there are 9 jobs in total
+  jobs = wrap.empty_all_buffers();
+  BOOST_CHECK_EQUAL(jobs.size(), 9);
+
+  // Now add the jobs back into valid buffers
+  // and add some valid result counters
+  job->packet_number = 0;
+  job->valid_results = 20;
+  wrap.add_job(1, job);
+  job->packet_number = 1;
+  job->valid_results = 30;
+  wrap.add_job(1, job);
+  job->packet_number = 0;
+  job->valid_results = 40;
+  wrap.add_job(2, job);
+  job->packet_number = 1;
+  job->valid_results = 50;
+  wrap.add_job(2, job);
+  job->packet_number = 2;
+  job->valid_results = 60;
+  wrap.add_job(2, job);
+  job->packet_number = 0;
+  job->valid_results = 70;
+  wrap.add_job(3, job);
+  job->packet_number = 1;
+  job->valid_results = 80;
+  wrap.add_job(3, job);
+  job->packet_number = 2;
+  job->valid_results = 90;
+  wrap.add_job(3, job);
+  job->packet_number = 3;
+  job->valid_results = 100;
+  wrap.add_job(3, job);
+
+  // Check that the total event counts for buffer 1 is 50
+  BOOST_CHECK_EQUAL(wrap.get_event_data_counts(1), 50);
+
+  // Check that the total event counts for all buffers is 540
+  std::vector<uint32_t> events = wrap.get_all_event_data_counts();
+  uint32_t total_counts = 0;
+  for (std::vector<uint32_t>::iterator iter = events.begin(); iter != events.end(); ++iter){
+    total_counts += *iter;
+  }
+  BOOST_CHECK_EQUAL(total_counts, 540);
+}
+
+BOOST_AUTO_TEST_SUITE_END(); //TimeSliceWrapUnitTest
+
+BOOST_AUTO_TEST_SUITE(ProcessJobUnitTest);
+
+BOOST_AUTO_TEST_CASE(ProcessJobTest)
+{
+  // Create a ProcessJob object
+  FrameProcessor::LATRDProcessJob job(20);
+  // Set the values of the public member variables
+  job.time_slice = 1;
+  job.job_id = 2;
+  job.invalid = 3;
+  job.packet_number = 4;
+  job.valid_control_words = 5;
+  job.timestamp_mismatches = 6;
+  job.words_to_process = 7;
+  job.valid_results = 8;
+
+  // Reset the object
+  BOOST_CHECK_NO_THROW(job.reset());
+  // Verify the values are all set to 0
+  BOOST_CHECK_EQUAL(job.time_slice, 0);
+  BOOST_CHECK_EQUAL(job.job_id, 0);
+  BOOST_CHECK_EQUAL(job.invalid, 0);
+  BOOST_CHECK_EQUAL(job.packet_number, 0);
+  BOOST_CHECK_EQUAL(job.valid_control_words, 0);
+  BOOST_CHECK_EQUAL(job.timestamp_mismatches, 0);
+  BOOST_CHECK_EQUAL(job.words_to_process, 0);
+  BOOST_CHECK_EQUAL(job.valid_results, 0);
 
 }
 
-BOOST_AUTO_TEST_SUITE_END(); //TimestampUnitTest
-
+BOOST_AUTO_TEST_SUITE_END(); //ProcessJobUnitTest
