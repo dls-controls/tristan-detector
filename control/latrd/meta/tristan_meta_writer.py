@@ -43,6 +43,8 @@ class TristanMetaWriter(MetaWriter):
 
         # Create ordered dict to store FP mapping entries
         self._fp_mapping = OrderedDict()
+        self._time_slice_index_offset = None
+        self._fps_per_module = []
         for endpoint in endpoints:
             protocol, ip, port = endpoint.split(':')
             ip = ip.strip('//')
@@ -90,6 +92,7 @@ class TristanMetaWriter(MetaWriter):
         # Save the FP mapping values
         index = 0
         for ip in self._fp_mapping:
+            self._fps_per_module.append(self._fp_mapping[ip])
             self._add_value(DATASET_FP_PER_MODULE, self._fp_mapping[ip], offset=index)
             index += 1
 
@@ -126,6 +129,14 @@ class TristanMetaWriter(MetaWriter):
         for array_index in range(len(array)):
             if array[array_index] > 0:
                 offset = index + array_index
+                if self._time_slice_index_offset is None:
+                    self._time_slice_index_offset = rank - offset
+                    if self._time_slice_index_offset < 0:
+                        self._time_slice_index_offset += self._fps_per_module[module]
+                    while self._time_slice_index_offset > self._fps_per_module[module]:
+                        self._time_slice_index_offset -= self._fps_per_module[module]
+                    self._logger.info("Rank {}  Index {} Time slice offset {}".format(rank, offset, self._time_slice_index_offset))
+                offset += self._time_slice_index_offset
                 self._logger.debug("Adding value {} to offset {}".format(array[array_index], offset))
                 self._add_value(dataset_name, array[array_index], offset=offset)
 
