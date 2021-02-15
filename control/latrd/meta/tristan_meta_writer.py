@@ -58,7 +58,7 @@ class TristanMetaWriter(MetaWriter):
         TristanMetaWriter.TRISTAN_DATASETS.append(Int32HDF5Dataset(DATASET_FP_PER_MODULE))
         
         for index in range(len(self._fp_mapping)):
-            TristanMetaWriter.TRISTAN_DATASETS.append(Int32HDF5Dataset("{}{:02d}".format(DATASET_TIME_SLICE, index), fillvalue=0, cache=False))
+            TristanMetaWriter.TRISTAN_DATASETS.append(Int32HDF5Dataset("{}{:02d}".format(DATASET_TIME_SLICE, index), fillvalue=0))
 
         # Now that we have defined the datasets we can call the base class constructor
         super(TristanMetaWriter, self).__init__(name, directory, process_count, endpoints)
