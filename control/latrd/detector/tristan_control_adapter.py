@@ -314,6 +314,9 @@ class TristanControlAdapter(ApiAdapter):
             'profile': EnumParameter('profile',
                                      ProfileType.energy.name,
                                      [e.name for e in ProfileType]),
+            'timeslice': {
+                'duration_rollover_bits': IntegerParameter('duration_rollover_bits', 18)
+            },
             'trigger': {
                 'start': EnumParameter('start',
                                        TriggerInType.internal.name,
