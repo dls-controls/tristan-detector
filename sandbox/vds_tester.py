@@ -109,8 +109,8 @@ class Metafile:
     def getMetafileName(self):
         return self.metafname_;
 
-    def getDir(self):
-        return os.path.dirname(self.getMetafileName());
+    def getSourceDir(self):
+        return os.path.normpath(os.path.dirname(self.getMetafileName()));
 
     def getTsQtiesForRawfile(self, rf):
         mod = 0;
@@ -147,10 +147,14 @@ class Metafile:
     def getModuleNames(self):
         return sorted(self.mod2rawfiles_.keys());
 
+# this is the dataset that the 2 dump functions dump to text file.
+# Suggest cue_id to check cues,
+# and event_time_offset (altho event_id is 4 bytes).
+DATASET_TO_DUMP = "event_time_offset";
 
-EVENTDATASET = "event_time_offset";
-# this function looks in the metafile and sees how many events are referenced for each module / rawfile.
-# then it looks at the rawfiles, and sums how many events are the dataset (excl end zeros).
+# this function looks in the metafile and sees how many events are
+# referenced for each module / rawfile. then it looks at the rawfiles,
+# and sums how many events are the dataset (excl end zeros).
 def check_qties(metafile):
     mod2events2 = {};
     mod2events1 = {};
@@ -175,7 +179,7 @@ def check_qties(metafile):
         total = 0;
         for rfn in metafile.getRawFilenamesForModule(mod_name):
             rawfile = h5py.File(rfn, "r");
-            timestamps = rawfile[EVENTDATASET].value;
+            timestamps = rawfile["event_time_offset"].value;
             real_len = len(timestamps);
             while 0<=real_len and timestamps[real_len-1]==0:
                 real_len -= 1;
@@ -193,17 +197,54 @@ def check_qties(metafile):
         else:
             logging.error("{} has {} events in its raw files (excl final zeros) WRONG\n".format(mod_name, total));
 
+# this opens the vds file and for each of the 5 datasets, lists the # of items in the vds, and then 
+#  lists the # of items in the rawfiles, added. They should be equal.
+def check_vds_qties(metafile):
+    vdsfile = h5py.File(metafile.getVdsFilename(), "r");
+    logging.info("vds num event_time_offset: %d", vdsfile["event_time_offset"].shape[0]);
+    logging.info("vds num event_id: %d", vdsfile["event_id"].shape[0]);
+    logging.info("vds num event_energy: %d", vdsfile["event_energy"].shape[0]);
+    logging.info("vds num cue_id: %d", vdsfile["cue_id"].shape[0]);
+    logging.info("vds num cue_timestamp_zero: %d", vdsfile["cue_timestamp_zero"].shape[0]);
+    vdsfile.close();
+
+    # now see how many timestamps are in each raw file:
+    total = 0;
+    total_cues = 0;
+    for rfn in metafile.getRawFilenames():
+        rawfile = h5py.File(rfn, "r");
+        dset = rawfile["event_id"].value;
+        real_len = len(dset);
+        while 0<=real_len and dset[real_len-1]==0:
+            real_len -= 1;
+
+        logging.debug("{} has {} event_ids in it (excl final zeros)".format(os.path.basename(rfn), real_len));
+        total += real_len;
+
+        dset = rawfile["cue_id"].value;
+        real_len = len(dset);
+        while 0<=real_len and dset[real_len-1]==0:
+            real_len -= 1;
+
+        rawfile.close();
+
+        logging.debug("{} has {} cue_ids in it (excl final zeros)".format(os.path.basename(rfn), real_len));
+        total_cues += real_len;
+
+    logging.info("there are {} events and {} cues in the raw files (excl final zeros)\n".format(total, total_cues));
+
+
 
 # this function reads all the timestamps from the vds file and writes them into a text file
 def dump_vds_data(metafile, outdir):
     vdsf = h5py.File(metafile.getVdsFilename(), "r");
     logging.info("loading vds data");
     # value returns a <type 'numpy.ndarray'>
-    data = vdsf[EVENTDATASET].value;
+    data = vdsf[DATASET_TO_DUMP].value;
     logging.info("sorting vds data {} items".format(len(data)));
     # np.sort returns an nparray; sorted() returns a list.
     all = np.sort(data);
-    filename = "{}_vdsfile.txt".format(EVENTDATASET);
+    filename = "{}_vdsfile.txt".format(DATASET_TO_DUMP);
     logging.info("writing vds data to {}".format(filename));
     out = open(os.path.join( outdir,filename ), "w");
     for idx in range(len(all)):
@@ -223,47 +264,80 @@ def dump_rf_data(metafile, outdir):
     all = [];
     for rfn in rawfiles:
         rf = h5py.File(rfn, "r");
-        data = rf[EVENTDATASET].value;
+        data = rf[DATASET_TO_DUMP].value;
         leng = data.shape[0];
         while data[leng-1]==0:
             leng -= 1;
 
         all.extend(data[0:leng]);
         rf.close();
-        logging.info( "read {} events from rawfile {}".format(leng, os.path.basename(rfn)) );
+        logging.info( "read {} items from rawfile {}".format(leng, os.path.basename(rfn)) );
 
     logging.info("sorting...");
     all = sorted(all);
 
-    filename = "{}_rawfiles.txt".format(EVENTDATASET);
+    filename = "{}_rawfiles.txt".format(DATASET_TO_DUMP);
     logging.info("writing rf data to {}".format(filename));
     out = open(os.path.join( outdir, filename ) , "w");
     for d in all:
         out.write("{:#x}\n".format(d));
     out.close();
 
-# this function gets the offset in the vds-file of the timeslices and checks that offset
-#  to see if the timestamp is zero. A zero timestamp means the vds-mapping maps to out-of-bounds.
-def check_for_zeros(metafile):
+def append_timestamp_values(metafile):
     lookup = metafile.getTimesliceLookup();
 
     vdsf = h5py.File(metafile.getVdsFilename(), "r");
     logging.info("loading dataset");
     ds = vdsf["event_time_offset"].value;
-    logging.info("checking for zero items");
-    count = 0;
+    logging.info("appending timestamps");
+
     for vdsoffset in lookup.keys():
-        if ds[vdsoffset] == 0:
-            count += 1;
-            logging.error("vds file has 0 at {} - {}".format(vdsoffset,lookup[vdsoffset]));
+        lis = lookup[vdsoffset];
+        qty = lis[-1];
+        # qty can not be zero because of the way we created this
+        if qty==0:
+            raise Exception("qty 0");
+        lis.append(ds[vdsoffset]);
+        endval = ds[vdsoffset+qty-1];
+        lis.append(endval);
 
     vdsf.close();
-    logging.info( "finished: {} errors".format(count) );
+
+
+# this function does some simple checks on the timestamps in the vds file:
+#  it load the first and last timestamp in each timeslice, and checks they
+#  are nonzero (a zero indicates an invalid vds mapping). It also checks
+#  that the timeslices are ascending in time.
+def check_for_zeros(metafile):
+    lookup = metafile.getTimesliceLookup();
+    append_timestamp_values(metafile);
+    logging.info("checking for disordered ts");
+    count = 0;
+    curmin = 0;
+    curmax = 0;
+    for vdsoffset in sorted(lookup.keys()):
+        lis = lookup[vdsoffset];
+        lo = lis[3];
+        hi = lis[4];
+        if lo==0 or hi==0:
+            logging.error("{} zero timestamp at offset {}".format(count, vdsoffset));
+        elif curmax < lo:
+            # next time segment appears
+            curmin = lo;
+            curmax = hi;
+        else:        
+            # check this segment is within bounds
+            check = lo < curmax and curmin < hi;
+            if(check == False):
+                logging.error("{} bad ts order at offset {}".format(count, vdsoffset));
+
+        count += 1;
+
 
 def main():
-    logfile = "alangreer.log";
+    logfile = "vdstester.log";
     os.remove(logfile) if os.path.exists(logfile) else 0;
-    logging.basicConfig(level=logging.DEBUG, filename=logfile, format="%(asctime)s %(levelname)s %(message)s");
+    logging.basicConfig(level=logging.INFO, filename=logfile, format="%(asctime)s %(levelname)s %(message)s");
     # get the root logger and add stdout as an output.
     logging.getLogger().addHandler(logging.StreamHandler(sys.stdout));
 
@@ -272,7 +346,7 @@ def main():
     parser.add_argument("--dumpvds", action="store_true", help="dump the event_timestamps from the vds file as a sorted text file; to same dir as metafile");
     parser.add_argument("--dumprf", action="store_true", help="dump the event timestamps from the rawfiles as a sorted text file");
     parser.add_argument("--mappings", action="store_true", help="nothing"); 
-    parser.add_argument("--zeros", action="store_true", help="check the first timestamp in each timeslice in the vds to see if it is zero (=bad mapping)");
+    parser.add_argument("--zeros", action="store_true", help="check the first timestamp in each timeslice in the vds to see if it is zero (=bad mapping), also check the timestamps are incrementing as we go through the vds file.");
     parser.add_argument("--qties", action="store_true", help="list the quantities of events in the rawfiles and modules in two ways: reading the metafile vs reading the rawfiles and summing. (output also in {})".format(logfile));
     parser.add_argument("--other", action="store_true", help="custom, see source");
  #   parser.add_argument("-vds", help="test vds file", action="store_true");
@@ -292,21 +366,17 @@ def main():
     if(len(args.i)==1):
         filename = args.i[0];
         metafile = Metafile(filename);
-        outdir = metafile.getDir();
+        outdir = metafile.getSourceDir();
         if(args.dumpvds):
             dump_vds_data(metafile, outdir);
-        elif(args.dumprf):
+        if(args.dumprf):
             dump_rf_data(metafile, outdir);
         elif(args.mappings):
             pass;
         elif(args.zeros):
             check_for_zeros(metafile);
         elif(args.other):
-            rf = "/mnt/gpfs02/detectors/new/tmp/testfile/test1_000006.h5";
-            timeslices = metafile.getTimesliceLookup();
-            for vdsoffset in sorted(timeslices.keys()):
-                logging.info("{}".format(vdsoffset));
-
+            check_vds_qties(metafile);
         elif(args.qties):
             check_qties(metafile);
         else:
