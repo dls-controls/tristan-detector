@@ -97,7 +97,6 @@ class TristanMetaWriter(MetaWriter):
         # Save the FP mapping values
         index = 0
         for ip in self._fp_mapping:
-            self._fps_per_module.append(self._fp_mapping[ip])
             self._add_value(DATASET_FP_PER_MODULE, self._fp_mapping[ip], offset=index)
             index += 1
 
