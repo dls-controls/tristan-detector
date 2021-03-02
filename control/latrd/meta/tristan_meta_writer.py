@@ -53,6 +53,11 @@ class TristanMetaWriter(MetaWriter):
             else:
                 self._fp_mapping[ip] = 1
 
+        for ip in self._fp_mapping:
+            self._fps_per_module.append(self._fp_mapping[ip])
+
+        # Reset the datasets
+        TristanMetaWriter.TRISTAN_DATASETS = []
 
         # Create the tristan specific datasets
         TristanMetaWriter.TRISTAN_DATASETS.append(Int32HDF5Dataset(DATASET_DAQ_VERSION))
@@ -131,12 +136,14 @@ class TristanMetaWriter(MetaWriter):
                 offset = index + array_index
                 if self._time_slice_index_offset is None:
                     self._time_slice_index_offset = rank - offset
-                    if self._time_slice_index_offset < 0:
+                    while self._time_slice_index_offset < 0:
                         self._time_slice_index_offset += self._fps_per_module[module]
                     while self._time_slice_index_offset > self._fps_per_module[module]:
                         self._time_slice_index_offset -= self._fps_per_module[module]
                     self._logger.info("Rank {}  Index {} Time slice offset {}".format(rank, offset, self._time_slice_index_offset))
                 offset += self._time_slice_index_offset
+                if offset < 0:
+                    self._logger.error("Attempting to write a value with a negative offset - Rank: {} Offset: {} Time slice offset: {}".format(rank, offset, self._time_slice_index_offset))
                 self._logger.debug("Adding value {} to offset {}".format(array[array_index], offset))
                 self._add_value(dataset_name, array[array_index], offset=offset)
 
