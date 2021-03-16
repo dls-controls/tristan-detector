@@ -43,7 +43,7 @@ jobs:
         uses: actions/checkout@v2
         with:
           ref: gh-pages
-          path: build/html
+          path: build_dir/html
 
       - name: Maybe use sphinx-multiversion
         # If we are building master or a tag we will publish
