@@ -8,6 +8,7 @@ verify_ssl = true
 [packages]
 sphinx-rtd-theme = "*"
 sphinx = "*"
+sphinx-multiversion = "*"
 
 [scripts]
 # Put coverage here so we don't interfere with debugging in the IDE
