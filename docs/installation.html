@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Installation &mdash; tristan-detector 0.5.2 documentation</title>
+  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/doctools.js"></script>
+    <script type="text/javascript" src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Setting Up Tristan Software" href="setup.html" />
+    <link rel="prev" title="Introduction" href="introduction.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="index.html" class="icon icon-home"> tristan-detector
+          </a>
+              <div class="version">
+                0.5
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div>
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Main">
+              <p class="caption"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="introduction.html">Introduction</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Installation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#installing-from-source">Installing From Source</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#prerequisites">Prerequisites</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#install-python-virtual-environment">Install Python Virtual Environment</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#installing-odin-control">Installing Odin-Control</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#python-installation">Python Installation</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#installing-odin-data">Installing Odin-Data</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#id1">Python Installation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#c-installation">C++ Installation</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#installing-tristan-detector">Installing Tristan-Detector</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#id2">Python Installation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id3">C++ Installation</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="setup.html">Setting Up Tristan Software</a></li>
+<li class="toctree-l1"><a class="reference internal" href="userguide.html">Users Guide</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" aria-label="Top">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">tristan-detector</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          
+
+<div role="navigation" aria-label="Breadcrumbs">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
+      <li>Installation</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/installation.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <div class="section" id="installation">
+<h1>Installation<a class="headerlink" href="#installation" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="installing-from-source">
+<h2>Installing From Source<a class="headerlink" href="#installing-from-source" title="Permalink to this headline">¶</a></h2>
+<p>Installation from source requires several tools and external packages to be available as
+well as the building and installation of three Odin and Eiger specific software packages.
+This guide assumes the the installation is taking place on a CentOS 7 (or RHEL 7) operating
+system.  The source can also be built for other operating systems;
+any operating system specific package installation commands should simply be replaced with
+the equivalent command for the chosen operating system.</p>
+</div>
+<div class="section" id="prerequisites">
+<h2>Prerequisites<a class="headerlink" href="#prerequisites" title="Permalink to this headline">¶</a></h2>
+<p>The Odin and Tristan software requires standard C, C++ and python development tools to be
+present.  The following libraries and tools are also required:</p>
+<ul class="simple">
+<li><p>boost (add link)</p></li>
+<li><p>cmake (add link)</p></li>
+<li><p>log4cxx (add link)</p></li>
+<li><p>ZeroMQ (add link)</p></li>
+<li><p>pcap (add link)</p></li>
+<li><p>Cython (add link)</p></li>
+<li><p>Python Pip (add link)</p></li>
+<li><p>Python Virtual Environment (add link)</p></li>
+</ul>
+<p>All of the above packages can be installed from the default package manager Yum (add link)
+with the following commands:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">yum</span> <span class="n">install</span> <span class="o">-</span><span class="n">y</span> <span class="n">epel</span><span class="o">-</span><span class="n">release</span>
+<span class="n">yum</span> <span class="n">groupinstall</span> <span class="o">-</span><span class="n">y</span> <span class="s1">&#39;Development Tools&#39;</span>
+<span class="n">yum</span> <span class="n">install</span> <span class="o">-</span><span class="n">y</span> <span class="n">boost</span> <span class="n">boost</span><span class="o">-</span><span class="n">devel</span>
+<span class="n">yum</span> <span class="n">install</span> <span class="o">-</span><span class="n">y</span> <span class="n">cmake</span>
+<span class="n">yum</span> <span class="n">install</span> <span class="o">-</span><span class="n">y</span> <span class="n">log4cxx</span><span class="o">-</span><span class="n">devel</span>
+<span class="n">yum</span> <span class="n">install</span> <span class="o">-</span><span class="n">y</span> <span class="n">zeromq3</span><span class="o">-</span><span class="n">devel</span>
+<span class="n">yum</span> <span class="n">install</span> <span class="o">-</span><span class="n">y</span> <span class="n">libpcap</span><span class="o">-</span><span class="n">devel</span>
+<span class="n">yum</span> <span class="n">install</span> <span class="o">-</span><span class="n">y</span> <span class="n">python2</span><span class="o">-</span><span class="n">pip</span>
+<span class="n">yum</span> <span class="n">install</span> <span class="o">-</span><span class="n">y</span> <span class="n">python</span><span class="o">-</span><span class="n">virtualenv</span>
+<span class="n">yum</span> <span class="n">install</span> <span class="o">-</span><span class="n">y</span> <span class="n">Cython</span>
+</pre></div>
+</div>
+<p>For all remaining sections of this installation guide it is assumed that source files are
+going to be located in the directory:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">/</span><span class="n">home</span><span class="o">/</span><span class="n">tristan</span><span class="o">/</span>
+</pre></div>
+</div>
+<p>This directory will be referred to as the $SRC directory:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">export</span> <span class="n">SRC</span><span class="o">=/</span><span class="n">home</span><span class="o">/</span><span class="n">tristan</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="install-python-virtual-environment">
+<h2>Install Python Virtual Environment<a class="headerlink" href="#install-python-virtual-environment" title="Permalink to this headline">¶</a></h2>
+<p>The current version of Tristan control software runs on Python version 2.7.  The easiest
+method of setting up and installing an environment is to use pip.
+Start by creating the virtual environment:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>cd $SRC
+virtualenv venv27
+</pre></div>
+</div>
+<p>Now activate the environment for use:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>source $SRC/venv27/bin/activate
+</pre></div>
+</div>
+<p>Update the version of pip and the virtual environment:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">pip</span> <span class="n">install</span> <span class="o">--</span><span class="n">upgrade</span> <span class="n">pip</span>
+<span class="n">pip</span> <span class="n">install</span> <span class="o">--</span><span class="n">upgrade</span> <span class="n">virtualenv</span>
+</pre></div>
+</div>
+<p>This virtual environment will be used to install all of the required modules for the
+detector software.</p>
+</div>
+<div class="section" id="installing-odin-control">
+<h2>Installing Odin-Control<a class="headerlink" href="#installing-odin-control" title="Permalink to this headline">¶</a></h2>
+<p>Odin-Control contains the control server which will act as the central point of control
+for all other parts of the software stack.  This module contains only Python.  Start by
+downloading the odin-control module:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>cd $SRC
+wget -O odin-control.zip https://github.com/dls-controls/odin-control/archive/external-build.zip
+unzip odin-control.zip
+mv odin-control-external-build/ odin-control
+</pre></div>
+</div>
+<p>If preferred the module can be cloned from github using git:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>cd $SRC
+git clone https://github.com/dls-controls/odin-control.git
+cd odin-control
+git checkout external-build
+</pre></div>
+</div>
+<div class="section" id="python-installation">
+<h3>Python Installation<a class="headerlink" href="#python-installation" title="Permalink to this headline">¶</a></h3>
+<p>Activate the Python virtual environment (if not already activated) and install the
+requirements and then the module itself:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>source $SRC/venv27/bin/activate
+cd $SRC/odin-control/
+pip install -r requirements.txt
+python ./setup.py install
+</pre></div>
+</div>
+<p>At this stage it is possible to test that the installation was successful by requesting
+the command line help of the Odin control server application:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">odin_server</span> <span class="o">--</span><span class="n">help</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="installing-odin-data">
+<h2>Installing Odin-Data<a class="headerlink" href="#installing-odin-data" title="Permalink to this headline">¶</a></h2>
+<p>Odin-Data contains both Python and C++ software.  The main data acquisition base software
+is contained (FrameReceiver and FrameProcessor applications) as well as the necessary
+Python control software (Python adapters that are loaded into the Odin control server)
+to control the data acquisition applications.  Finally, this module contains the application
+known as the MetaWriter which Tristan also requires.
+At the current time of writing a development branch is required to run the Tristan software.</p>
+<p>To start the installation, download the odin-data module:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>cd $SRC
+wget -O odin-data.zip https://github.com/dls-controls/odin-data/archive/dev_branch.zip
+unzip odin-data.zip
+mv odin-data-dev_branch odin-data
+cd odin-data
+</pre></div>
+</div>
+<p>If preferred the module can be cloned from github using git:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>cd $SRC
+git clone https://github.com/dls-controls/odin-data.git
+cd odin-data
+git checkout dev_branch
+</pre></div>
+</div>
+<div class="section" id="id1">
+<h3>Python Installation<a class="headerlink" href="#id1" title="Permalink to this headline">¶</a></h3>
+<p>Activate the Python virtual environment (if not already activated) and install the
+requirements and then the module itself:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>source $SRC/venv27/bin/activate
+cd $SRC/odin-data/tools/python
+pip install -r requirements.txt
+python ./setup.py install
+</pre></div>
+</div>
+<p>At this stage it is possible to test that the Python installation was successful by
+requesting the command line help of the MetaWriter application:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">meta_writer</span> <span class="o">--</span><span class="n">help</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="c-installation">
+<h3>C++ Installation<a class="headerlink" href="#c-installation" title="Permalink to this headline">¶</a></h3>
+<p>TDB: C++ Installation</p>
+</div>
+</div>
+<div class="section" id="installing-tristan-detector">
+<h2>Installing Tristan-Detector<a class="headerlink" href="#installing-tristan-detector" title="Permalink to this headline">¶</a></h2>
+<p>Tristan-Detector contains both Python and C++ software.  This module contains the control
+and data acquisition libraries that are specific to the detector, and these are loaded
+into the control and data acquisition applications from the other modules.</p>
+<p>To start the installation, download the odin-data module:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>cd $SRC
+wget -O tristan-detector.zip https://github.com/dls-controls/tristan-detector/archive/meta.zip
+unzip tristan-detector.zip
+mv tristan-detector-meta tristan-detector
+cd tristan-detector
+</pre></div>
+</div>
+<p>If preferred the module can be cloned from github using git:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>cd $SRC
+git clone https://github.com/dls-controls/tristan-detector.git
+cd tristan-detector
+git checkout meta
+</pre></div>
+</div>
+<div class="section" id="id2">
+<h3>Python Installation<a class="headerlink" href="#id2" title="Permalink to this headline">¶</a></h3>
+<p>Activate the Python virtual environment (if not already activated) and install the
+requirements and then the module itself:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>source $SRC/venv27/bin/activate
+cd $SRC/tristan-detector/control
+pip install -r control_requirements.txt
+python ./setup.py install
+</pre></div>
+</div>
+<p>At this stage it is possible to test that the Python installation was successful by
+requesting the command line help of the simulator application:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">tristan_simulator</span> <span class="o">--</span><span class="n">help</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="id3">
+<h3>C++ Installation<a class="headerlink" href="#id3" title="Permalink to this headline">¶</a></h3>
+<p>TDB: C++ Installation</p>
+</div>
+</div>
+</div>
+
+
+           </div>
+          </div>
+          <footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="introduction.html" class="btn btn-neutral float-left" title="Introduction" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="setup.html" class="btn btn-neutral float-right" title="Setting Up Tristan Software" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2021, Alan Greer.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
