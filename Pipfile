@@ -9,9 +9,6 @@ verify_ssl = true
 sphinx-rtd-theme = "*"
 sphinx = "*"
 
-[requires]
-python_version = "3.6"
-
 [scripts]
 # Put coverage here so we don't interfere with debugging in the IDE
 tests = "python -m pytest --cov=scanspec --cov-report term"
