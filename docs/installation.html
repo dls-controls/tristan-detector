@@ -45,6 +45,7 @@
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Installation</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#installing-from-source">Installing From Source</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#prerequisites">Prerequisites</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#install-hdf5-libraries">Install HDF5 libraries</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#install-python-virtual-environment">Install Python Virtual Environment</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#installing-odin-control">Installing Odin-Control</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#python-installation">Python Installation</a></li>
@@ -60,6 +61,7 @@
 <li class="toctree-l3"><a class="reference internal" href="#id3">C++ Installation</a></li>
 </ul>
 </li>
+<li class="toctree-l2"><a class="reference internal" href="#next-steps">Next Steps</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="setup.html">Setting Up Tristan Software</a></li>
@@ -98,7 +100,7 @@
 <div class="section" id="installing-from-source">
 <h2>Installing From Source<a class="headerlink" href="#installing-from-source" title="Permalink to this headline">¶</a></h2>
 <p>Installation from source requires several tools and external packages to be available as
-well as the building and installation of three Odin and Eiger specific software packages.
+well as the building and installation of three Odin and Tristan specific software packages.
 This guide assumes the the installation is taking place on a CentOS 7 (or RHEL 7) operating
 system.  The source can also be built for other operating systems;
 any operating system specific package installation commands should simply be replaced with
@@ -109,23 +111,22 @@ the equivalent command for the chosen operating system.</p>
 <p>The Odin and Tristan software requires standard C, C++ and python development tools to be
 present.  The following libraries and tools are also required:</p>
 <ul class="simple">
-<li><p>boost (add link)</p></li>
-<li><p>cmake (add link)</p></li>
-<li><p>log4cxx (add link)</p></li>
-<li><p>ZeroMQ (add link)</p></li>
-<li><p>pcap (add link)</p></li>
-<li><p>Cython (add link)</p></li>
-<li><p>Python Pip (add link)</p></li>
-<li><p>Python Virtual Environment (add link)</p></li>
+<li><p>boost (<a class="reference external" href="https://www.boost.org">https://www.boost.org</a>)</p></li>
+<li><p>cmake (<a class="reference external" href="https://cmake.org">https://cmake.org</a>)</p></li>
+<li><p>log4cxx (<a class="reference external" href="https://logging.apache.org/">https://logging.apache.org/</a>)</p></li>
+<li><p>ZeroMQ (<a class="reference external" href="https://zeromq.org/">https://zeromq.org/</a>)</p></li>
+<li><p>pcap (<a class="reference external" href="https://www.tcpdump.org/">https://www.tcpdump.org/</a>)</p></li>
+<li><p>Cython (<a class="reference external" href="https://cython.org/">https://cython.org/</a>)</p></li>
+<li><p>Python Pip (<a class="reference external" href="https://pypi.org/project/pip/">https://pypi.org/project/pip/</a>)</p></li>
 </ul>
-<p>All of the above packages can be installed from the default package manager Yum (add link)
+<p>All of the above packages can be installed from the default package manager Yum (<a class="reference external" href="https://www.redhat.com/sysadmin/how-manage-packages">https://www.redhat.com/sysadmin/how-manage-packages</a>)
 with the following commands:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">yum</span> <span class="n">install</span> <span class="o">-</span><span class="n">y</span> <span class="n">epel</span><span class="o">-</span><span class="n">release</span>
 <span class="n">yum</span> <span class="n">groupinstall</span> <span class="o">-</span><span class="n">y</span> <span class="s1">&#39;Development Tools&#39;</span>
 <span class="n">yum</span> <span class="n">install</span> <span class="o">-</span><span class="n">y</span> <span class="n">boost</span> <span class="n">boost</span><span class="o">-</span><span class="n">devel</span>
 <span class="n">yum</span> <span class="n">install</span> <span class="o">-</span><span class="n">y</span> <span class="n">cmake</span>
 <span class="n">yum</span> <span class="n">install</span> <span class="o">-</span><span class="n">y</span> <span class="n">log4cxx</span><span class="o">-</span><span class="n">devel</span>
-<span class="n">yum</span> <span class="n">install</span> <span class="o">-</span><span class="n">y</span> <span class="n">zeromq3</span><span class="o">-</span><span class="n">devel</span>
+<span class="n">yum</span> <span class="n">install</span> <span class="o">-</span><span class="n">y</span> <span class="n">zeromq</span><span class="o">-</span><span class="n">devel</span>
 <span class="n">yum</span> <span class="n">install</span> <span class="o">-</span><span class="n">y</span> <span class="n">libpcap</span><span class="o">-</span><span class="n">devel</span>
 <span class="n">yum</span> <span class="n">install</span> <span class="o">-</span><span class="n">y</span> <span class="n">python2</span><span class="o">-</span><span class="n">pip</span>
 <span class="n">yum</span> <span class="n">install</span> <span class="o">-</span><span class="n">y</span> <span class="n">python</span><span class="o">-</span><span class="n">virtualenv</span>
@@ -141,6 +142,49 @@ going to be located in the directory:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">export</span> <span class="n">SRC</span><span class="o">=/</span><span class="n">home</span><span class="o">/</span><span class="n">tristan</span>
 </pre></div>
 </div>
+</div>
+<div class="section" id="install-hdf5-libraries">
+<h2>Install HDF5 libraries<a class="headerlink" href="#install-hdf5-libraries" title="Permalink to this headline">¶</a></h2>
+<p>It is necessary to install the HDF5 libraries to use Odin Data to
+save the data to disk.  There are prebuilt installation files
+available and also some OS distributions provide specific packages to
+install the HDF libraries.  This method shows how HDF5 can be installed
+from source if preferred.
+Start by downloading and installing the szip library:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>cd $SRC
+wget https://support.hdfgroup.org/ftp/lib-external/szip/2.1.1/src/szip-2.1.1.tar.gz
+gunzip szip-2.1.1.tar.gz
+tar -xvf szip-2.1.1.tar
+cd szip-2.1.1
+./configure --prefix=$SRC/szip-2.1.1/install
+</pre></div>
+</div>
+<p>Note this installs the library into a local relative path.  This will
+allow a non-priveliged user to perform the installation if required. Now
+make and install the library:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">make</span>
+<span class="n">make</span> <span class="n">install</span>
+</pre></div>
+</div>
+<p>Now download, unpack and configure the main package:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>cd $SRC
+wget -O hdf5-1.12.0.tar.gz https://www.hdfgroup.org/package/hdf5-1-12-0-tar-gz/?wpdmdl=14582
+gunzip hdf5-1.12.0.tar.gz
+tar -xvf hdf5-1.12.0.tar
+cd hdf5-1.12.0
+./configure --with-szlib=$SRC/szip-2.1.1/install --prefix=$SRC/hdf5-1.12.0/install --enable-threadsafe --enable-hl --with-pthread --enable-shared --enable-unsupported
+</pre></div>
+</div>
+<p>Once again the configuration line above configures for a local install.  Now
+make and install:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">make</span>
+<span class="n">make</span> <span class="n">install</span>
+</pre></div>
+</div>
+<p>The installation of the HDF5 libraries should now be complete.  There
+are various tools and tests that can be run to verify the installation.
+Visit <a class="reference external" href="https://www.hdfgroup.org/">https://www.hdfgroup.org/</a> for more details regarding the HDF5
+libraries and tools.</p>
 </div>
 <div class="section" id="install-python-virtual-environment">
 <h2>Install Python Virtual Environment<a class="headerlink" href="#install-python-virtual-environment" title="Permalink to this headline">¶</a></h2>
@@ -239,7 +283,30 @@ requesting the command line help of the MetaWriter application:</p>
 </div>
 <div class="section" id="c-installation">
 <h3>C++ Installation<a class="headerlink" href="#c-installation" title="Permalink to this headline">¶</a></h3>
-<p>TDB: C++ Installation</p>
+<p>The C++ applications and tests are built using the CMake tool.  Start by creating a
+build directory and configuring the module:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>cd $SRC/odin-data/
+mkdir build_dir
+cd build_dir
+cmake -DHDF5_ROOT=$SRC/hdf5-1.12.0/install -DCMAKE_INSTALL_RPATH_USE_LINK_PATH=ON -DCMAKE_INSTALL_PREFIX=$SRC/odin-data/install ..
+</pre></div>
+</div>
+<p>Now make and then install the module:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">make</span>
+<span class="n">make</span> <span class="n">install</span>
+</pre></div>
+</div>
+<p>Once the installation has completed the unit tests can be executed from the current directory:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">./</span><span class="nb">bin</span><span class="o">/</span><span class="n">frameProcessorTest</span>
+<span class="o">./</span><span class="nb">bin</span><span class="o">/</span><span class="n">frameReceiverTest</span>
+</pre></div>
+</div>
+<p>To verify the installation change to the install directory and run one of the applications
+with the help command line option:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>cd $SRC/odin-data/install
+./bin/frameReceiver --help
+</pre></div>
+</div>
 </div>
 </div>
 <div class="section" id="installing-tristan-detector">
@@ -280,8 +347,31 @@ requesting the command line help of the simulator application:</p>
 </div>
 <div class="section" id="id3">
 <h3>C++ Installation<a class="headerlink" href="#id3" title="Permalink to this headline">¶</a></h3>
-<p>TDB: C++ Installation</p>
+<p>The C++ applications and tests are built using the CMake tool.  Start by creating a
+build directory and configuring the module:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>cd $SRC/tristan-detector/
+mkdir build_dir
+cd build_dir
+cmake -DODINDATA_ROOT_DIR=$SRC/odin-data/install -DCMAKE_INSTALL_RPATH_USE_LINK_PATH=ON -DCMAKE_INSTALL_PREFIX=$SRC/tristan-detector/install ..
+</pre></div>
 </div>
+<p>Now make and then install the module:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">make</span>
+<span class="n">make</span> <span class="n">install</span>
+</pre></div>
+</div>
+<p>Once the installation has completed the unit tests can be executed from the current directory:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">./</span><span class="nb">bin</span><span class="o">/</span><span class="n">LATRDDecoderTest</span>
+<span class="o">./</span><span class="nb">bin</span><span class="o">/</span><span class="n">LATRDProcessorTest</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="next-steps">
+<h2>Next Steps<a class="headerlink" href="#next-steps" title="Permalink to this headline">¶</a></h2>
+<p>Once the installation is complete it is possible to create a simulated instance of the
+detector to verify all of the components are running correctly.  The <a class="reference internal" href="setup.html"><span class="doc">setting up</span></a>
+guide will explain the steps necessary to achieve this.</p>
 </div>
 </div>
 
