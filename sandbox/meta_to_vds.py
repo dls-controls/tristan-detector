@@ -13,6 +13,14 @@ from collections import OrderedDict;
 
 fp_per_module = None;
 
+datatypes = {
+ 'cue_id' : h5py.h5t.NATIVE_UINT16,
+ "cue_timestamp_zero" : h5py.h5t.NATIVE_UINT64,
+ "event_id" : h5py.h5t.NATIVE_UINT32,
+ "event_energy" : h5py.h5t.NATIVE_UINT32,
+ "event_time_offset" : h5py.h5t.NATIVE_UINT64
+};
+
 # vds_file file-handle of vds file
 # total_events number of events across all 8 files
 # longest_meta_dset the num of ints in ts_rank_n, where n chosen to make this big
@@ -20,6 +28,7 @@ fp_per_module = None;
 # ts_size a dict of ts_rank_{} 2 ts_rank_{}_array
 # raw_files a dict of ts_rank_{} 2 rawfile_name
 # dset_type actually the datatype
+
 # the_dset_name name of the dataset to create in the vds file, which is the same as in the raw files
 def create_event_vdset(vds_file, total_events, longest_meta_dset, meta_dset_names_list, ts_size, raw_files, dset_type, the_dset_name):
     raw_index = {}
@@ -120,6 +129,12 @@ def create_vds_file(metafile_path, out_directory):
     if out_directory==None:
         out_directory = rawfile_directory;
 
+    out_directory = os.path.normpath(out_directory);
+
+    if not os.path.isdir(out_directory):
+        logging.error("{} is not a directory".format(out_directory));
+        return;
+
     logging.info("Creating VDS in {}".format(out_directory));
     logging.info("from {}".format(metafile_path));
 
@@ -202,102 +217,83 @@ def create_vds_file0(meta_file, metafile_path, out_directory):
     vds_file.close()
     logging.info("created {}".format(vds_filename));
 
+# raw_file is used verbatim, so you must make it relative yourself if you want.
+def create_mapping(dcpl, the_dset_name, vdsoffset, raw_file, roffset, event_count):
+    src_dspace  = h5py.h5s.create_simple((0,), (0,));
+    virt_dspace = h5py.h5s.create_simple((0,), (0,));
 
-class MyVds:
-    def __init__(self):
-        self.next_elt_ = {};
-        self.dcpl_ = {};
-        self.datatype_ = {};
-        self.setup('cue_id', h5py.h5t.NATIVE_UINT16);
-        self.setup("cue_timestamp_zero", h5py.h5t.NATIVE_UINT64);
-        self.setup("event_id", h5py.h5t.NATIVE_UINT32);
-        self.setup("event_energy", h5py.h5t.NATIVE_UINT32);
-        self.setup("event_time_offset", h5py.h5t.NATIVE_UINT64);
+    src_dspace.select_hyperslab(start=(roffset,), count=(1,), block=(event_count,));
+    virt_dspace.select_hyperslab(start=(vdsoffset,), count=(1,), block=(event_count,));
+    if(the_dset_name == "cue_id" or the_dset_name == "event_energy"):
+        logging.debug("creating mapping of {} {} at v-offset of {}".format(event_count, the_dset_name, vdsoffset));
+    # why does it need to know the dataset name?
+    dcpl.set_virtual(virt_dspace, raw_file, "/" + the_dset_name, src_dspace);
 
-    def setup(self, dset, dtype):
-        self.next_elt_[dset] = 0;
-        self.datatype_[dset] = dtype;
-        self.dcpl_[dset] = h5py.h5p.create(h5py.h5p.DATASET_CREATE);
+def create_ctrl_maps1(vds_file, raw_files, want_rel = True):
+    ctrl_lens = [];
+    for raw_file in raw_files:
+        rf = h5py.File(raw_file, 'r', libver='latest', swmr=True);
+        cue_dset = np.array(rf['cue_id'][:])
+        # argmin gives the index of the first 0 in the dset IF it exists, signalling the end of the cues
+        clen = np.argmin(cue_dset);
+        if cue_dset[clen] != 0:
+            raise Exception("there are no zeros at the end of the cue_id dataset in {}".format(raw_file) );
+        ctrl_lens.append(clen);
 
-    def open(self, vds_filename):
-        logging.info("creating vds file {}".format(vds_filename));
-        self.vds_file_ = h5py.File(vds_filename, 'w', libver='latest');
+    for vds_dset_name in ["cue_id","cue_timestamp_zero"]:
+        logging.info("Processing {} cues for dset {}".format(sum(ctrl_lens), vds_dset_name));
+        vdsoffset = 0;
+        dcpl = h5py.h5p.create(h5py.h5p.DATASET_CREATE);
+        for raw_file, ctrl_len in zip(raw_files, ctrl_lens):
+            if(want_rel):
+                create_mapping(dcpl, vds_dset_name, vdsoffset, os.path.basename(raw_file), 0, ctrl_len);
+            else:
+                create_mapping(dcpl, vds_dset_name, vdsoffset, raw_file, 0, ctrl_len);
+            vdsoffset += ctrl_len;
 
-    def close(self):
-        for vds_dset_name in self.dcpl_.keys():
-            dset_type = self.datatype_[vds_dset_name];
-            dcpl = self.dcpl_.get(vds_dset_name);
-            num_elts = self.next_elt_.get(vds_dset_name);
-            virt_dspace = h5py.h5s.create_simple((num_elts,), (num_elts,));
-            h5py.h5d.create(self.vds_file_.id, name=vds_dset_name, tid=dset_type, space=virt_dspace, dcpl=dcpl)
+        dset_type = datatypes[vds_dset_name];
+        num_elts = vdsoffset;
+        virt_dspace = h5py.h5s.create_simple((num_elts,), (num_elts,));
+        h5py.h5d.create(vds_file.id, name=vds_dset_name, tid=dset_type, space=virt_dspace, dcpl=dcpl)
 
-        self.vds_file_.close();
-
-
-    def create_ctrl_maps1(self, raw_files):
-        ctrl_lens = [];
-        for raw_file in raw_files:
-            rf = h5py.File(raw_file, 'r', libver='latest', swmr=True)
-            cue_dset = np.array(rf['cue_id'][:])
-            # argmin gives the index of the first 0 in the dset, signalling the end of the cues?
-            ctrl_lens.append(np.argmin(cue_dset))
-
-        for vds_dset_name in ["cue_id","cue_timestamp_zero"]:
-            logging.info("Processing {} cues for dset {}".format(sum(ctrl_lens), vds_dset_name))
-
-            for raw_file, ctrl_len in zip(raw_files, ctrl_lens):
-                dset_ptr = self.next_elt_[vds_dset_name];
-                virt_dspace = h5py.h5s.create_simple((0,), (0,));
-                src_dspace  = h5py.h5s.create_simple((0,), (0,));
-
-                src_dspace.select_hyperslab(start=(0,), count=(1,), block=(ctrl_len,));
-                virt_dspace.select_hyperslab(start=(dset_ptr,), count=(1,), block=(ctrl_len,));
-
-                logging.debug("creating mapping of {} cues at v-offset of {}".format(ctrl_len, dset_ptr)); 
-
-                # Save this mapping in the dcpl
-                self.dcpl_.get(vds_dset_name).set_virtual(virt_dspace, os.path.basename(raw_file), "/" + vds_dset_name, src_dspace);
-                self.next_elt_[vds_dset_name] += ctrl_len
-
-    # raw_file can be the absolute path; the function will strip to the basename which we want for relative references
-    def create_event_map1(self, vdsoffset, raw_file, roffset, event_count):
-        for the_dset_name in ["event_time_offset","event_id","event_energy"]:
-            src_dspace  = h5py.h5s.create_simple((0,), (0,));
-            virt_dspace = h5py.h5s.create_simple((0,), (0,));
-
-            src_dspace.select_hyperslab(start=(roffset,), count=(1,), block=(event_count,));
-            virt_dspace.select_hyperslab(start=(vdsoffset,), count=(1,), block=(event_count,));
-
-            self.dcpl_[the_dset_name].set_virtual(virt_dspace, os.path.basename(raw_file), "/" + the_dset_name, src_dspace);
-            if the_dset_name == "event_id":
-                logging.debug("creating mapping {} from vds{} rf{} roff{} qty{}".format(the_dset_name, vdsoffset, os.path.basename(raw_file), roffset, event_count) );
-            if(vdsoffset != self.next_elt_[the_dset_name]):
-                raise Exception("problem with vds offset");
-            self.next_elt_[the_dset_name] += event_count;
-    
 
 def create_vds_file1(metafile_path, out_directory):
 
     metafile = vds_tester.Metafile(metafile_path);
 
-    rawfile_directory = os.path.dirname(metafile_path);
-    # 8 is the length of "_meta.h5"
-    file_prefix = os.path.basename(metafile_path)[0:-8];
+    rawfile_directory = metafile.getSourceDir();
 
-    vds_filename = os.path.join(out_directory, metafile.getVdsFilename())
-    vds_file = MyVds();
-    vds_file.open(vds_filename);
+    want_rel = False;
+    if rawfile_directory == out_directory:
+        want_rel = True;
+    logging.info("relative paths to raw files = {}".format(want_rel));
 
-    vds_file.create_ctrl_maps1(metafile.getRawFilenames());
+    vds_filename = os.path.join(out_directory, os.path.basename(metafile.getVdsFilename()));
+    logging.info("creating vds file {}".format(vds_filename));
+    vds_file = h5py.File(vds_filename, 'w', libver='latest');
+
+    create_ctrl_maps1(vds_file, metafile.getRawFilenames(), want_rel);
 
     timeslices = metafile.getTimesliceLookup();
+    num_mappings = len(timeslices);
 
-    for vdsoffset in sorted(timeslices.keys()):
-        params = timeslices[vdsoffset];
-        rfn = params[0];
-        roffset = params[1];
-        qty = params[2];
-        vds_file.create_event_map1(vdsoffset, rfn, roffset, qty);
+    for the_dset_name in ["event_energy", "event_id", "event_time_offset"]:
+        logging.info("Processing {} maps for dset {}".format(num_mappings, the_dset_name));
+        dcpl = h5py.h5p.create(h5py.h5p.DATASET_CREATE);
+        total_qty = 0;
+        for vdsoffset in sorted(timeslices.keys()):
+            params = timeslices[vdsoffset];
+            rfn = params[0];
+            roffset = params[1];
+            qty = params[2];
+            total_qty += qty;
+            rfn = os.path.basename(rfn) if want_rel else rfn;
+            create_mapping(dcpl, the_dset_name, vdsoffset, rfn, roffset, qty);
+
+        dset_type = datatypes[the_dset_name];
+        virt_dspace = h5py.h5s.create_simple((total_qty,), (total_qty,));
+        h5py.h5d.create(vds_file.id, name=the_dset_name, tid=dset_type, space=virt_dspace, dcpl=dcpl)
+
     vds_file.close();
 
 def createtestfiles1():
@@ -330,8 +326,11 @@ def createtestfiles1():
 def main():
     logfile = "vdscreation.log";
     os.remove(logfile) if os.path.exists(logfile) else 0;
-    logging.basicConfig(level=logging.DEBUG, filename=logfile);
-    parser = argparse.ArgumentParser(description="create tristan vds file from metafile+raw data files. be careful what you run this on as nx-staff is bugged.");
+    logging.basicConfig(level=logging.INFO, filename=logfile);
+    # get the root logger and add stdout as an output.
+    logging.getLogger().addHandler(logging.StreamHandler(sys.stdout));
+
+    parser = argparse.ArgumentParser(description="create tristan vds file from metafile+raw data files. be careful what you run this on as nx-staff is bugged. Use python 2.7. logging goes to file; please edit the code to alter the logging as you wish.");
     parser.add_argument("-i", nargs=1, required=True, help="full path to metafile, raw files should be next to it");
     parser.add_argument("--outdir", nargs=1, required=False, help="directory for vds file (default = same as metafile)");    
 
