@@ -19,7 +19,7 @@ add_executable(LATRDProcessorTest ${TEST_SOURCES}) # ${APP_SOURCES})
 if ( ${CMAKE_SYSTEM_NAME} MATCHES Linux )
   # librt required for timing functions
   find_library(REALTIME_LIBRARY
-               NAMES rt)
+               NAMES rt PATHS /usr/lib64)
   target_link_libraries( LATRDProcessorTest ${REALTIME_LIBRARY} )
 endif()
 

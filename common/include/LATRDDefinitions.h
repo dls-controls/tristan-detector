@@ -32,7 +32,7 @@ namespace LATRD
 
   static const size_t time_slice_write_size = 10;
 
-  static const size_t frame_size = 524288;  // 4MB / 8 byte values
+  static const size_t frame_qty = 0x400000 / 2;  // 4MB / 2 byte values like cue_id
 
   static const uint8_t MODE_EVENT = 0;
   static const uint8_t MODE_COUNT = 1;

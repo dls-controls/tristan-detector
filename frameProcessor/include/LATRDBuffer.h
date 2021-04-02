@@ -35,10 +35,10 @@ public:
 	boost::shared_ptr<Frame> appendData(void *data_ptr, size_t qty_pts);
 	boost::shared_ptr<Frame> retrieveCurrentFrame();
 	void configureProcess(size_t processes, size_t rank);
-  void resetFrameNumber();
+    void resetFrameNumber();
 
 private:
-	void *rawDataPtr_;
+	uint8_t* rawDataPtr_;
 	size_t numberOfPoints_;
 	size_t currentPoint_;
 	std::string frameName_;

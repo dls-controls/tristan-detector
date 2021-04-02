@@ -12,26 +12,28 @@
 
 namespace FrameProcessor
 {
-const std::string LATRDProcessPlugin::META_NAME                  = "TristanProcessor";
+const std::string LATRDProcessPlugin::META_NAME                   = "TristanProcessor";
 
-const std::string LATRDProcessPlugin::CONFIG_MODE                = "mode";
-const std::string LATRDProcessPlugin::CONFIG_MODE_TIME_ENERGY    = "time_energy";
-const std::string LATRDProcessPlugin::CONFIG_MODE_TIME_ONLY      = "time_only";
-const std::string LATRDProcessPlugin::CONFIG_MODE_COUNT          = "count";
+const std::string LATRDProcessPlugin::CONFIG_MODE                 = "mode";
+const std::string LATRDProcessPlugin::CONFIG_MODE_TIME_ENERGY     = "time_energy";
+const std::string LATRDProcessPlugin::CONFIG_MODE_TIME_ONLY       = "time_only";
+const std::string LATRDProcessPlugin::CONFIG_MODE_COUNT           = "count";
 
-const std::string LATRDProcessPlugin::CONFIG_RAW_MODE            = "raw_mode";
+const std::string LATRDProcessPlugin::CONFIG_RAW_MODE             = "raw_mode";
 
-const std::string LATRDProcessPlugin::CONFIG_RESET_FRAME         = "reset_frame";
+const std::string LATRDProcessPlugin::CONFIG_RESET_FRAME          = "reset_frame";
 
-const std::string LATRDProcessPlugin::CONFIG_PROCESS             = "process";
-const std::string LATRDProcessPlugin::CONFIG_PROCESS_NUMBER      = "number";
-const std::string LATRDProcessPlugin::CONFIG_PROCESS_RANK        = "rank";
+const std::string LATRDProcessPlugin::CONFIG_PROCESS              = "process";
+const std::string LATRDProcessPlugin::CONFIG_PROCESS_NUMBER       = "number";
+const std::string LATRDProcessPlugin::CONFIG_PROCESS_RANK         = "rank";
 
-const std::string LATRDProcessPlugin::CONFIG_ACQ_ID              = "acq_id";
+const std::string LATRDProcessPlugin::CONFIG_FRAME_QTY           = "frame_qty";
 
-const std::string LATRDProcessPlugin::CONFIG_SENSOR              = "sensor";
-const std::string LATRDProcessPlugin::CONFIG_SENSOR_WIDTH        = "width";
-const std::string LATRDProcessPlugin::CONFIG_SENSOR_HEIGHT       = "height";
+const std::string LATRDProcessPlugin::CONFIG_ACQ_ID               = "acq_id";
+
+const std::string LATRDProcessPlugin::CONFIG_SENSOR               = "sensor";
+const std::string LATRDProcessPlugin::CONFIG_SENSOR_WIDTH         = "width";
+const std::string LATRDProcessPlugin::CONFIG_SENSOR_HEIGHT        = "height";
 
   LATRDProcessPlugin::LATRDProcessPlugin() :
     sensor_width_(256),
@@ -50,14 +52,13 @@ const std::string LATRDProcessPlugin::CONFIG_SENSOR_HEIGHT       = "height";
 {
     // Setup logging for the class
     logger_ = Logger::getLogger("FP.LATRDProcessPlugin");
-    logger_->setLevel(Level::getAll());
     LOG4CXX_TRACE(logger_, "LATRDProcessPlugin constructor.");
 
     integral_.init(sensor_width_, sensor_height_);
     integral_.reset_image();
 
     // Create the buffer managers
-    rawBuffer_ = boost::shared_ptr<LATRDBuffer>(new LATRDBuffer(LATRD::frame_size, "raw_data", UINT64_TYPE));
+    rawBuffer_ = boost::shared_ptr<LATRDBuffer>(new LATRDBuffer(LATRD::frame_qty, "raw_data", UINT64_TYPE));
 
     // Create the meta header document
 //    this->createMetaHeader();
@@ -125,6 +126,11 @@ void LATRDProcessPlugin::configure(OdinData::IpcMessage& config, OdinData::IpcMe
     this->configureSensor(sensorConfig, reply);
   }
 
+  // Check to see if we are configuring the frame size
+  if (config.has_param(LATRDProcessPlugin::CONFIG_FRAME_QTY)) {
+    this->configureFrameSize(config, reply);
+  }
+
   // Check for the acquisition ID
   if (config.has_param(LATRDProcessPlugin::CONFIG_ACQ_ID)) {
     this->acq_id_ = config.get_param<std::string>(LATRDProcessPlugin::CONFIG_ACQ_ID);
@@ -143,6 +149,7 @@ void LATRDProcessPlugin::requestConfiguration(OdinData::IpcMessage& reply)
   reply.set_param(get_name() + "/" + LATRDProcessPlugin::CONFIG_PROCESS + "/" +
                   LATRDProcessPlugin::CONFIG_PROCESS_RANK, this->concurrent_rank_);
   reply.set_param(get_name() + "/" + LATRDProcessPlugin::CONFIG_ACQ_ID, this->acq_id_);
+  reply.set_param(get_name() + "/" + LATRDProcessPlugin::CONFIG_FRAME_QTY, coordinator_.get_frame_qty());        
 }
 
 void LATRDProcessPlugin::status(OdinData::IpcMessage& status)
@@ -222,6 +229,20 @@ void LATRDProcessPlugin::configureSensor(OdinData::IpcMessage &config, OdinData:
   integral_.reset_image();
 }
 
+void LATRDProcessPlugin::configureFrameSize(OdinData::IpcMessage &config, OdinData::IpcMessage &reply)
+{
+  if (config.has_param(LATRDProcessPlugin::CONFIG_FRAME_QTY)) {
+    int frame_qty = config.get_param<int>(LATRDProcessPlugin::CONFIG_FRAME_QTY);
+    if(0<frame_qty)
+    {
+      coordinator_.set_frame_qty(frame_qty);
+      LOG4CXX_INFO(logger_, "config msg sets frame qty to " << coordinator_.get_frame_qty());
+    }
+  }
+
+  coordinator_.init_buffer_managers();
+}
+
 void LATRDProcessPlugin::createMetaHeader()
 {
     // Create status message header
@@ -295,6 +316,8 @@ void LATRDProcessPlugin::process_frame(boost::shared_ptr<Frame> frame)
       std::vector <boost::shared_ptr<Frame> > frames = coordinator_.process_frame(frame);
       std::vector <boost::shared_ptr<Frame> >::iterator iter;
       for (iter = frames.begin(); iter != frames.end(); ++iter) {
+        LOG4CXX_DEBUG_LEVEL(2, logger_, "Pushing dataset " << (*iter)->get_meta_data().get_dataset_name() <<
+                                " frame number " << (*iter)->get_meta_data().get_frame_number() );
         this->push(*iter);
       }
     }

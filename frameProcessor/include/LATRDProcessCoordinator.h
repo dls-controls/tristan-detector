@@ -42,6 +42,13 @@ namespace FrameProcessor {
 
     void set_acquisition_id(const std::string& acq_id);
 
+    void init_buffer_managers();
+
+    // the frame_qty affects the 5 main datasets: cue and events
+    void set_frame_qty(size_t qty);
+
+    size_t get_frame_qty();
+
     void get_statistics(uint32_t *dropped_packets,
                         uint32_t *invalid_packets,
                         uint32_t *timestamp_mismatches,
@@ -160,6 +167,8 @@ namespace FrameProcessor {
     uint32_t processed_jobs_;
     uint32_t processed_frames_;
     uint32_t output_frames_;
+
+    size_t frame_qty_;
 
     /** Acquisition ID */
     std::string acq_id_;
