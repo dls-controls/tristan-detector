@@ -8,6 +8,7 @@
 #include "LATRDBuffer.h"
 #include "FrameMetaData.h"
 #include "DataBlockFrame.h"
+#include "DebugLevelLogger.h"
 
 namespace FrameProcessor {
 
@@ -22,7 +23,7 @@ LATRDBuffer::LATRDBuffer(size_t numberOfDataPoints, const std::string& frame, LA
 {
     // Setup logging for the class
     logger_ = Logger::getLogger("FP.LATRDBuffer");
-    logger_->setLevel(Level::getError());
+
     LOG4CXX_TRACE(logger_, "LATRDBuffer constructor.");
 
     // Allocate the memory block required for the points
@@ -46,7 +47,7 @@ LATRDBuffer::LATRDBuffer(size_t numberOfDataPoints, const std::string& frame, LA
     	throw LATRDProcessingException("Unknown datatype specified");
     }
     LOG4CXX_DEBUG(logger_, "Total bytes to allocate [" << bytes_to_allocate << "]");
-	rawDataPtr_ = malloc(bytes_to_allocate);
+	rawDataPtr_ = static_cast<uint8_t*>(malloc(bytes_to_allocate));
     LOG4CXX_DEBUG(logger_, "Allocated memory block with base address [" << std::hex << rawDataPtr_ << "]");
 }
 
@@ -67,7 +68,7 @@ boost::shared_ptr<Frame> LATRDBuffer::appendData(void *data_ptr, size_t qty_pts)
 
 	char *char_data_ptr = (char *)rawDataPtr_;
 
-    LOG4CXX_DEBUG(logger_, "Quantity of points to append [" << qty_pts << "]");
+    LOG4CXX_DEBUG_LEVEL(2, logger_, "Quantity of points to append to " << this->frameName_ << " is [" << qty_pts << "]");
     char_data_ptr += (currentPoint_ * dataSize_);
 	if (qty_pts < (numberOfPoints_ - currentPoint_)){
 		// The whole block can be added without filling a buffer
@@ -78,40 +79,9 @@ boost::shared_ptr<Frame> LATRDBuffer::appendData(void *data_ptr, size_t qty_pts)
 		size_t qty_to_fill = numberOfPoints_ - currentPoint_;
 	    LOG4CXX_DEBUG(logger_, "Current fill point " << currentPoint_ << ", filling buffer with " << qty_to_fill << " points");
 		memcpy(char_data_ptr, data_ptr, qty_to_fill * dataSize_);
+        currentPoint_ += qty_to_fill;
 
-		// The buffer should now be full so create the frame and copy the buffer in
-	    LOG4CXX_DEBUG(logger_, "Creating a new frame for [" << frameName_ << "]");
-//		frame = boost::shared_ptr<Frame>(new Frame(frameName_));
-
-		FrameProcessor::FrameMetaData frame_meta;
-        std::vector<dimsize_t> dims(0);
-        frame_meta.set_dataset_name(frameName_);
-		switch (type_)
-		{
-		case UINT64_TYPE:
-            frame_meta.set_data_type(FrameProcessor::raw_64bit);
-			break;
-		case UINT32_TYPE:
-	        frame_meta.set_data_type(FrameProcessor::raw_32bit);
-			break;
-		case UINT16_TYPE:
-	        frame_meta.set_data_type(FrameProcessor::raw_16bit);
-			break;
-		default:
-			throw LATRDProcessingException("Unknown datatype specified");
-		}
-        frame_meta.set_dimensions(dims);
-        frame_meta.set_compression_type(FrameProcessor::no_compression);
-
-	    LOG4CXX_DEBUG(logger_, "Copying data [" << numberOfPoints_ << " points] into " << frameName_);
-		frame = boost::shared_ptr<Frame>(new DataBlockFrame(frame_meta, rawDataPtr_, numberOfPoints_ * dataSize_));
-//		frame->copy_data(rawDataPtr_, numberOfPoints_ * dataSize_);
-		frame->set_frame_number(concurrent_rank_ + (frameNumber_ * concurrent_processes_));
-		frameNumber_++;
-
-		// Reset the buffer
-		memset(rawDataPtr_, 0, numberOfPoints_ * dataSize_);
-		currentPoint_ = 0;
+        frame = retrieveCurrentFrame();
 
 		// Calculate the remaining points left to fill
 		qty_pts -= qty_to_fill;
@@ -127,43 +97,50 @@ boost::shared_ptr<Frame> LATRDBuffer::appendData(void *data_ptr, size_t qty_pts)
 
 boost::shared_ptr<Frame> LATRDBuffer::retrieveCurrentFrame()
 {
-  boost::shared_ptr<Frame> frame;
-	if (currentPoint_ > 0) {
-		// The buffer should now be full so create the frame and copy the buffer in
-		LOG4CXX_DEBUG(logger_, "Creating a new frame for [" << frameName_ << "]");
-		// Create and populate metadata for the re-ordered frame
-		FrameMetaData frame_meta;
-        std::vector<dimsize_t> dims(0);
-        frame_meta.set_dataset_name(frameName_);
-		switch (type_)
-		{
-		case UINT64_TYPE:
-            frame_meta.set_data_type(FrameProcessor::raw_64bit);
-			break;
-		case UINT32_TYPE:
-	        frame_meta.set_data_type(FrameProcessor::raw_32bit);
-			break;
-		case UINT16_TYPE:
-	        frame_meta.set_data_type(FrameProcessor::raw_16bit);
-			break;
-		default:
-			throw LATRDProcessingException("Unknown datatype specified");
-		}
-        frame_meta.set_dimensions(dims);
-        frame_meta.set_compression_type(FrameProcessor::no_compression);
-//		frame = boost::shared_ptr<Frame>(new Frame(frameName_));
-		LOG4CXX_DEBUG(logger_, "Copying data [" << currentPoint_ << " points] into " << frameName_);
-		frame = boost::shared_ptr<Frame>(new DataBlockFrame(frame_meta, rawDataPtr_, numberOfPoints_ * dataSize_));
-//		frame->copy_data(rawDataPtr_, numberOfPoints_ * dataSize_);
-		frame->set_frame_number(concurrent_rank_ + (frameNumber_ * concurrent_processes_));
-		frameNumber_++;
-    // Reset the buffer
-    memset(rawDataPtr_, 0, numberOfPoints_ * dataSize_);
-    currentPoint_ = 0;
-	} else {
-		LOG4CXX_DEBUG(logger_, "No frame created from Idle buffer as there were no data points");
+	boost::shared_ptr<Frame> frame;
+	if (currentPoint_ == 0 || numberOfPoints_ < currentPoint_)
+    {
+		LOG4CXX_DEBUG_LEVEL(2, logger_, "No frame created from Idle buffer as there were no data points");
+        return frame;
+    }
+
+    LOG4CXX_DEBUG(logger_, "Creating a new frame for [" << frameName_ << "] of qty " << currentPoint_);
+
+    int items_to_zero = (numberOfPoints_ - currentPoint_);
+	memset(rawDataPtr_ + (currentPoint_ * dataSize_), 0, items_to_zero * dataSize_);
+    
+	FrameProcessor::FrameMetaData frame_meta;
+
+    // the support for single-dimension frames in odin could be better; we must set dims to empty here.
+    std::vector<dimsize_t> dims;
+    frame_meta.set_dataset_name(frameName_);
+	switch (type_)
+	{
+	case UINT64_TYPE:
+        frame_meta.set_data_type(FrameProcessor::raw_64bit);
+		break;
+	case UINT32_TYPE:
+        frame_meta.set_data_type(FrameProcessor::raw_32bit);
+		break;
+	case UINT16_TYPE:
+        frame_meta.set_data_type(FrameProcessor::raw_16bit);
+		break;
+	default:
+		throw LATRDProcessingException("Unknown datatype specified");
 	}
-	return frame;
+    frame_meta.set_dimensions(dims);
+    frame_meta.set_compression_type(FrameProcessor::no_compression);
+
+	frame = boost::shared_ptr<Frame>(new DataBlockFrame(frame_meta, rawDataPtr_, numberOfPoints_ * dataSize_));
+
+	frame->set_frame_number(concurrent_rank_ + (frameNumber_ * concurrent_processes_));
+
+    LOG4CXX_DEBUG_LEVEL(1, logger_, "frame number is:" << frame->get_frame_number());
+	++frameNumber_;
+
+	currentPoint_ = 0;
+
+    return frame;
 }
 
 void LATRDBuffer::configureProcess(size_t processes, size_t rank)

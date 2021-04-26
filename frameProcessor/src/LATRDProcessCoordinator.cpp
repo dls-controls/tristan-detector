@@ -20,6 +20,7 @@ namespace FrameProcessor {
     output_frames_(0),
     last_written_ts_index_(0),
     metaPtr_(0),
+    frame_qty_(LATRD::frame_qty),
     acq_id_("")
     {
         // Setup logging for the class
@@ -38,11 +39,7 @@ namespace FrameProcessor {
         }
 
         // Create the buffer managers
-        timeStampBuffer_ = boost::shared_ptr<LATRDBuffer>(new LATRDBuffer(LATRD::frame_size, "event_time_offset", UINT64_TYPE));
-        idBuffer_ = boost::shared_ptr<LATRDBuffer>(new LATRDBuffer(LATRD::frame_size, "event_id", UINT32_TYPE));
-        energyBuffer_ = boost::shared_ptr<LATRDBuffer>(new LATRDBuffer(LATRD::frame_size, "event_energy", UINT32_TYPE));
-        ctrlWordBuffer_ = boost::shared_ptr<LATRDBuffer>(new LATRDBuffer(LATRD::frame_size, "cue_id", UINT16_TYPE));
-        ctrlTimeStampBuffer_ = boost::shared_ptr<LATRDBuffer>(new LATRDBuffer(LATRD::frame_size, "cue_timestamp_zero", UINT64_TYPE));
+        init_buffer_managers();
 
         // Initialise the ts index vector
         ts_index_array_.assign(LATRD::time_slice_write_size * LATRD::number_of_time_slice_buffers, 0);
@@ -52,6 +49,29 @@ namespace FrameProcessor {
         for (size_t index = 0; index < LATRD::number_of_processing_threads; index++){
             thread_[index] = new boost::thread(&LATRDProcessCoordinator::processTask, this);
         }
+    }
+
+    void LATRDProcessCoordinator::init_buffer_managers()
+    {
+        // Create the buffer managers
+        // This should be called whenever the qty is reset by config.
+        // Any stored points would be lost
+        LOG4CXX_DEBUG(logger_, "Initialising the buffers to " << frame_qty_);
+        timeStampBuffer_ = boost::shared_ptr<LATRDBuffer>(new LATRDBuffer(frame_qty_, "event_time_offset", UINT64_TYPE));
+        idBuffer_ = boost::shared_ptr<LATRDBuffer>(new LATRDBuffer(frame_qty_, "event_id", UINT32_TYPE));
+        energyBuffer_ = boost::shared_ptr<LATRDBuffer>(new LATRDBuffer(frame_qty_, "event_energy", UINT32_TYPE));
+        ctrlWordBuffer_ = boost::shared_ptr<LATRDBuffer>(new LATRDBuffer(frame_qty_, "cue_id", UINT16_TYPE));
+        ctrlTimeStampBuffer_ = boost::shared_ptr<LATRDBuffer>(new LATRDBuffer(frame_qty_, "cue_timestamp_zero", UINT64_TYPE));
+    }
+
+    void LATRDProcessCoordinator::set_frame_qty(size_t qty)
+    {
+        frame_qty_ = qty;
+    }
+
+    size_t LATRDProcessCoordinator::get_frame_qty()
+    {
+        return frame_qty_;
     }
 
     void LATRDProcessCoordinator::get_statistics(uint32_t *dropped_packets,

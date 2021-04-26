@@ -46,6 +46,8 @@ namespace FrameProcessor {
 
         void configureSensor(OdinData::IpcMessage &config, OdinData::IpcMessage &reply);
 
+        void configureFrameSize(OdinData::IpcMessage &config, OdinData::IpcMessage &reply);
+
         void createMetaHeader();
 
         bool reset_statistics(void);
@@ -72,7 +74,7 @@ namespace FrameProcessor {
         static const std::string CONFIG_SENSOR_WIDTH;
         static const std::string CONFIG_SENSOR_HEIGHT;
 
-      /** Configuration constant for setting raw mode */
+        /** Configuration constant for setting raw mode */
         static const std::string CONFIG_RAW_MODE;
 
         /** Configuration constant for resetting the frame counter */
@@ -84,6 +86,9 @@ namespace FrameProcessor {
         static const std::string CONFIG_PROCESS_NUMBER;
         /** Configuration constant for this process rank */
         static const std::string CONFIG_PROCESS_RANK;
+
+        /** Configuration constant for setting the frame size */
+        static const std::string CONFIG_FRAME_QTY;
 
         /** Configuration constant for the acquisition ID used for meta data writing */
         static const std::string CONFIG_ACQ_ID;

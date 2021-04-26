@@ -24,7 +24,7 @@ add_executable(LATRDDecoderTest ${TEST_SOURCES} ${APP_SOURCES} ${MAIN_APP_SOURCE
 if ( ${CMAKE_SYSTEM_NAME} MATCHES Linux )
 # librt required for timing functions
 find_library(REALTIME_LIBRARY 
-		NAMES rt)
+		NAMES rt PATHS /usr/lib64)
 target_link_libraries( LATRDDecoderTest ${REALTIME_LIBRARY} )
 endif()
 
