@@ -163,13 +163,6 @@ namespace FrameProcessor {
             ts_index_array_.assign(LATRD::time_slice_write_size * LATRD::number_of_time_slice_buffers, 0);
             // Reset the DAQ format version
             daq_version_ = -1;
-            // If there are frames present tag the last one as end_of_acquisition
-            if (!frames.empty()){
-                LOG4CXX_ERROR(logger_, "PROCESS PLUGIN: Tagging last frame as end_of_acquisition");
-                FrameProcessor::FrameMetaData meta = frames.back()->get_meta_data_copy();
-                meta.set_end_of_acquisition(true);
-                frames.back()->set_meta_data(meta);
-            }
         }
         LOG4CXX_DEBUG_LEVEL(2, logger_, "Job stack size: " << jobStack_.size());
         return frames;

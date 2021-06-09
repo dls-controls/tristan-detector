@@ -320,6 +320,17 @@ void LATRDProcessPlugin::process_frame(boost::shared_ptr<Frame> frame)
                                 " frame number " << (*iter)->get_meta_data().get_frame_number() );
         this->push(*iter);
       }
+      const LATRD::FrameHeader* hdrPtr = static_cast<const LATRD::FrameHeader*>(frame->get_data_ptr());
+      if (hdrPtr->idle_frame != 0) {
+        // This is an IDLE frame, so if we have just flushed out frames then we are running
+        // an acquisition and we need to notify the plugin chain
+        if (frames.size() > 0){
+          LOG4CXX_INFO(logger_, "IDLE packet received.  Notify plugin chain end of acquisition");
+          this->notify_end_of_acquisition();
+        } else {
+          LOG4CXX_INFO(logger_, "IDLE packet received.");
+        }
+      }
     }
   }
 }
