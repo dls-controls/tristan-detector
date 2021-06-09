@@ -181,7 +181,7 @@ class TristanProducerDefaults(object):
         ]
         self.num_events = 50000000
         self.num_idle = 5
-        self.duration = 6.0
+        self.duration = 60.0
         self.drop_frac = 0
         self.drop_list = None
 

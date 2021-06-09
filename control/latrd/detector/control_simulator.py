@@ -30,7 +30,7 @@ class LATRDControlSimulator(object):
         self._sensor = sensor
         self._reactor = LATRDReactor()
         self._daq = TristanEventProducer(endpoints)
-        self._daq.init(800000)
+        self._daq.init(80000000)
         variant = '10M'
         module_dimensions = {
             "x_min": [
@@ -155,7 +155,7 @@ class LATRDControlSimulator(object):
                     'repeat_interval': 0.0,
                     'frames': 0,
                     'frames_per_trigger': 0,
-                    'n_trigger': 0,
+                    'ntrigger': 0,
                     'mode': 'time_energy',
                     'profile': 'standard',
                     'threshold': 5.2,
