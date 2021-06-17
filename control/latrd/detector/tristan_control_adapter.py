@@ -231,31 +231,58 @@ class TristanControlAdapter(ApiAdapter):
     }
 
     CONFIG_ITEM_LIST = {'exposure': float,
-                        'Repeat_Interval': float,
-                        'Readout_Time': float,
+                        'repeat_interval': float,
+                        'readout_time': float,
                         'frames': int,
-                        'Frames_Per_Trigger': int,
-                        'nTrigger': int,
-                        'Threshold': str,
-                        'Mode': str,
-                        'Profile': str
+                        'frames_per_trigger': int,
+                        'ntrigger': int,
+                        'threshold': str,
+                        'mode': str,
+                        'profile': str
                         }
     STATUS_ITEM_LIST = [
         {
             "state": None,
             "detector": {
                 "description": None,
+                "detector_type": None,
                 "serial_number": None,
+                'module_dimensions': {
+                    "x_min": [
+                        None
+                    ],
+                    "y_min": [
+                        None
+                    ],
+                    "x_max": [
+                        None
+                    ],
+                    "y_max": [
+                        None
+                    ]
+                },
                 "software_version": None,
+                "software_build": None,
                 "sensor_material": None,
-                "frames_acquired": None,
                 "sensor_thickness": None,
                 "x_pixel_size": None,
                 "y_pixel_size": None,
                 "x_pixels_in_detector": None,
                 "y_pixels_in_detector": None,
+                "tick_ps": None,
+                "tick_hz": None,
                 "timeslice_number": None,
-                "udp_packets_sent": None
+                "timing_warning": None,
+                "timing_error": None,
+                "udp_packets_sent": None,
+                "data_overrun": None,
+                "frames_acquired": None,
+                "shutteropen": None,
+                "acquisition_busy": None,
+                "shutterbusy": None,
+                "fpga_busy": None,
+                "loopaction": None,
+                "crw": None
             }
         }
     ]
@@ -279,14 +306,17 @@ class TristanControlAdapter(ApiAdapter):
             'repeat_interval': DoubleParameter('repeat_interal', 1.0),
             'frames': IntegerParameter('frames', 0),
             'frames_per_trigger': IntegerParameter('frames_per_trigger', 0),
-            'n_trigger': IntegerParameter('n_trigger', 0),
-            'threshold': StringParameter('threshold', ''),
+            'ntrigger': IntegerParameter('ntrigger', 0),
+            'threshold': DoubleParameter('threshold', ''),
             'mode': EnumParameter('mode',
                                   ModeType.time_energy.name,
                                   [e.name for e in ModeType]),
             'profile': EnumParameter('profile',
                                      ProfileType.energy.name,
                                      [e.name for e in ProfileType]),
+            'timeslice': {
+                'duration_rollover_bits': IntegerParameter('duration_rollover_bits', 18)
+            },
             'trigger': {
                 'start': EnumParameter('start',
                                        TriggerInType.internal.name,
@@ -367,6 +397,16 @@ class TristanControlAdapter(ApiAdapter):
         except:
             raise RuntimeError("No firmware version specified for the Tristan detector")
 
+        # Read the location of the UDP configuration file
+        try:
+            self._udp_config_file = self.options.get('udp_file')
+            if self._udp_config_file is None:
+                self._udp_config_file = './udp_tristan.json'
+        except:
+            # Use a default if no location if an error occurs
+            self._udp_config_file = './udp_tristan.json'
+        self._kwargs['udp_file'] = self._udp_config_file
+
         # Create the connection to the hardware
         self._detector = LATRDChannel(LATRDChannel.CHANNEL_TYPE_DEALER)
         self._detector.connect(self._endpoint)
@@ -379,6 +419,7 @@ class TristanControlAdapter(ApiAdapter):
         self._update_time = datetime.now()
         self._status_thread = threading.Thread(target=self.update_loop)
         self._status_thread.start()
+
 
     def cleanup(self):
         self._executing_updates = False
@@ -561,7 +602,8 @@ class TristanControlAdapter(ApiAdapter):
         if 'config' in config_items[0]:
             command, value_dict = self.uri_params_to_dictionary(request_command, request)
 
-            logging.debug("Config dict: %s", value_dict)
+            logging.info("Config command: %s", command)
+            logging.info("Config dict: %s", value_dict)
             msg = PutMessage()
             msg.set_param('config', value_dict)
             reply = self.send_recv(msg)
@@ -634,6 +676,32 @@ class TristanControlAdapter(ApiAdapter):
         logging.error("Command [%s] parameter dictionary: %s", command, param_dict)
         return command, param_dict
 
+    def send_udp_config(self):
+        """
+        Send the specified udp configuration to the detector
+        :param self:
+        :return:
+        """
+        # Load the spcified file into a JSON object
+        logging.info("Loading UDP configuration from file {}".format(self._udp_config_file))
+        try:
+            with open(self._udp_config_file) as config_file:
+                udp_config = json.load(config_file)
+        except IOError as io_error:
+            logging.error("Failed to open UDP configuration file: {}".format(io_error))
+            self.set_error("Failed to open UDP configuration file: {}".format(io_error))
+            return
+        except ValueError as value_error:
+            logging.error("Failed to parse UDP json config: {}".format(value_error))
+            self.set_error("Failed to parse UDP json config: {}".format(value_error))
+            return
+
+        logging.info("Downloading UDP configuration: {}".format(udp_config))
+        msg = PutMessage()
+        msg.set_param('config', udp_config)
+        reply = self.send_recv(msg)
+        logging.info("Reply from message: {}".format(reply))
+
     def send_recv(self, msg):
         """
         Send a message and wait for the response
@@ -671,6 +739,7 @@ class TristanControlAdapter(ApiAdapter):
             time.sleep(0.1)
             if (datetime.now() - self._update_time).seconds > self._update_interval:
                 self._update_time = datetime.now()
+                trigger_udp_config = False
                 try:
                     with self._comms_lock:
                         logging.debug("Updating status from detector...")
@@ -707,6 +776,9 @@ class TristanControlAdapter(ApiAdapter):
                                     msg = PutMessage()
                                     msg.set_param('config', {'time': connect_time})
                                     reply = self.send_recv(msg)
+                                    # Resend the UDP configuration on re-connection
+                                    self.send_udp_config()
+
                                 # Now set the connection status to True
                                 self._parameters['status']['connected'] = True
                                 if self._firmware == self._parameters['status']['detector']['software_version']:
@@ -762,7 +834,6 @@ class TristanControlAdapter(ApiAdapter):
 
                         if reply is not None:
                             logging.debug("Raw reply: %s", reply)
-                            logging.debug("TESTING: %s", reply)
                             if LATRDMessage.MSG_TYPE_RESPONSE in reply.msg_type:
                                 data = reply.data['config']
                                 logging.debug("Reply data: %s", data)

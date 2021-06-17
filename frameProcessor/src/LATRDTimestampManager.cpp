@@ -13,7 +13,6 @@ namespace FrameProcessor {
     {
         // Setup logging for the class
         logger_ = Logger::getLogger("FP.LATRDTimestampManager");
-        logger_->setLevel(Level::getAll());
         LOG4CXX_TRACE(logger_, "LATRDTimestampManager constructor.");
     }
 

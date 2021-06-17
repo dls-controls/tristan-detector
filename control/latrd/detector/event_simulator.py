@@ -181,7 +181,7 @@ class TristanProducerDefaults(object):
         ]
         self.num_events = 50000000
         self.num_idle = 5
-        self.duration = 6.0
+        self.duration = 60.0
         self.drop_frac = 0
         self.drop_list = None
 
@@ -222,10 +222,17 @@ class TristanEventProducer(object):
 
         self._sent_packets = 0
         self._packets_to_send = 0
+        self._last_log = 0
+        self._mutex = threading.Lock()
 
     def init(self, num_events):
         self._time_slices = []
-        self.create_packets(num_events, 500000)
+        self.create_packets(num_events, 800)
+
+    def increment_packets_sent(self):
+        self._mutex.acquire()
+        self._sent_packets += 1
+        self._mutex.release()
 
     def arm(self):
         self._sent_packets = 0
@@ -238,7 +245,9 @@ class TristanEventProducer(object):
         self.send_packets()
 
     def running(self):
-        print("PACKETS SENT : {}    TO SEND : {}".format(self._sent_packets, self._packets_to_send))
+        if self._sent_packets != self._last_log:
+            print("PACKETS SENT : {}    TO SEND : {}".format(self._sent_packets, self._packets_to_send))
+            self._last_log = self._sent_packets
         return self._sent_packets != self._packets_to_send
 
     def create_packets(self, total_events, per_slice):
@@ -251,13 +260,15 @@ class TristanEventProducer(object):
         self._pkt_number = 0
         # Now create enough packets for the number of words
         generated_events = 0
-        time_slice = 0
+        time_slice = 1
 
         while generated_events < total_events:
             time_slice_dict = {'id': time_slice, 'packets': [], 'ts': []}
             # Generate a new packet
             slice_events = 0
-            while slice_events < per_slice:
+#            this_slice = int(((random.random() * 0.2) + 0.8) * per_slice)
+            this_slice = per_slice
+            while slice_events < this_slice:
                 pkt = TristanPacket(800, time_slice)
                 #print("Packet length bytes: {}".format(len(pkt.to_packet())))
                 generated_events += 800
@@ -268,7 +279,7 @@ class TristanEventProducer(object):
                 #self._packets.append(pkt.to_packet())
                 #self._ts.append(self._pkt_number)
                 self._pkt_number += 1
-            #print("Generated time slice {}".format(time_slice))
+            print("Generated time slice {}".format(time_slice))
             self._time_slices.append(time_slice_dict)
             time_slice += 1
             TristanData.PACKET_NUMBER=0
@@ -324,14 +335,17 @@ class TristanEventProducer(object):
         logging.info("Sending %d data packets in %f seconds", packet_count, self.defaults.duration)
         data_bytes_sent = 0
         data_packets_sent = 0
-        delay = float(self.defaults.duration)/float(packet_count)
+        delay = 1.0
+        if packet_count > 0:
+            delay = float(self.defaults.duration)/float(packet_count)
         logging.info("Packet send delay %f", delay)
         if delay < 0.001:
             delay = 0.001
 #        for packet, ts_id in zip(self._packets, self._ts):
         for ts in self._time_slices:
-            if ts['id'] % self._no_of_ports == index:
+            if (ts['id'] - 1) % self._no_of_ports == index:
                 # Send the packet over the UDP socket
+                logging.info("Sending TS {} to endpoint {}:{}".format(ts['id'], addr, port))
                 for packet in ts['packets']:
                     try:
                     #logging.info("Checking port number for %d at index %d", ts_id, index)
@@ -339,7 +353,8 @@ class TristanEventProducer(object):
                         data_bytes_sent += udp_socket.sendto(packet, (addr, port))
                         #logging.info("Sent UDP packet")
                         data_packets_sent += 1
-                        owner._sent_packets += 1
+#                        owner._sent_packets += 1
+                        owner.increment_packets_sent()
                         # Add 1 second delay
                         time.sleep(delay)
                         if data_packets_sent % 1000 == 0:
