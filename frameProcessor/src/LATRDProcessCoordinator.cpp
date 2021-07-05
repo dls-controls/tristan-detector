@@ -406,13 +406,18 @@ namespace FrameProcessor {
         uint32_t base_index = (wrap * LATRD::number_of_time_slice_buffers) - last_written_ts_index_;
 
         // First check if the new wrap is outside the current ts_index size and publish any updates
+        bool publish = true;
         while (base_index >= ts_index_array_.size()){
             // We have got a full time slice array so publish the array and reset it
-            this->publish_time_slice_meta_data(acq_id_, ts_index_array_.size());
+            if (publish){
+                this->publish_time_slice_meta_data(acq_id_, ts_index_array_.size());
+            }
             // Update the last written ts_index value
             last_written_ts_index_ += (LATRD::time_slice_write_size * LATRD::number_of_time_slice_buffers);
             ts_index_array_.assign(LATRD::time_slice_write_size * LATRD::number_of_time_slice_buffers, 0);
             base_index = (wrap * LATRD::number_of_time_slice_buffers) - last_written_ts_index_;
+            // There is no point publishing a series of empty time slice entries
+            publish = false;
         }
 
         // Now add the latest wrap counters and publish again if necessary
