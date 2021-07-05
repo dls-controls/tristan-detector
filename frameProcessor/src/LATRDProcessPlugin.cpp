@@ -328,7 +328,7 @@ void LATRDProcessPlugin::process_frame(boost::shared_ptr<Frame> frame)
           LOG4CXX_INFO(logger_, "IDLE packet received.  Notify plugin chain end of acquisition");
           this->notify_end_of_acquisition();
         } else {
-          LOG4CXX_INFO(logger_, "IDLE packet received.");
+          LOG4CXX_DEBUG_LEVEL(1, logger_, "IDLE packet received.");
         }
       }
     }

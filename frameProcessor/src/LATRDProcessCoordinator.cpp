@@ -511,7 +511,7 @@ namespace FrameProcessor {
             rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
             meta_document.Accept(writer);
 
-            LOG4CXX_DEBUG_LEVEL(3, logger_, "Publishing time slice meta data");
+            LOG4CXX_DEBUG_LEVEL(3, logger_, "Publishing time slice meta data: " << buffer.GetString());
             metaPtr_->publish_meta("latrd",
                                    "time_slice",
                                    ts_index_array_.data(),
