@@ -37,9 +37,8 @@ META_VERSION_NUMBER = 1
 
 class TristanMetaWriter(MetaWriter):
     """ Implementation of MetaWriter that also handles Tristan meta messages """
-    TRISTAN_DATASETS = []
 
-    def __init__(self, name, directory, process_count, endpoints):
+    def __init__(self, name, directory, endpoints, writer_config):
 
         # Create ordered dict to store FP mapping entries
         self._fp_mapping = OrderedDict()
@@ -56,24 +55,11 @@ class TristanMetaWriter(MetaWriter):
         for ip in self._fp_mapping:
             self._fps_per_module.append(self._fp_mapping[ip])
 
-        # Reset the datasets
-        TristanMetaWriter.TRISTAN_DATASETS = []
-
-        # Create the tristan specific datasets
-        TristanMetaWriter.TRISTAN_DATASETS.append(Int32HDF5Dataset(DATASET_DAQ_VERSION))
-        TristanMetaWriter.TRISTAN_DATASETS.append(Int32HDF5Dataset(DATASET_META_VERSION))
-        TristanMetaWriter.TRISTAN_DATASETS.append(Int32HDF5Dataset(DATASET_FP_PER_MODULE))
-        
-        for index in range(len(self._fp_mapping)):
-            TristanMetaWriter.TRISTAN_DATASETS.append(Int32HDF5Dataset("{}{:02d}".format(DATASET_TIME_SLICE, index), fillvalue=0))
-
         # Now that we have defined the datasets we can call the base class constructor
-        super(TristanMetaWriter, self).__init__(name, directory, process_count, endpoints)
+        super(TristanMetaWriter, self).__init__(name, directory, endpoints, writer_config)
 
-        # Log the current dataset configuration
+        # Log the current endpoint configuration
         self._logger.info("Set up Tristan writer for endpoints: {}".format(endpoints))
-        for dset in TristanMetaWriter.TRISTAN_DATASETS:
-            self._logger.info("Tristan dataset added: {} [{}]".format(dset.name, dset.dtype))
 
     @property
     def detector_message_handlers(self):
@@ -83,10 +69,20 @@ class TristanMetaWriter(MetaWriter):
         }
         return message_handlers
 
-    @staticmethod
-    def _define_detector_datasets():
-        print("METHOD CALLED: {}".format(TristanMetaWriter.TRISTAN_DATASETS))
-        return TristanMetaWriter.TRISTAN_DATASETS
+    def _define_detector_datasets(self):
+        # Create the tristan specific datasets
+        datasets = [
+            Int32HDF5Dataset(DATASET_DAQ_VERSION),
+            Int32HDF5Dataset(DATASET_META_VERSION),
+            Int32HDF5Dataset(DATASET_FP_PER_MODULE)
+        ]
+
+        for index in range(len(self._fp_mapping)):
+            datasets.append(Int32HDF5Dataset("{}{:02d}".format(DATASET_TIME_SLICE, index), fillvalue=0))
+
+        for dset in datasets:
+            self._logger.info("Tristan dataset added: {} [{}]".format(dset.name, dset.dtype))
+        return datasets
 
     @require_open_hdf5_file
     def _create_datasets(self, dataset_size):
