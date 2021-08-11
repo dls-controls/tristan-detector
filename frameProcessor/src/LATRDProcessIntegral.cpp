@@ -9,6 +9,10 @@ namespace FrameProcessor {
   LATRDProcessIntegral::LATRDProcessIntegral() :
       width_(0),
       height_(0),
+      offset_x_(0),
+      offset_y_(0),
+      frame_offset_(0),
+      frame_multiplier_(1),
       base_image_counter_(0),
       total_count_(0),
       next_frame_id_(1),
@@ -24,9 +28,11 @@ namespace FrameProcessor {
   {
   }
 
-  void LATRDProcessIntegral::init(uint32_t width, uint32_t height) {
+  void LATRDProcessIntegral::init(uint32_t width, uint32_t height, uint32_t offset_x, uint32_t offset_y) {
     width_ = width;
     height_ = height;
+    offset_x_ = offset_x;
+    offset_y_ = offset_y;
     next_frame_id_ = 1;
     next_packet_id_ = 0;
     if (image_ptr_){
@@ -40,6 +46,23 @@ namespace FrameProcessor {
     LOG4CXX_DEBUG(logger_, "Resetting image memory");
     memset(image_ptr_, 0, (width_ * height_ * sizeof(uint16_t)));
     total_count_ = 0;
+  }
+
+  void LATRDProcessIntegral::configure_processes(uint32_t rank, uint32_t processes, uint32_t fpps)
+  {
+    LOG4CXX_DEBUG(logger_, "Configuring image mode with rank: " << rank
+                           << " processes: " << processes
+                           << " fpps: " << fpps);
+    if (fpps == 0){
+      LOG4CXX_ERROR(logger_, "Error, cannot have 0 FPs per server, setting to 1");
+      fpps = 1;
+    }
+    int modulo = (int)rank % (int)fpps;
+    LOG4CXX_DEBUG(logger_, "Modulo: " << modulo);
+    frame_multiplier_ = processes / fpps;
+    frame_offset_ =  rank - (modulo * frame_multiplier_);
+    LOG4CXX_DEBUG(logger_, "Frame multiplier: " << frame_multiplier_);
+    LOG4CXX_DEBUG(logger_, "Frame offset: " << frame_offset_);
   }
 
   std::vector<boost::shared_ptr<Frame> > LATRDProcessIntegral::process_frame(boost::shared_ptr <Frame> frame)
@@ -62,7 +85,7 @@ namespace FrameProcessor {
           if (!iter->second->get_sent()) {
             LOG4CXX_DEBUG(logger_,
                           "Creating image frame " << iter->second->get_frame_number() << " from raw buffer " << frame->get_frame_number());
-            boost::shared_ptr<Frame> out_frame = iter->second->to_frame();
+            boost::shared_ptr<Frame> out_frame = iter->second->to_frame(frame_multiplier_, frame_offset_);
             image_frames.push_back(out_frame);
 
             iter->second->mark_sent();
@@ -176,7 +199,7 @@ namespace FrameProcessor {
                                         &i_tot,
                                         &event_count)) {
                     // Add the event count to the 2D image
-                    image_job_ptr->add_pixel(packet_id, x_pos, y_pos, event_count);
+                    image_job_ptr->add_pixel(packet_id, x_pos-offset_x_, y_pos-offset_y_, event_count);
                     total_count_ += event_count;
                   }
                 }
@@ -205,7 +228,7 @@ namespace FrameProcessor {
           if (!iter->second->get_sent()) {
             LOG4CXX_DEBUG(logger_,
                           "Creating image frame " << iter->second->get_frame_number() << " from raw buffer " << frame->get_frame_number());
-            boost::shared_ptr<Frame> out_frame = iter->second->to_frame();
+            boost::shared_ptr<Frame> out_frame = iter->second->to_frame(frame_multiplier_, frame_offset_);
             image_frames.push_back(out_frame);
 
             iter->second->mark_sent();

@@ -73,6 +73,8 @@ namespace FrameProcessor {
         static const std::string CONFIG_SENSOR;
         static const std::string CONFIG_SENSOR_WIDTH;
         static const std::string CONFIG_SENSOR_HEIGHT;
+        static const std::string CONFIG_SENSOR_OFFSET_X;
+        static const std::string CONFIG_SENSOR_OFFSET_Y;
 
         /** Configuration constant for setting raw mode */
         static const std::string CONFIG_RAW_MODE;
@@ -86,12 +88,15 @@ namespace FrameProcessor {
         static const std::string CONFIG_PROCESS_NUMBER;
         /** Configuration constant for this process rank */
         static const std::string CONFIG_PROCESS_RANK;
+        /** Configuration constant for setting the number of frame processors per server */
+        static const std::string CONFIG_PROCESS_FPPS;
 
         /** Configuration constant for setting the frame size */
         static const std::string CONFIG_FRAME_QTY;
 
         /** Configuration constant for the acquisition ID used for meta data writing */
         static const std::string CONFIG_ACQ_ID;
+
 
         /** Pointer to logger */
         LoggerPtr logger_;
@@ -111,12 +116,17 @@ namespace FrameProcessor {
 
         size_t sensor_width_;
         size_t sensor_height_;
+        size_t sensor_ofsx_;
+        size_t sensor_ofsy_;
 
         std::string mode_;
         std::string acq_id_;
 
         size_t concurrent_processes_;
         size_t concurrent_rank_;
+
+        /** Number of frame processors per server */
+        uint32_t fps_per_server_;
 
         /** Management of time slice information **/
         uint64_t current_point_index_;

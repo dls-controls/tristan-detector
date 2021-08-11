@@ -26,27 +26,30 @@ const std::string LATRDProcessPlugin::CONFIG_RESET_FRAME          = "reset_frame
 const std::string LATRDProcessPlugin::CONFIG_PROCESS              = "process";
 const std::string LATRDProcessPlugin::CONFIG_PROCESS_NUMBER       = "number";
 const std::string LATRDProcessPlugin::CONFIG_PROCESS_RANK         = "rank";
+const std::string LATRDProcessPlugin::CONFIG_PROCESS_FPPS         = "fpps";
 
-const std::string LATRDProcessPlugin::CONFIG_FRAME_QTY           = "frame_qty";
+const std::string LATRDProcessPlugin::CONFIG_FRAME_QTY            = "frame_qty";
 
 const std::string LATRDProcessPlugin::CONFIG_ACQ_ID               = "acq_id";
 
 const std::string LATRDProcessPlugin::CONFIG_SENSOR               = "sensor";
 const std::string LATRDProcessPlugin::CONFIG_SENSOR_WIDTH         = "width";
 const std::string LATRDProcessPlugin::CONFIG_SENSOR_HEIGHT        = "height";
+const std::string LATRDProcessPlugin::CONFIG_SENSOR_OFFSET_X      = "offset_x";
+const std::string LATRDProcessPlugin::CONFIG_SENSOR_OFFSET_Y      = "offset_y";
+
 
   LATRDProcessPlugin::LATRDProcessPlugin() :
     sensor_width_(256),
     sensor_height_(256),
+    sensor_ofsx_(0),
+    sensor_ofsy_(0),
     mode_(CONFIG_MODE_TIME_ENERGY),
-	concurrent_processes_(1),
-	concurrent_rank_(0),
-	current_point_index_(0),
-	current_time_slice_(0),
-//    last_processed_ts_wrap_(0),
-//    last_processed_ts_buffer_(0),
-//    last_processed_frame_number_(0),
-//    last_processed_was_idle_(0),
+    concurrent_processes_(1),
+    concurrent_rank_(0),
+    fps_per_server_(1),
+    current_point_index_(0),
+    current_time_slice_(0),
     raw_mode_(0),
     acq_id_("")
 {
@@ -54,14 +57,11 @@ const std::string LATRDProcessPlugin::CONFIG_SENSOR_HEIGHT        = "height";
     logger_ = Logger::getLogger("FP.LATRDProcessPlugin");
     LOG4CXX_TRACE(logger_, "LATRDProcessPlugin constructor.");
 
-    integral_.init(sensor_width_, sensor_height_);
+    integral_.init(sensor_width_, sensor_height_, sensor_ofsx_, sensor_ofsy_);
     integral_.reset_image();
 
     // Create the buffer managers
     rawBuffer_ = boost::shared_ptr<LATRDBuffer>(new LATRDBuffer(LATRD::frame_qty, "raw_data", UINT64_TYPE));
-
-    // Create the meta header document
-//    this->createMetaHeader();
 
     // Register this parent as a meta message publisher with the coordinator class
     coordinator_.register_meta_message_publisher(this);
@@ -148,8 +148,18 @@ void LATRDProcessPlugin::requestConfiguration(OdinData::IpcMessage& reply)
                   LATRDProcessPlugin::CONFIG_PROCESS_NUMBER, this->concurrent_processes_);
   reply.set_param(get_name() + "/" + LATRDProcessPlugin::CONFIG_PROCESS + "/" +
                   LATRDProcessPlugin::CONFIG_PROCESS_RANK, this->concurrent_rank_);
+  reply.set_param(get_name() + "/" + LATRDProcessPlugin::CONFIG_PROCESS + "/" +
+                  LATRDProcessPlugin::CONFIG_PROCESS_FPPS, this->fps_per_server_);
   reply.set_param(get_name() + "/" + LATRDProcessPlugin::CONFIG_ACQ_ID, this->acq_id_);
   reply.set_param(get_name() + "/" + LATRDProcessPlugin::CONFIG_FRAME_QTY, coordinator_.get_frame_qty());        
+  reply.set_param(get_name() + "/" + LATRDProcessPlugin::CONFIG_SENSOR + "/" +
+                  LATRDProcessPlugin::CONFIG_SENSOR_WIDTH, this->sensor_width_);
+  reply.set_param(get_name() + "/" + LATRDProcessPlugin::CONFIG_SENSOR + "/" +
+                  LATRDProcessPlugin::CONFIG_SENSOR_HEIGHT, this->sensor_height_);
+  reply.set_param(get_name() + "/" + LATRDProcessPlugin::CONFIG_SENSOR + "/" +
+                  LATRDProcessPlugin::CONFIG_SENSOR_OFFSET_X, this->sensor_ofsx_);
+  reply.set_param(get_name() + "/" + LATRDProcessPlugin::CONFIG_SENSOR + "/" +
+                  LATRDProcessPlugin::CONFIG_SENSOR_OFFSET_Y, this->sensor_ofsy_);
 }
 
 void LATRDProcessPlugin::status(OdinData::IpcMessage& status)
@@ -205,7 +215,12 @@ void LATRDProcessPlugin::configureProcess(OdinData::IpcMessage& config, OdinData
     this->concurrent_rank_ = config.get_param<size_t>(LATRDProcessPlugin::CONFIG_PROCESS_RANK);
     LOG4CXX_DEBUG_LEVEL(1, logger_, "Process rank changed to " << this->concurrent_rank_);
   }
+  if (config.has_param(LATRDProcessPlugin::CONFIG_PROCESS_FPPS)) {
+    this->fps_per_server_ = config.get_param<size_t>(LATRDProcessPlugin::CONFIG_PROCESS_FPPS);
+    LOG4CXX_DEBUG_LEVEL(1, logger_, "Process fps per server changed to " << this->fps_per_server_);
+  }
   this->coordinator_.configure_process(this->concurrent_processes_, this->concurrent_rank_);
+  this->integral_.configure_processes(this->concurrent_rank_, this->concurrent_processes_, this->fps_per_server_);
 
   this->rawBuffer_->configureProcess(this->concurrent_processes_, this->concurrent_rank_);
 
@@ -225,7 +240,17 @@ void LATRDProcessPlugin::configureSensor(OdinData::IpcMessage &config, OdinData:
     LOG4CXX_DEBUG_LEVEL(1, logger_, "Sensor height changed to " << this->sensor_height_);
   }
 
-  integral_.init(this->sensor_width_, this->sensor_height_);
+  if (config.has_param(LATRDProcessPlugin::CONFIG_SENSOR_OFFSET_X)) {
+    this->sensor_ofsx_ = config.get_param<size_t>(LATRDProcessPlugin::CONFIG_SENSOR_OFFSET_X);
+    LOG4CXX_DEBUG_LEVEL(1, logger_, "Sensor offset x changed to " << this->sensor_ofsx_);
+  }
+
+  if (config.has_param(LATRDProcessPlugin::CONFIG_SENSOR_OFFSET_Y)) {
+    this->sensor_ofsy_ = config.get_param<size_t>(LATRDProcessPlugin::CONFIG_SENSOR_OFFSET_Y);
+    LOG4CXX_DEBUG_LEVEL(1, logger_, "Sensor offset y changed to " << this->sensor_ofsy_);
+  }
+
+  integral_.init(this->sensor_width_, this->sensor_height_, this->sensor_ofsx_, this->sensor_ofsy_);
   integral_.reset_image();
 }
 

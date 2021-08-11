@@ -41,8 +41,9 @@ namespace FrameProcessor {
   public:
     LATRDProcessIntegral();
     virtual ~LATRDProcessIntegral();
-    void init(uint32_t width, uint32_t height);
+    void init(uint32_t width, uint32_t height, uint32_t offset_x, uint32_t offset_y);
     void reset_image();
+    void configure_processes(uint32_t rank, uint32_t processes, uint32_t fpps);
     std::vector<boost::shared_ptr<Frame> > process_frame(boost::shared_ptr<Frame> frame);
     std::vector<boost::shared_ptr<Frame> > frame_to_image(boost::shared_ptr <Frame> frame);
     bool process_data_word(uint64_t data_word,
@@ -61,6 +62,10 @@ namespace FrameProcessor {
 
     uint32_t width_;
     uint32_t height_;
+    uint32_t offset_x_;
+    uint32_t offset_y_;
+    int32_t frame_offset_;
+    uint32_t frame_multiplier_;
     uint32_t base_image_counter_;
     uint32_t total_count_;
     uint32_t next_frame_id_;

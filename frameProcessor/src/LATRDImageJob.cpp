@@ -5,6 +5,8 @@
 #include "FrameMetaData.h"
 #include "DataBlockFrame.h"
 
+#include <stdio.h>
+
 namespace FrameProcessor {
 
     LATRDImageJob::LATRDImageJob(uint32_t width, uint32_t height, uint32_t number)
@@ -38,9 +40,7 @@ namespace FrameProcessor {
       // Calculate the data index
       uint32_t data_index = x + (y * width_);
       // Record the event count into the correct pixel
-//      printf("Recording [%u] index [%u, %u] event count [%u]\n", packet_id, x, y, event_count);
       image_ptr_[data_index] += (uint16_t)event_count;
-//      printf("image_ptr_[%u] = %u\n", data_index, image_ptr_[data_index]);
       // Record the packet number
       packet_ids_[packet_id] = 1;
     }
@@ -66,7 +66,7 @@ namespace FrameProcessor {
       return verified;
     }
 
-    boost::shared_ptr<Frame> LATRDImageJob::to_frame()
+    boost::shared_ptr<Frame> LATRDImageJob::to_frame(uint32_t multiplier, int32_t offset)
     {
       // Create the frame object to wrap the image
   		// Create and populate metadata for the re-ordered frame
@@ -80,15 +80,8 @@ namespace FrameProcessor {
       frame_meta.set_compression_type(FrameProcessor::no_compression);
       boost::shared_ptr<Frame> out_frame = boost::shared_ptr<Frame>(new DataBlockFrame(frame_meta, image_ptr_, width_ * height_ * sizeof(uint16_t)));
 
-//      boost::shared_ptr<Frame> out_frame = boost::shared_ptr<Frame>(new Frame("image"));
-//      out_frame->copy_data(image_ptr_, width_ * height_ * sizeof(uint16_t));
-      out_frame->set_frame_number(frame_number_);
-//      std::vector<dimsize_t> dims(0);
-//      dims.push_back(height_);
-//      dims.push_back(width_);
-//      out_frame->set_dataset_name("image");
-//      out_frame->set_data_type(1);
-//      out_frame->set_dimensions(dims);
+      uint32_t frame_number = frame_number_ * multiplier + offset;
+      out_frame->set_frame_number(frame_number);
       return out_frame;
     }
 

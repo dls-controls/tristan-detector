@@ -9,7 +9,7 @@ import time
 import threading
 from latrd_channel import LATRDChannel
 from latrd_message import LATRDMessage, GetMessage, PutMessage, PostMessage
-from odin.adapters.adapter import ApiAdapter, ApiAdapterResponse, request_types, response_types
+from odin.adapters.adapter import ApiAdapter, ApiAdapterRequest, ApiAdapterResponse, request_types, response_types
 from tornado import escape
 from tornado.ioloop import IOLoop
 from datetime import datetime
@@ -216,6 +216,11 @@ class TristanControlAdapter(ApiAdapter):
     TEMP_PCB_COUNT = 2
     HUMIDITY_COUNT = 2
 
+    URL_STATUS = 'status'
+    URL_DETECTOR = 'detector'
+    URL_DETECTOR_VARIANT = 'detector_variant'
+    URL_MODULE_DIMENSIONS = 'module_dimensions'
+
     ADODIN_MAPPING = {
         'config/exposure_time': 'config/exposure',
         'config/num_images': 'config/frames',
@@ -369,6 +374,10 @@ class TristanControlAdapter(ApiAdapter):
         self._endpoint = None
         self._firmware = None
         self._detector = None
+        self._udp_config = None
+        self._fp_endpoints = None
+        self._fp_adapter = None
+        self._fr_adapter = None
         self._update_interval = None
         self._start_time = datetime.now()
         self._username = getpass.getuser()
@@ -420,6 +429,20 @@ class TristanControlAdapter(ApiAdapter):
         self._status_thread = threading.Thread(target=self.update_loop)
         self._status_thread.start()
 
+    def initialize(self, adapters):
+        """Initialize the adapter after it has been loaded.
+        Find and record the FP and FR adapters for later endpoints checks
+        """
+        if 'fp' in adapters:
+            self._fp_adapter = adapters['fp']
+            logging.info("Tristan adapter initiated connection to FP adapter")
+        else:
+            logging.error("Tristan adapter could not connect to the FP adapter")
+        if 'fr' in adapters:
+            self._fr_adapter = adapters['fr']
+            logging.info("Tristan adapter initiated connection to FR adapter")
+        else:
+            logging.error("Tristan adapter could not connect to the FR adapter")
 
     def cleanup(self):
         self._executing_updates = False
@@ -686,7 +709,7 @@ class TristanControlAdapter(ApiAdapter):
         logging.info("Loading UDP configuration from file {}".format(self._udp_config_file))
         try:
             with open(self._udp_config_file) as config_file:
-                udp_config = json.load(config_file)
+                self._udp_config = json.load(config_file)
         except IOError as io_error:
             logging.error("Failed to open UDP configuration file: {}".format(io_error))
             self.set_error("Failed to open UDP configuration file: {}".format(io_error))
@@ -696,11 +719,25 @@ class TristanControlAdapter(ApiAdapter):
             self.set_error("Failed to parse UDP json config: {}".format(value_error))
             return
 
-        logging.info("Downloading UDP configuration: {}".format(udp_config))
+        logging.info("Downloading UDP configuration: {}".format(self._udp_config))
         msg = PutMessage()
-        msg.set_param('config', udp_config)
+        msg.set_param('config', self._udp_config)
         reply = self.send_recv(msg)
         logging.info("Reply from message: {}".format(reply))
+        self.create_endpoint_list()
+
+    def create_endpoint_list(self):
+        # Loop over udp config entries
+        # Record each FP endpoint per module
+        if self._udp_config is not None:
+            self._fp_endpoints = []
+            for module in self._udp_config:
+                ep_list = []
+                for node in self._udp_config[module]['nodes']:
+                    ep = "{}:{}".format(node['ipaddr'], node['port'])
+                    ep_list.append(ep)
+                self._fp_endpoints.append(ep_list)
+            logging.error("Endpoints: {}".format(self._fp_endpoints))
 
     def send_recv(self, msg):
         """
@@ -769,6 +806,13 @@ class TristanControlAdapter(ApiAdapter):
                                         pckts = self._parameters['status']['detector']['udp_packets_sent']
                                         if isinstance(pckts, list):
                                             self._parameters['status']['detector']['udp_packets_sent'] = sum(pckts)
+                                    # Check the detector variant and process the module dimensions
+                                    try:
+                                        self.process_detector_dimensions(self._parameters[self.URL_STATUS][self.URL_DETECTOR])
+                                    except Exception as ex:
+                                        logging.error("Unable to setup image mode processing dimensions")
+                                        logging.exception(ex)
+
                                 # Check if we have just reconnected
                                 if not currently_connected:
                                     # Reconnection event so send down the time stamp config item
@@ -843,7 +887,109 @@ class TristanControlAdapter(ApiAdapter):
                         logging.debug("Config parameters: %s", self._param)
 
                 except Exception as ex:
-                    logging.error("Exception: %s", ex)
+                    logging.exception(ex)
+
+    def process_detector_dimensions(self, status):
+        # Check if the status contains the required items
+        # Check the detector variant (1M, 2M, 10M)
+        # Check the current configuration of the FP applications
+        # Distribute the dimension information if the FP configuration
+        # does not match the detector status report
+        # We should have a valid connection to the FR adapter
+        if self._fp_adapter is not None and self._fr_adapter is not None and self._fp_endpoints is not None:
+            # Create an inter adapter request
+            req = ApiAdapterRequest(None, accept='application/json')
+            endpoint_dict = self._fp_adapter.get(path='endpoints', request=req).data
+            #logging.error("{}".format(endpoint_dict))
+            req = ApiAdapterRequest(None, accept='application/json')
+            port_dict = self._fr_adapter.get(path='config/rx_ports', request=req).data
+            #logging.error("{}".format(port_dict))
+
+            endpoints = {}
+            for index in range(len(endpoint_dict['value'])):
+                ep = "{}:{}".format(endpoint_dict['value'][index]['ip_address'], port_dict['value'][index])
+                endpoints[ep] = {
+                    'index': index,
+                    'x_min': None,
+                    'y_min': None,
+                    'x_max': None,
+                    'y_max': None
+                }
+
+            # Do we have the module dimensions present
+            if self.URL_MODULE_DIMENSIONS in status:
+                # Check the number of endpoint lists matches the array length for dimensions
+                number_of_modules = len(status[self.URL_MODULE_DIMENSIONS]['x_min'])
+                if number_of_modules == len(self._fp_endpoints):
+                    # Loop over the module dimensions
+                    for index in range(number_of_modules):
+                        min_x = status[self.URL_MODULE_DIMENSIONS]['x_min'][index]
+                        min_y = status[self.URL_MODULE_DIMENSIONS]['y_min'][index]
+                        max_x = status[self.URL_MODULE_DIMENSIONS]['x_max'][index]
+                        max_y = status[self.URL_MODULE_DIMENSIONS]['y_max'][index]
+                        # Now loop over the endpoints matched to this module and update the min/max
+                        for ep in self._fp_endpoints[index]:
+                            if endpoints[ep]['x_min'] is None:
+                                endpoints[ep]['x_min'] = min_x
+                            elif min_x < endpoints[ep]['x_min']:
+                                endpoints[ep]['x_min'] = min_x
+                            if endpoints[ep]['y_min'] is None:
+                                endpoints[ep]['y_min'] = min_y
+                            elif min_y < endpoints[ep]['y_min']:
+                                endpoints[ep]['y_min'] = min_y
+                            if endpoints[ep]['x_max'] is None:
+                                endpoints[ep]['x_max'] = max_x
+                            elif max_x > endpoints[ep]['x_max']:
+                                endpoints[ep]['x_max'] = max_x
+                            if endpoints[ep]['y_max'] is None:
+                                endpoints[ep]['y_max'] = max_y
+                            elif max_y > endpoints[ep]['y_max']:
+                                endpoints[ep]['y_max'] = max_y
+
+            logging.error("Endpoints: {}".format(endpoints))
+            req = ApiAdapterRequest(None, accept='application/json')
+            fp_config_dict = self._fp_adapter.get(path='config/tristan/sensor', request=req).data
+            fp_config_dict = fp_config_dict['value']
+            logging.error("Sensor information: {}".format(fp_config_dict))
+            hdf_config_dict = self._fp_adapter.get(path='config/hdf/dataset/image', request=req).data
+            hdf_config_dict = hdf_config_dict['value']
+            logging.error("HDF5 Image Dataset information: {}".format(fp_config_dict))
+
+            # Finally loop over each endpoint and check if the values differ from the configured values
+            # If they do then resend the configuration
+            changes_required = False
+            for ep in endpoints:
+                index = endpoints[ep]['index']
+                width = endpoints[ep]['x_max'] - endpoints[ep]['x_min']
+                height = endpoints[ep]['y_max'] - endpoints[ep]['y_min']
+                if endpoints[ep]['x_min'] != fp_config_dict[index]['offset_x']:
+                    fp_config_dict[index]['offset_x'] = endpoints[ep]['x_min']
+                    changes_required = True
+                if endpoints[ep]['y_min'] != fp_config_dict[index]['offset_y']:
+                    fp_config_dict[index]['offset_y'] = endpoints[ep]['y_min']
+                    changes_required = True
+                if width != fp_config_dict[index]['width']:
+                    fp_config_dict[index]['width'] = width
+                    changes_required = True
+                if height != fp_config_dict[index]['height']:
+                    fp_config_dict[index]['height'] = height
+                    changes_required = True
+                if width != hdf_config_dict[index]['dims'][1] or \
+                    height != hdf_config_dict[index]['dims'][0]:
+                    hdf_config_dict[index]['dims'] = [height, width]
+                    hdf_config_dict[index]['chunks'] = [1, height, width]
+                    changes_required = True
+
+            # Send the configuration back into the FP adapter to update the dimensions
+            if changes_required == True:
+                logging.error("{}".format(fp_config_dict))
+                logging.error("{}".format(hdf_config_dict))
+                req = ApiAdapterRequest(json.dumps(fp_config_dict), accept='application/json')
+                response = self._fp_adapter.put(path='config/tristan/sensor', request=req)
+                logging.error("Status response: {}".format(response.status_code))
+                req = ApiAdapterRequest(json.dumps(hdf_config_dict), accept='application/json')
+                response = self._fp_adapter.put(path='config/hdf/dataset/image', request=req)
+                logging.error("Status response: {}".format(response.status_code))
 
     def create_config_request(self, config):
         config_dict = {}

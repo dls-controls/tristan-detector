@@ -23,7 +23,7 @@ namespace FrameProcessor {
       uint32_t get_frame_number();
       void add_pixel(uint32_t packet_id, uint32_t x, uint32_t y, uint32_t event_count);
       bool verify_image();
-      boost::shared_ptr<Frame> to_frame();
+      boost::shared_ptr<Frame> to_frame(uint32_t multiplier, int32_t offset);
       void reset();
       void mark_sent();
       bool get_sent();
