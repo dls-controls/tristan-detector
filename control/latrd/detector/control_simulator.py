@@ -10,6 +10,7 @@ import logging
 import time
 import threading
 import subprocess
+import random
 from latrd_channel import LATRDChannel
 from latrd_message import LATRDMessageException, LATRDMessage, GetMessage, PutMessage, PostMessage, ResponseMessage
 from latrd_reactor import LATRDReactor
@@ -121,18 +122,26 @@ class LATRDControlSimulator(object):
                             'psu_temp_alert': [False] * self._sensor,
                             'fan_alert': [False] * self._sensor,
                             'output_alert': [False] * self._sensor,
-                            'current_sense': [1.5] * self._sensor,
-                            'voltage_sense': [2.1] * self._sensor,
+                            'current_sense_fems': [1.5] * self._sensor,
+                            'voltage_sense_fems': [2.1] * self._sensor,
+                            'current_sense_frontend': [3.5] * self._sensor,
+                            'voltage_sense_frontend': [4.1] * self._sensor,
+                            'current_sense_1v8': [[0.1, 0.2]] * self._sensor,
+                            'voltage_sense_1v8': [[0.3, 0.4]] * self._sensor,
+                            'current_sense_5v': [[0.5, 0.6]] * self._sensor,
+                            'voltage_sense_5v': [[0.7, 0.8]] * self._sensor,
                             'remote_temp': [30.1] * self._sensor,
-                            'fan_control_temp': [36.3] * self._sensor,
-                            'tacho': [0.8] * self._sensor,
-                            'pwm': [128] * self._sensor
+                            'fan_control_temp': [(random.random()*10.0)+30.0 for x in range(self._sensor)],
+                            'tacho': [random.random()*1000.0 for x in range(self._sensor)],
+                            'pwm': [random.randrange(0,255) for x in range(self._sensor)]
                         },
                     'clock':
                         {
                             'dpll_lol': [True],
                             'dpll_hold': [True],
-                            'clock_freq': 65.7
+                            'clock_freq': 65.7,
+                            'temp_pcb': 54.9,
+                            'temp_fpga': 61.3
                         },
                     'sensor':
                         {
@@ -141,11 +150,18 @@ class LATRDControlSimulator(object):
                             'temp_pcb': [[60.0, 60.1]] * self._sensor,
                             'humidity': [[47.8, 48.1]] * self._sensor,
                             'voltage': [[2.5, 2.6]] * self._sensor,
-                            'current': [[1.1, 1.2]] * self._sensor
+                            'current': [[1.1, 1.2]] * self._sensor,
+                            'saturation': [[
+                                False, False, False, False,
+                                False, False, False, False,
+                                False, False, False, False,
+                                False, False, False, False
+                            ]] * self._sensor
                         },
                     'fem':
                         {
-                            'temp': [45.3] * self._sensor
+                            'temp_pcb': [45.3] * self._sensor,
+                            'temp_fpga': [58.1] * self._sensor
                         }
                 },
             'config':

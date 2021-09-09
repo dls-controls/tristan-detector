@@ -215,6 +215,12 @@ class TristanControlAdapter(ApiAdapter):
     TEMP_ASICS_COUNT = 16
     TEMP_PCB_COUNT = 2
     HUMIDITY_COUNT = 2
+    SENSOR_VOLTAGE_COUNT = 2
+    SENSOR_CURRENT_COUNT = 2
+    CUR_1V8_COUNT = 2
+    VOLT_1V8_COUNT = 2
+    CUR_5V_COUNT = 2
+    VOLT_5V_COUNT = 2
 
     ADODIN_MAPPING = {
         'config/exposure_time': 'config/exposure',
@@ -283,6 +289,45 @@ class TristanControlAdapter(ApiAdapter):
                 "fpga_busy": None,
                 "loopaction": None,
                 "crw": None
+            },
+            "housekeeping": {
+                "standby": None,
+                "fem_power_enabled": None,
+                "psu_temp": None,
+                "psu_temp_alert": None,
+                "fan_alert": None,
+                "output_alert": None,
+                "current_sense_fems": None,
+                "voltage_sense_fems": None,
+                "current_sense_frontend": None,
+                "voltage_sense_frontend": None,
+                "current_sense_1v8": None,
+                "voltage_sense_1v8": None,
+                "current_sense_5v": None,
+                "voltage_sense_5v": None,
+                "remote_temp": None,
+                "fan_control_temp": None,
+                "tacho": None,
+                "pwm": None
+            },
+            "clock": {
+                "dpll_lol": None,
+                "dpll_hold": None,
+                "clock_freq": None,
+                "temp_pcb": None,
+                "temp_fpga": None
+            },
+            "sensor": {
+                "temp_asics": None,
+                "temp_pcb": None,
+                "humidity": None,
+                "voltage": None,
+                "current": None,
+                "saturation": None
+            },
+            "fem": {
+                "temp_pcb": None,
+                "temp_fpga": None
             }
         }
     ]
@@ -796,27 +841,27 @@ class TristanControlAdapter(ApiAdapter):
                                     logging.error("Error reading clock status items [dpll_lol, dpll_hold]")
                                     logging.error("Exception: %s", ex)
 
+                                if 'housekeeping' in self._parameters['status']:
+                                    # 1v8 current is supplied as a 2D array, we need to split that out for monitoring
+                                    self.split_status_array('housekeeping', 'current_sense_1v8', self.CUR_1V8_COUNT)
+                                    # 1v8 voltage is supplied as a 2D array, we need to split that out for monitoring
+                                    self.split_status_array('housekeeping', 'voltage_sense_1v8', self.VOLT_1V8_COUNT)
+                                    # 5v current is supplied as a 2D array, we need to split that out for monitoring
+                                    self.split_status_array('housekeeping', 'current_sense_5v', self.CUR_5V_COUNT)
+                                    # 5v voltage is supplied as a 2D array, we need to split that out for monitoring
+                                    self.split_status_array('housekeeping', 'voltage_sense_5v', self.VOLT_5V_COUNT)
+
                                 if 'sensor' in self._parameters['status']:
-                                    if 'temp_asics' in self._parameters['status']['sensor']:
-                                        # temp_asics is supplied as a 2D array, we need to split that out for monitoring
-                                        for index in range(self.TEMP_ASICS_COUNT):
-                                            self._parameters['status']['sensor']['temp_asics_{}'.format(index)] = []
-                                            for temp in self._parameters['status']['sensor']['temp_asics']:
-                                                self._parameters['status']['sensor']['temp_asics_{}'.format(index)].append(temp[index])
-
-                                    if 'temp_pcb' in self._parameters['status']['sensor']:
-                                        # temp_pcb is supplied as a 2D array, we need to split that out for monitoring
-                                        for index in range(self.TEMP_PCB_COUNT):
-                                            self._parameters['status']['sensor']['temp_pcb_{}'.format(index)] = []
-                                            for temp in self._parameters['status']['sensor']['temp_pcb']:
-                                                self._parameters['status']['sensor']['temp_pcb_{}'.format(index)].append(temp[index])
-
-                                    if 'humidity' in self._parameters['status']['sensor']:
-                                        # humidity is supplied as a 2D array, we need to split that out for monitoring
-                                        for index in range(self.HUMIDITY_COUNT):
-                                            self._parameters['status']['sensor']['humidity_{}'.format(index)] = []
-                                            for temp in self._parameters['status']['sensor']['humidity']:
-                                                self._parameters['status']['sensor']['humidity_{}'.format(index)].append(temp[index])
+                                    # temp_asics is supplied as a 2D array, we need to split that out for monitoring
+                                    self.split_status_array('sensor', 'temp_asics', self.TEMP_ASICS_COUNT)
+                                    # temp_pcb is supplied as a 2D array, we need to split that out for monitoring
+                                    self.split_status_array('sensor', 'temp_pcb', self.TEMP_PCB_COUNT)
+                                    # voltage is supplied as a 2D array, we need to split that out for monitoring
+                                    self.split_status_array('sensor', 'voltage', self.SENSOR_VOLTAGE_COUNT)
+                                    # curent is supplied as a 2D array, we need to split that out for monitoring
+                                    self.split_status_array('sensor', 'current', self.SENSOR_CURRENT_COUNT)
+                                    # humidity is supplied as a 2D array, we need to split that out for monitoring
+                                    self.split_status_array('sensor', 'humidity', self.HUMIDITY_COUNT)
 
                                 # Set the acquisition state item
                                 if data['status']['state'] == 'idle':
@@ -844,6 +889,14 @@ class TristanControlAdapter(ApiAdapter):
 
                 except Exception as ex:
                     logging.error("Exception: %s", ex)
+
+    def split_status_array(self, location, data_name, size):
+        if data_name in self._parameters['status'][location]:
+            # supplied as a 2D array, we need to split out for monitoring
+            for index in range(size):
+                self._parameters['status'][location]['{}_{}'.format(data_name, index)] = []
+                for item in self._parameters['status'][location][data_name]:
+                    self._parameters['status'][location]['{}_{}'.format(data_name, index)].append(item[index])
 
     def create_config_request(self, config):
         config_dict = {}
