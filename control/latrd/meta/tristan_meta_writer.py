@@ -44,6 +44,7 @@ class TristanMetaWriter(MetaWriter):
         self._fp_mapping = OrderedDict()
         self._time_slice_index_offset = None
         self._fps_per_module = []
+        self._max_index_per_module = []
         for endpoint in endpoints:
             protocol, ip, port = endpoint.split(':')
             ip = ip.strip('//')
@@ -85,15 +86,34 @@ class TristanMetaWriter(MetaWriter):
         return datasets
 
     @require_open_hdf5_file
+    def _close_file(self):
+        self._logger.info("Current timeslice offsets at file close: {}".format(self._max_index_per_module))
+        # Find the maximum size of timeslice dataset over all modules
+        max_ts_index = max(self._max_index_per_module)
+        # Now loop over all modules and increase the size of each timeslice dataset
+        # to the same as the maximum to eliminate ragged edges
+        for index in range(len(self._max_index_per_module)):
+            # Check if this is not the maximum sized dataset
+            if self._max_index_per_module[index] < max_ts_index:
+                # Generate the dataset name
+                dataset_name = "{}{:02d}".format(DATASET_TIME_SLICE, index)
+                # Fill dataset with zero values up to maximum dataset size
+                self._add_value(dataset_name, 0, offset=max_ts_index)
+
+        # Now complete the closing of the file
+        super(TristanMetaWriter, self)._close_file()
+
+    @require_open_hdf5_file
     def _create_datasets(self, dataset_size):
         super(TristanMetaWriter, self)._create_datasets(dataset_size)
         self._logger.info("Hooked into create datasets...")
         # Save the Met File version
         self._add_value(DATASET_META_VERSION, META_VERSION_NUMBER, offset=0)
-        # Save the FP mapping values
+        # Save the FP mapping values, create the maximum saved index list
         index = 0
         for ip in self._fp_mapping:
             self._add_value(DATASET_FP_PER_MODULE, self._fp_mapping[ip], offset=index)
+            self._max_index_per_module.append(0)
             index += 1
 
     def rank_to_module(self, rank):
@@ -141,6 +161,9 @@ class TristanMetaWriter(MetaWriter):
                     self._logger.error("Attempting to write a value with a negative offset - Rank: {} Offset: {} Time slice offset: {}".format(rank, offset, self._time_slice_index_offset))
                 self._logger.debug("Adding value {} to offset {}".format(array[array_index], offset))
                 self._add_value(dataset_name, array[array_index], offset=offset)
+                if offset > self._max_index_per_module[module]:
+                    self._max_index_per_module[module] = offset
+
 
     def handle_daq_version(self, user_header, data):
         """Handle a time slice message.  Write the time slice information
