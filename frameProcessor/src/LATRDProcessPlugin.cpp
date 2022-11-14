@@ -10,6 +10,9 @@
 #include "DebugLevelLogger.h"
 #include "version.h"
 
+// Timeout for IDLE packets after which we assume we are in an acquisition
+#define IDLE_PACKET_TIMEOUT_MS 1500
+
 namespace FrameProcessor
 {
 const std::string LATRDProcessPlugin::META_NAME                   = "TristanProcessor";
@@ -35,20 +38,17 @@ const std::string LATRDProcessPlugin::CONFIG_SENSOR               = "sensor";
 const std::string LATRDProcessPlugin::CONFIG_SENSOR_WIDTH         = "width";
 const std::string LATRDProcessPlugin::CONFIG_SENSOR_HEIGHT        = "height";
 
-  LATRDProcessPlugin::LATRDProcessPlugin() :
-    sensor_width_(256),
-    sensor_height_(256),
-    mode_(CONFIG_MODE_TIME_ENERGY),
+LATRDProcessPlugin::LATRDProcessPlugin() :
+  sensor_width_(256),
+  sensor_height_(256),
+  mode_(CONFIG_MODE_TIME_ENERGY),
 	concurrent_processes_(1),
 	concurrent_rank_(0),
 	current_point_index_(0),
 	current_time_slice_(0),
-//    last_processed_ts_wrap_(0),
-//    last_processed_ts_buffer_(0),
-//    last_processed_frame_number_(0),
-//    last_processed_was_idle_(0),
-    raw_mode_(0),
-    acq_id_("")
+  raw_mode_(0),
+  acq_id_(""),
+  idle_timestamp_()
 {
     // Setup logging for the class
     logger_ = Logger::getLogger("FP.LATRDProcessPlugin");
@@ -60,11 +60,12 @@ const std::string LATRDProcessPlugin::CONFIG_SENSOR_HEIGHT        = "height";
     // Create the buffer managers
     rawBuffer_ = boost::shared_ptr<LATRDBuffer>(new LATRDBuffer(LATRD::frame_qty, "raw_data", UINT64_TYPE));
 
-    // Create the meta header document
-//    this->createMetaHeader();
 
     // Register this parent as a meta message publisher with the coordinator class
     coordinator_.register_meta_message_publisher(this);
+
+    // Init the idle packet timestamp to the current time
+    gettime(&idle_timestamp_);
 
   LOG4CXX_INFO(logger_, "LATRDProcessPlugin version " << this->get_version_long() << " loaded");
 }
@@ -322,6 +323,13 @@ void LATRDProcessPlugin::process_frame(boost::shared_ptr<Frame> frame)
       }
       const LATRD::FrameHeader* hdrPtr = static_cast<const LATRD::FrameHeader*>(frame->get_data_ptr());
       if (hdrPtr->idle_frame != 0) {
+        // Record the incoming idle frame timestamp and compare to the last
+        // If the delay between idle packets is considered too great then assume
+        // a zero event acquisition has occurred and send a notification to close out HDF5 writers
+        struct timespec current_time;
+        gettime(&current_time);
+        unsigned int time_diff = elapsed_ms(idle_timestamp_, current_time);
+
         // This is an IDLE frame, so if we have just flushed out frames then we are running
         // an acquisition and we need to notify the plugin chain
         if (frames.size() > 0){
@@ -329,7 +337,16 @@ void LATRDProcessPlugin::process_frame(boost::shared_ptr<Frame> frame)
           this->notify_end_of_acquisition();
         } else {
           LOG4CXX_DEBUG_LEVEL(1, logger_, "IDLE packet received.");
+          if (time_diff > IDLE_PACKET_TIMEOUT_MS){
+            // We have had an idle packet arrive later than expected.  We can infer an
+            // acquisition has taken place with no data to flush so close down the acquisition
+            LOG4CXX_INFO(logger_, "IDLE packet timeout.  Notify plugin chain end of acquisition");
+            this->notify_end_of_acquisition();
+          }
         }
+
+        // Now record the current idle packet time
+        idle_timestamp_ = current_time;
       }
     }
   }
@@ -482,6 +499,14 @@ std::string LATRDProcessPlugin::get_version_short()
 std::string LATRDProcessPlugin::get_version_long()
 {
   return ODIN_DATA_VERSION_STR;
+}
+
+unsigned int LATRDProcessPlugin::elapsed_ms(struct timespec& start, struct timespec& end)
+{
+  double start_ns = ((double)start.tv_sec * 1000000000) + start.tv_nsec;
+  double end_ns   = ((double)  end.tv_sec * 1000000000) +   end.tv_nsec;
+
+  return (unsigned int)((end_ns - start_ns)/1000000);
 }
 
 } /* namespace FrameProcesser */

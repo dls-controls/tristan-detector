@@ -57,6 +57,7 @@ namespace FrameProcessor {
         int get_version_patch();
         std::string get_version_short();
         std::string get_version_long();
+        unsigned int elapsed_ms(struct timespec& start, struct timespec& end);
 
     private:
 
@@ -124,6 +125,9 @@ namespace FrameProcessor {
 
         /** Process raw mode **/
         uint32_t raw_mode_;
+
+        /** Record of idle packet timestamps **/
+        struct timespec idle_timestamp_;
 
         void dump_frame(boost::shared_ptr<Frame> frame);
 
