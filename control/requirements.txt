@@ -1,4 +1,4 @@
-future==0.15.2
+future==0.18.3
 numpy==1.9.1
 h5py==2.6.0
 #-e git+git://github.com/h5py/h5py.git@2.6.0#egg=h5py
